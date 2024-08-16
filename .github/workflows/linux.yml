@@ -3,9 +3,9 @@ name: PeleLMeX_linux
 on:
    workflow_dispatch:
    push:
-     branches: [ main, development ]
+     branches: [ main, development, feature_simplifiedEF ]
    pull_request:
-     branches: [ main, development ]
+     branches: [ main, development, feature_simplifiedEF ]
 
 concurrency:
   group: ${{ github.ref }}-${{ github.head_ref }}-PeleLMeX_linux
