@@ -3,7 +3,7 @@
 #include <PeleLMeX_K.H>
 #include <hydro_utils.H>
 #include <memory>
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
 #include <PeleLMeX_EF_Constants.H>
 #endif
 
@@ -665,7 +665,7 @@ PeleLM::floorSpecies(const TimeStamp& a_time)
         fabMinMax(
           i, j, k, NUM_SPECIES, 0.0, AMREX_REAL_MAX,
           Array4<Real>(sma[box_no], FIRSTSPEC));
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
         fabMinMax(
           i, j, k, 1, 0.0, AMREX_REAL_MAX, Array4<Real>(sma[box_no], NE));
 #endif
@@ -1371,7 +1371,7 @@ PeleLM::setTypicalValues(const TimeStamp& a_time, int is_init)
       0.5 * (stateMax[RHOH] + stateMin[RHOH]) / typical_values[DENSITY];
     typical_values[TEMP] = 0.5 * (stateMax[TEMP] + stateMin[TEMP]);
     typical_values[RHORT] = m_pOld;
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
     typical_values[NE] = 0.5 * (stateMax[NE] + stateMin[NE]);
 #endif
 
@@ -1400,7 +1400,7 @@ PeleLM::setTypicalValues(const TimeStamp& a_time, int is_init)
                      std::max(0, static_cast<int>(8 - spec_names[n].length())))
                 << std::left << ":" << typical_values[FIRSTSPEC + n] << '\n';
       }
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
       Print() << "\tnE:       " << typical_values[NE] << '\n';
 #endif
     }
@@ -1428,7 +1428,7 @@ PeleLM::updateTypicalValuesChem()
             1.E-3); // CGS -> MKS conversion
       }
       typical_values_chem[NUM_SPECIES] = typical_values[TEMP];
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
       auto eos = pele::physics::PhysicsType::eos();
       Real mwt[NUM_SPECIES] = {0.0};
       eos.molecular_weight(mwt);

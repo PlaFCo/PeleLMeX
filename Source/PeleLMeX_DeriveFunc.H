@@ -290,7 +290,7 @@ void pelelmex_deruserdef(
   const amrex::Vector<amrex::BCRec>& bcrec,
   int level);
 
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
 #include <PeleLMeX_EFDeriveFunc.H>
 #endif
 
