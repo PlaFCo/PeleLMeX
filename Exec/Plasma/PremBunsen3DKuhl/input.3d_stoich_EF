@@ -67,7 +67,7 @@ cvode.solve_type = denseAJ_direct     # CVODE Linear solve type (for Newton dire
 #cvode.solve_type = magma_direct     # CVODE Linear solve type (for Newton direction) 
 cvode.max_order  = 4                  # CVODE max BDF order. 
 
-#--------------------EFIELD CONTROL------------------------
+#--------------------PLASMA CONTROL------------------------
 ef.restart_nonEF = 1
 ef.restart_electroneutral = 1
 ef.restart_resetTime = 1

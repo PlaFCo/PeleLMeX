@@ -53,7 +53,7 @@ amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib efield
 cvode.solve_type = dense               # CVODE Linear solve type (for Newton direction) 
 ode.analytical_jacobian = 0            # Provide analytical jacobian (from Fuego) 
 
-#--------------------EFIELD CONTROL------------------------
+#--------------------PLASMA CONTROL------------------------
 ef.phiV_lo_bc = Interior Dirichlet
 ef.phiV_hi_bc = Interior Dirichlet
 ef.phiV_polarity_lo = Neutral Cathode

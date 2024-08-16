@@ -2,7 +2,7 @@
 #include <PeleLMeX_K.H>
 #include <pelelmex_prob.H>
 #include <PeleLMeX_DiffusionOp.H>
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
 #include <PeleLMeX_EF_K.H>
 #endif
 
@@ -296,7 +296,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
     // MultiArrays
     auto const& sma = ldata_p->state.const_arrays();
     auto const& dma = ldata_p->diff_cc.arrays();
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
     auto const& kma = ldata_p->mob_cc.arrays();
     GpuArray<Real, NUM_SPECIES> mwt{0.0};
     {
@@ -323,7 +323,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
           Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
           Array4<Real>(dma[box_no], NUM_SPECIES),
           Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm);
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
         getKappaSp(
           i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
           Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
@@ -408,7 +408,7 @@ PeleLM::getDiffusivity(
   // to the component ncomp = NUM_SPECIES, beta_comp = 0           --> SPECIES
   // DIFFUSIVITY ncomp = 1          , beta_comp = NUM_SPECIES --> THERMAL
   // CONDUCTIVITY ncomp = 1          , beta_comp = 0           --> VISCOSITY If
-  // PELE_USE_EFIELD is active, these relationships will not hold and LES is not
+  // PELE_USE_PLASMA is active, these relationships will not hold and LES is not
   // supported
   if ((addTurbContrib != 0) and m_do_les) {
 

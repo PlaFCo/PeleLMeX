@@ -387,7 +387,7 @@ PeleLM::MakeNewLevelFromCoarse(
   }
   m_resetCoveredMask = 1;
 
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
   m_leveldatanlsolve[lev].reset(
     new LevelDataNLSolve(ba, dm, *m_factory[lev], m_nGrowState));
   if (m_do_extraEFdiags) {
@@ -498,7 +498,7 @@ PeleLM::RemakeLevel(
     setThermoPress(lev, AmrNewTime);
   }
 
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
   m_leveldatanlsolve[lev].reset(
     new LevelDataNLSolve(ba, dm, *m_factory[lev], m_nGrowState));
   if (m_do_extraEFdiags) {
@@ -543,7 +543,7 @@ PeleLM::ClearLevel(int lev)
   m_mcdiffusion_op.reset();
   m_diffusionTensor_op.reset();
   macproj.reset();
-#ifdef PELE_USE_EFIELD
+#ifdef PELE_USE_PLASMA
   m_leveldatanlsolve[lev].reset();
   if (m_do_extraEFdiags) {
     m_ionsFluxes[lev].reset();
