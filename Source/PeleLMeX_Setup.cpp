@@ -260,6 +260,9 @@ PeleLM::readParameters()
     }
   }
 
+  // Get the type of EF approximation
+  parseUserKey(ppef, "ef_model", efmodel, m_ef_model);
+
   // Get the polarity of BCs
   ppef.getarr("phiV_polarity_lo", lo_bc_char, 0, AMREX_SPACEDIM);
   ppef.getarr("phiV_polarity_hi", hi_bc_char, 0, AMREX_SPACEDIM);
