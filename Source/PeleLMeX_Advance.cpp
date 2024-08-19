@@ -102,7 +102,7 @@ PeleLM::Advance(int is_initIter)
   if (m_incompressible == 0) {
     calcDiffusivity(AmrOldTime);
 #ifdef PELE_USE_PLASMA
-    if (m_ef_model == EFglobal) {
+    if (m_ef_model == EFModel::EFglobal) {
       poissonSolveEF(AmrOldTime);
     } 
 #endif
@@ -407,7 +407,7 @@ PeleLM::oneSDC(
   //----------------------------------------------------------------
   // Solve for implicit non-linear nE/PhiV system
   //----------------------------------------------------------------
-  if (m_ef_model == EFglobal) {
+  if (m_ef_model == EFModel::EFglobal) {
     implicitNonLinearSolve(sdcIter, m_dt, diffData, advData);
   }
 #endif

@@ -275,7 +275,7 @@ PeleLM::initData()
       }
 
       // do an initial Poisson solve
-      if (m_ef_model == EFglobal) {
+      if (m_ef_model == EFModel::EFglobal) {
         fillPatchPhiV(AmrNewTime);
         poissonSolveEF(AmrNewTime);
       }
@@ -377,7 +377,7 @@ PeleLM::projectInitSolution()
   const int is_init = 1;
 
 #ifdef PELE_USE_PLASMA
-  if (m_ef_model == EFglobal) {
+  if (m_ef_model == EFModel::EFglobal) {
     poissonSolveEF(AmrNewTime);
     fillPatchPhiV(AmrNewTime);
   }

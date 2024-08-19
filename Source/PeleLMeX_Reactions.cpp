@@ -80,20 +80,20 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
 
 #ifdef PELE_USE_PLASMA
     // Pass nE -> rhoY_e & FnE -> FrhoY_e
-    if (m_ef_model == EFglobal) {
-        auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
-        auto const& FnE  = a_extForcing.array(mfi, NUM_SPECIES + 1);
-        auto const& rhoYe_n = ldataNew_p->state.array(mfi, FIRSTSPEC + E_ID);
-        auto const& FrhoYe  = a_extForcing.array(mfi, E_ID);
-        auto eos = pele::physics::PhysicsType::eos();
-        Real mwt[NUM_SPECIES] = {0.0};
-        eos.molecular_weight(mwt);
-        ParallelFor(
-          bx, [mwt, nE_o, FnE, rhoYe_n,
-               FrhoYe] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            rhoYe_n(i, j, k) = nE_o(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
-            FrhoYe(i, j, k)  = FnE(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
-          });
+    if (m_ef_model == EFModel::EFglobal) {
+      auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
+      auto const& FnE  = a_extForcing.array(mfi, NUM_SPECIES + 1);
+      auto const& rhoYe_n = ldataNew_p->state.array(mfi, FIRSTSPEC + E_ID);
+      auto const& FrhoYe  = a_extForcing.array(mfi, E_ID);
+      auto eos = pele::physics::PhysicsType::eos();
+      Real mwt[NUM_SPECIES] = {0.0};
+      eos.molecular_weight(mwt);
+      ParallelFor(
+        bx, [mwt, nE_o, FnE, rhoYe_n,
+             FrhoYe] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          rhoYe_n(i, j, k) = nE_o(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
+          FrhoYe(i, j, k)  = FnE(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
+        });
     }
 #endif
 
@@ -123,8 +123,10 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
 
 #ifdef PELE_USE_PLASMA
     // rhoY_e -> nE and set rhoY_e to zero
-    if (m_ef_model == EFglobal) {
+    if (m_ef_model == EFModel::EFglobal) {
+      auto eos = pele::physics::PhysicsType::eos();
       auto const& nE_n = ldataNew_p->state.array(mfi, NE);
+      auto const& rhoYe_n = ldataNew_p->state.array(mfi, FIRSTSPEC + E_ID);
       Real invmwt[NUM_SPECIES] = {0.0};
       eos.inv_molecular_weight(invmwt);
       ParallelFor(
@@ -245,7 +247,7 @@ PeleLM::advanceChemistryBAChem(
 
 #ifdef PELE_USE_PLASMA
     // Pass nE -> rhoY_e & FnE -> FrhoY_e
-    if (m_ef_model == EFglobal) {
+    if (m_ef_model == EFModel::EFglobal) {
       auto const& nE_o = chemnE.array(mfi);
       auto const& FnE = chemForcing.array(mfi, NUM_SPECIES + 1);
       auto const& rhoYe_o = chemState.array(mfi, E_ID);
@@ -296,7 +298,10 @@ PeleLM::advanceChemistryBAChem(
 
 #ifdef PELE_USE_PLASMA
     // rhoY_e -> nE and set rhoY_e to zero
-    if (m_ef_model == EFglobal) {
+    if (m_ef_model == EFModel::EFglobal) {
+      auto eos = pele::physics::PhysicsType::eos();
+      auto const& nE_o = chemnE.array(mfi);
+      auto const& rhoYe_o = chemState.array(mfi, E_ID);
       Real invmwt[NUM_SPECIES] = {0.0};
       eos.inv_molecular_weight(invmwt);
       ParallelFor(
