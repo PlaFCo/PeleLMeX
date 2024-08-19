@@ -1320,7 +1320,9 @@ PeleLM::resizeArray()
   m_baChemFlag.resize(max_level + 1);
 
 #ifdef PELE_USE_PLASMA
-  m_leveldatanlsolve.resize(max_level + 1);
+  if (m_ef_model == EFglobal) {
+      m_leveldatanlsolve.resize(max_level + 1);
+  } 
   m_ionsFluxes.resize(max_level + 1);
 #endif
 

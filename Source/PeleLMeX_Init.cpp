@@ -275,8 +275,10 @@ PeleLM::initData()
       }
 
       // do an initial Poisson solve
-      fillPatchPhiV(AmrNewTime);
-      poissonSolveEF(AmrNewTime);
+      if (m_ef_model == EFglobal) {
+        fillPatchPhiV(AmrNewTime);
+        poissonSolveEF(AmrNewTime);
+      }
 
       // Reset time data
       if (m_restart_resetTime) {
@@ -375,8 +377,10 @@ PeleLM::projectInitSolution()
   const int is_init = 1;
 
 #ifdef PELE_USE_PLASMA
-  poissonSolveEF(AmrNewTime);
-  fillPatchPhiV(AmrNewTime);
+  if (m_ef_model == EFglobal) {
+    poissonSolveEF(AmrNewTime);
+    fillPatchPhiV(AmrNewTime);
+  }
 #endif
 
   // Post data Init time step estimate

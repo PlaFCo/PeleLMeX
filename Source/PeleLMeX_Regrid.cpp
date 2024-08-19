@@ -393,7 +393,9 @@ PeleLM::MakeNewLevelFromCoarse(
   if (m_do_extraEFdiags) {
     m_ionsFluxes[lev].reset(new MultiFab(ba, dm, NUM_IONS * AMREX_SPACEDIM, 0));
   }
-  m_precond_op.reset();
+  if (m_ef_model == EFglobal) {
+      m_precond_op.reset();
+  }
 #endif
 
   // Load balance
@@ -504,7 +506,9 @@ PeleLM::RemakeLevel(
   if (m_do_extraEFdiags) {
     m_ionsFluxes[lev].reset(new MultiFab(ba, dm, NUM_IONS * AMREX_SPACEDIM, 0));
   }
-  m_precond_op.reset();
+  if (m_ef_model == EFglobal) {
+      m_precond_op.reset();
+  }
 #endif
 
   // Load balance

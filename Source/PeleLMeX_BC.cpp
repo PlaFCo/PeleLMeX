@@ -175,18 +175,21 @@ PeleLM::setBoundaryConditions()
     }
 
 #ifdef PELE_USE_PLASMA
-    // nE
-    for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      m_bcrec_state[NE].setLo(idim, nE_bc[lo_bc[idim]]);
-      m_bcrec_state[NE].setHi(idim, nE_bc[hi_bc[idim]]);
-    }
 
-    // Get m_phiV_bc
-    const int* lo_phibc = m_phiV_bc.lo();
-    const int* hi_phibc = m_phiV_bc.hi();
-    for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      m_bcrec_state[PHIV].setLo(idim, phiV_bc[lo_phibc[idim]]);
-      m_bcrec_state[PHIV].setHi(idim, phiV_bc[hi_phibc[idim]]);
+    if (m_ef_model == EFglobal) {
+      // nE
+      for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+        m_bcrec_state[NE].setLo(idim, nE_bc[lo_bc[idim]]);
+        m_bcrec_state[NE].setHi(idim, nE_bc[hi_bc[idim]]);
+      }
+
+      // Get m_phiV_bc
+      const int* lo_phibc = m_phiV_bc.lo();
+      const int* hi_phibc = m_phiV_bc.hi();
+      for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+        m_bcrec_state[PHIV].setLo(idim, phiV_bc[lo_phibc[idim]]);
+        m_bcrec_state[PHIV].setHi(idim, phiV_bc[hi_phibc[idim]]);
+      }
     }
 
     // Hack charged species BCs
