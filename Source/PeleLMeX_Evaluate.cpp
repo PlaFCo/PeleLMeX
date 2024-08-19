@@ -276,7 +276,11 @@ PeleLM::evaluateChemExtForces(
   std::unique_ptr<AdvanceAdvData> advData;
   advData = std::make_unique<AdvanceAdvData>(
     finest_level, grids, dmap, m_factory, m_incompressible, m_nGrowAdv,
-    m_nGrowMAC);
+    m_nGrowMAC
+#ifdef PELE_USE_PLASMA
+    , m_ef_model
+#endif
+    );
 
   //----------------------------------------------------------------
   // Advance setup
@@ -378,7 +382,11 @@ PeleLM::evaluateAdvectionTerms(
   std::unique_ptr<AdvanceAdvData> advData;
   advData = std::make_unique<AdvanceAdvData>(
     finest_level, grids, dmap, m_factory, m_incompressible, m_nGrowAdv,
-    m_nGrowMAC);
+    m_nGrowMAC
+#ifdef PELE_USE_PLASMA
+    , m_ef_model
+#endif
+    );
 
   //----------------------------------------------------------------
   // Advance setup

@@ -202,10 +202,12 @@ PeleLM::setBoundaryConditions()
           hackBCChargedParticle(zk[FIRSTIONinSpec + n], bcIonSave);
       }
     }
-    // Need to hack nE too actually ...
-    for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      auto const bcnESave = m_bcrec_state[NE];
-      m_bcrec_state[NE] = hackBCChargedParticle(-1.0, bcnESave);
+    if (m_ef_model == EFModel::EFglobal) {
+      // Need to hack nE too actually ...
+      for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+        auto const bcnESave = m_bcrec_state[NE];
+        m_bcrec_state[NE] = hackBCChargedParticle(-1.0, bcnESave);
+      }
     }
 #endif
 #ifdef PELE_USE_SOOT
@@ -335,7 +337,9 @@ PeleLM::fillPatchReact(int lev, Real a_time, int nGrow)
 
   int IRsize = NUM_SPECIES;
 #ifdef PELE_USE_PLASMA
-  IRsize += 1;
+  if (m_ef_model == EFModel::EFglobal) {
+    IRsize += 1;
+  }
 #endif
   std::unique_ptr<MultiFab> mf;
   mf = std::make_unique<MultiFab>(

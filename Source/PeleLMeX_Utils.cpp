@@ -666,8 +666,10 @@ PeleLM::floorSpecies(const TimeStamp& a_time)
           i, j, k, NUM_SPECIES, 0.0, AMREX_REAL_MAX,
           Array4<Real>(sma[box_no], FIRSTSPEC));
 #ifdef PELE_USE_PLASMA
-        fabMinMax(
-          i, j, k, 1, 0.0, AMREX_REAL_MAX, Array4<Real>(sma[box_no], NE));
+        if (m_ef_model == EFModel::EFglobal) {
+          fabMinMax(
+            i, j, k, 1, 0.0, AMREX_REAL_MAX, Array4<Real>(sma[box_no], NE));
+        }
 #endif
         // Update density accordingly ...
         sma[box_no](i, j, k, DENSITY) = 0.0;
@@ -1372,7 +1374,9 @@ PeleLM::setTypicalValues(const TimeStamp& a_time, int is_init)
     typical_values[TEMP] = 0.5 * (stateMax[TEMP] + stateMin[TEMP]);
     typical_values[RHORT] = m_pOld;
 #ifdef PELE_USE_PLASMA
-    typical_values[NE] = 0.5 * (stateMax[NE] + stateMin[NE]);
+    if (m_ef_model == EFModel::EFglobal) {
+      typical_values[NE] = 0.5 * (stateMax[NE] + stateMin[NE]);
+    }
 #endif
 
     // Pass into chemsitry if requested
@@ -1401,7 +1405,9 @@ PeleLM::setTypicalValues(const TimeStamp& a_time, int is_init)
                 << std::left << ":" << typical_values[FIRSTSPEC + n] << '\n';
       }
 #ifdef PELE_USE_PLASMA
-      Print() << "\tnE:       " << typical_values[NE] << '\n';
+      if (m_ef_model == EFModel::EFglobal) {
+        Print() << "\tnE:       " << typical_values[NE] << '\n';
+      }
 #endif
     }
     Print() << PrettyLine;
@@ -1429,11 +1435,13 @@ PeleLM::updateTypicalValuesChem()
       }
       typical_values_chem[NUM_SPECIES] = typical_values[TEMP];
 #ifdef PELE_USE_PLASMA
-      auto eos = pele::physics::PhysicsType::eos();
-      Real mwt[NUM_SPECIES] = {0.0};
-      eos.molecular_weight(mwt);
-      typical_values_chem[E_ID] =
-        typical_values[NE] / Na * mwt[E_ID] * 1.0e-6 * 1.0e-2;
+      if (m_ef_model == EFModel::EFglobal) {
+        auto eos = pele::physics::PhysicsType::eos();
+        Real mwt[NUM_SPECIES] = {0.0};
+        eos.molecular_weight(mwt);
+        typical_values_chem[E_ID] =
+          typical_values[NE] / Na * mwt[E_ID] * 1.0e-6 * 1.0e-2;
+      }
 #endif
       m_reactor->set_typ_vals_ode(typical_values_chem);
     }

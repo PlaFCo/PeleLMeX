@@ -1049,6 +1049,7 @@ PeleLM::derivedSetup()
     grow_box_by_two);
 
 #ifdef PELE_USE_PLASMA
+  // PLASMA TODO
   // Charge distribution
   derive_lst.add(
     "chargedistrib", IndexType::TheCellType(), 1, pelelmex_derchargedist,

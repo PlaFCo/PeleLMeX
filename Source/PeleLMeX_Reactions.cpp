@@ -166,16 +166,18 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
       });
 
 #ifdef PELE_USE_PLASMA
-    auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
-    auto const& nE_n = ldataNew_p->state.const_array(mfi, NE);
-    auto const& FnE = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
-    auto const& nEdot = ldataR_p->I_R.array(mfi, NUM_SPECIES);
-    ParallelFor(
-      bx, [nE_o, nE_n, FnE, nEdot,
-           dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        nEdot(i, j, k) =
-          -(nE_o(i, j, k) - nE_n(i, j, k)) * dt_inv - FnE(i, j, k);
-      });
+    if (m_ef_model == EFModel::EFglobal) {
+      auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
+      auto const& nE_n = ldataNew_p->state.const_array(mfi, NE);
+      auto const& FnE = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
+      auto const& nEdot = ldataR_p->I_R.array(mfi, NUM_SPECIES);
+      ParallelFor(
+        bx, [nE_o, nE_n, FnE, nEdot,
+             dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          nEdot(i, j, k) =
+            -(nE_o(i, j, k) - nE_n(i, j, k)) * dt_inv - FnE(i, j, k);
+        });
+    }
 #endif
   }
 }
@@ -361,20 +363,22 @@ PeleLM::advanceChemistryBAChem(
       });
 
 #ifdef PELE_USE_PLASMA
-    auto const& nE_arr = nETemp.const_array(mfi);
-    auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
-    auto const& nE_n = ldataNew_p->state.array(mfi, NE);
-    auto const& FnE = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
-    auto const& nEdot = ldataR_p->I_R.array(mfi, NUM_SPECIES);
-    ParallelFor(
-      bx, [nE_arr, nE_o, nE_n, FnE, nEdot,
-           dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        // Pass into leveldata_new
-        nE_n(i, j, k) = nE_arr(i, j, k);
-        // Compute I_R
-        nEdot(i, j, k) =
-          -(nE_o(i, j, k) - nE_n(i, j, k)) * dt_inv - FnE(i, j, k);
-      });
+    if (m_ef_model == EFModel::EFglobal) {
+      auto const& nE_arr = nETemp.const_array(mfi);
+      auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
+      auto const& nE_n = ldataNew_p->state.array(mfi, NE);
+      auto const& FnE = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
+      auto const& nEdot = ldataR_p->I_R.array(mfi, NUM_SPECIES);
+      ParallelFor(
+        bx, [nE_arr, nE_o, nE_n, FnE, nEdot,
+             dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          // Pass into leveldata_new
+          nE_n(i, j, k) = nE_arr(i, j, k);
+          // Compute I_R
+          nEdot(i, j, k) =
+            -(nE_o(i, j, k) - nE_n(i, j, k)) * dt_inv - FnE(i, j, k);
+        });
+    }
 #endif
   }
 }
@@ -385,7 +389,11 @@ PeleLM::computeInstantaneousReactionRate(
 {
   for (int lev = 0; lev <= finest_level; ++lev) {
 #ifdef PELE_USE_PLASMA
-    computeInstantaneousReactionRateEF(lev, a_time, I_R[lev]);
+    if (m_ef_model == EFModel::EFglobal) {
+      computeInstantaneousReactionRateEF(lev, a_time, I_R[lev]);
+    } else {
+      computeInstantaneousReactionRate(lev, a_time, I_R[lev]);
+    }
 #else
     computeInstantaneousReactionRate(lev, a_time, I_R[lev]);
 #endif

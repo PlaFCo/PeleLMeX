@@ -255,7 +255,11 @@ public:
         factory,
       int a_incompressible,
       int a_nGrowAdv,
-      int a_nGrowMAC);
+      int a_nGrowMAC
+#ifdef PELE_USE_PLASMA
+      , int a_ef_model
+#endif
+    );
     amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>
       umac;                              // MAC face velocity
     amrex::Vector<amrex::MultiFab> AofS; // Scalar advection term at t^(n+1/2)
