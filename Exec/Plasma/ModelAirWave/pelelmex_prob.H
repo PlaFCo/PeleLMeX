@@ -76,6 +76,7 @@ pelelmex_initdata(
   molefrac[N2p_ID] = molefrac[E_ID];
   molefrac[O2_ID] = (1.0-2*molefrac[E_ID])*pmf_vals[3 + O2_ID];
   molefrac[N2_ID] = (1.0-2*molefrac[E_ID])*pmf_vals[3 + N2_ID]; 
+  molefrac[E_ID] = 0.0;
   eos.X2Y(molefrac, massfrac);
   
   AMREX_D_TERM(state(i, j, k, VELX) = 0.0;
