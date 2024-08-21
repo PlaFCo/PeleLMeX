@@ -929,7 +929,7 @@ PeleLM::differentialDiffusionUpdate(
         getDensityVect(AmrNewTime)), // this is the acoeff of LinOp
       GetVecOfConstPtrs(
         getDensityVect(AmrNewTime)), // this triggers proper scaling by density
-      GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)), 0, bcRecIons, 1, 0,
+      GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)), NUM_SPECIES - NUM_IONS + n, bcRecIons, 1, 0,
       m_dt);
   }
 #else
