@@ -48,13 +48,14 @@ amr.max_step = 20
 amr.dt_shrink = 0.01
 amr.stop_time = 0.001
 #amr.stop_time = 1.00
-amr.cfl = 0.5
-amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib efieldy
+amr.cfl = 0.2
+amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib efieldy diffcoeff
 
 cvode.solve_type = dense               # CVODE Linear solve type (for Newton direction) 
 ode.analytical_jacobian = 0            # Provide analytical jacobian (from Fuego) 
 
-#--------------------EFIELD CONTROL------------------------
+#--------------------PLASMA CONTROL------------------------
+ef.ef_model = "efambipolar"
 ef.phiV_lo_bc = Interior Dirichlet
 ef.phiV_hi_bc = Interior Dirichlet
 ef.phiV_polarity_lo = Neutral Neutral
@@ -96,7 +97,7 @@ mac_proj.atol = 1e-10
 amr.refinement_indicators = yE
 amr.yE.max_level     = 3
 amr.yE.value_greater = 1.0e12
-amr.yE.field_name    = nE
+amr.yE.field_name    = Y(E)
 
 #amrex.fpe_trap_invalid = 1
 #amrex.fpe_trap_zero = 1

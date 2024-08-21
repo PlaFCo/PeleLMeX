@@ -37,7 +37,7 @@ pelelmex_initdata(
                , const amrex::Real Ly = prob_hi[1] - prob_lo[1];
                , const amrex::Real Lz = prob_hi[2] - prob_lo[2]);
 
-  constexpr amrex::Real Pi = 3.14159265358979323846264338327950288;
+  constexpr amrex::Real Pi = 3.1415926;
   constexpr amrex::Real kB = 1.380649e-23;
 
   auto eos = pele::physics::PhysicsType::eos();
@@ -63,20 +63,21 @@ pelelmex_initdata(
   pele::physics::PMF::pmf(pmf_data, y1, y2, pmf_vals);
 
   state(i, j, k, TEMP) = prob_parm.T_mean;
-  ;
+#ifdef PELE_USE_PLASMA
+  state(i, j, k, NE) = 0.0;
+#endif
 
   for (int n = 0; n < NUM_SPECIES; n++) {
     molefrac[n] = pmf_vals[3 + n];
   }
   amrex::Real yc = 0.5 * (prob_hi[1] + prob_lo[1]) + pert;
-  state(i, j, k, NE) =
-    2.0e13 * std::exp(-(y - yc) * (y - yc) / (Ly * Ly / 500.0));
+  amrex::Real n_e =
+    2.0e15 * std::exp(-(y - yc) * (y - yc) / (Ly * Ly / 500.0));
 
-  molefrac[E_ID] = state(i,j,k,NE)/(prob_parm.P_mean/kB/prob_parm.T_mean);
+  molefrac[E_ID] = n_e/(prob_parm.P_mean/kB/prob_parm.T_mean);
   molefrac[N2p_ID] = molefrac[E_ID];
   molefrac[O2_ID] = (1.0-2*molefrac[E_ID])*pmf_vals[3 + O2_ID];
   molefrac[N2_ID] = (1.0-2*molefrac[E_ID])*pmf_vals[3 + N2_ID]; 
-  molefrac[E_ID] = 0.0;
   eos.X2Y(molefrac, massfrac);
   
   AMREX_D_TERM(state(i, j, k, VELX) = 0.0;
@@ -100,7 +101,9 @@ pelelmex_initdata(
     state(i, j, k, FIRSTSPEC + n) = massfrac[n] * state(i, j, k, DENSITY);
   }
 
+#ifdef PELE_USE_PLASMA
   state(i, j, k, PHIV) = 0.0;
+#endif
 }
 
 AMREX_GPU_DEVICE
@@ -149,6 +152,7 @@ bcnormal(
     }
   }
 
+#ifdef PELE_USE_PLASMA
   if (idir == 1) {  // y-dir
     if (sgn == 1) { // lo
       s_ext[NE] = 0.0;
@@ -158,6 +162,7 @@ bcnormal(
       s_ext[PHIV] = prob_parm.phiV_hiy;
     }
   }
+#endif
 }
 
 AMREX_GPU_DEVICE
