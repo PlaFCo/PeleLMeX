@@ -1,14 +1,14 @@
 name: nightlyTest
 
-#on:
-#  workflow_dispatch:
-#  schedule:
-#     - cron: '0 2 * * *'
-#
-#concurrency:
-#  group: ${{ github.ref }}-${{ github.head_ref }}-nightlyTest
-#  cancel-in-progress: true
-#
+on:
+  workflow_dispatch:
+  schedule:
+     - cron: '0 2 * * *'
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.head_ref }}-nightlyTest
+  cancel-in-progress: true
+
 #jobs:
 #  # Build the RegTests/UnitTest testing any updates in the Submodules
 #  UT_FS:

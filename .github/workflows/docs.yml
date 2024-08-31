@@ -1,18 +1,18 @@
 name: PeleLMeX-Docs
 
-#on:
-#  workflow_dispatch:
-#  push:
-#    branches: [development]
-#    paths:
-#       - 'Docs/**'
-#       - '.github/workflows/docs.yml'
-#  pull_request:
-#    branches: [development]
-#    paths:
-#       - 'Docs/**'
-#       - '.github/workflows/docs.yml'
-#
+on:
+  workflow_dispatch:
+  push:
+    branches: [development]
+    paths:
+       - 'Docs/**'
+       - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [development]
+    paths:
+       - 'Docs/**'
+       - '.github/workflows/docs.yml'
+
 #jobs:
 #  Docs:
 #    runs-on: ubuntu-latest
