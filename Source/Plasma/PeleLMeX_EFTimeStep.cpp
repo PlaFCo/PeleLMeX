@@ -8,6 +8,10 @@ PeleLM::estEFIonsDt(const TimeStamp& a_time)
   Real estdt = 1.0e200;
   constexpr Real small = 1.0e-8;
 
+  if (m_ef_model != EFModel::EFglobal) { // PLASMA TODO need conv time scale
+    return estdt;
+  }
+
   auto bcRecPhiV = fetchBCRecArray(PHIV, 1);
 
   // Need the mobility of the ions
