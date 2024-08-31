@@ -337,9 +337,8 @@ PeleLM::fillPatchReact(int lev, Real a_time, int nGrow)
 
   int IRsize = NUM_SPECIES;
 #ifdef PELE_USE_PLASMA
-  if (m_ef_model == EFModel::EFglobal) {
-    IRsize += 1;
-  }
+  // PLASMA TODO
+  IRsize += 1;
 #endif
   std::unique_ptr<MultiFab> mf;
   mf = std::make_unique<MultiFab>(
