@@ -199,9 +199,8 @@ PeleLM::AdvanceAdvData::AdvanceAdvData(
       chi[lev].define(ba[lev], dm[lev], 1, 1, MFInfo(), *factory[lev]);
       int ncomp_force =  NUM_SPECIES + 1; //Species + TEMP
 #ifdef PELE_USE_PLASMA
-      if (a_ef_model == EFModel::EFglobal) {
-        ncomp_force += 1; // add NE
-      }
+      // PLASMA TODO
+      ncomp_force += 1; // add NE
 #endif
       Forcing[lev].define(
         ba[lev], dm[lev], ncomp_force, nGrowAdv, MFInfo(),
