@@ -257,7 +257,8 @@ public:
       int a_nGrowAdv,
       int a_nGrowMAC
 #ifdef PELE_USE_PLASMA
-      , int a_ef_model
+      , 
+      int a_ef_model
 #endif
     );
     amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>

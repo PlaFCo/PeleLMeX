@@ -278,9 +278,10 @@ PeleLM::evaluateChemExtForces(
     finest_level, grids, dmap, m_factory, m_incompressible, m_nGrowAdv,
     m_nGrowMAC
 #ifdef PELE_USE_PLASMA
-    , m_ef_model
+    ,
+    m_ef_model
 #endif
-    );
+  );
 
   //----------------------------------------------------------------
   // Advance setup

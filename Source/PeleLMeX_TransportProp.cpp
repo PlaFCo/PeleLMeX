@@ -328,7 +328,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
           i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
           Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
           Array4<Real>(kma[box_no], 0));
-        //getKappaE( .. ); PLASMA TODO
+      //getKappaE( .. ); PLASMA TODO
 #endif
       });
   }

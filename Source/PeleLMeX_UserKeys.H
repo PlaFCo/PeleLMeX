@@ -163,7 +163,7 @@ const LoadBalanceMethod lbmethod;
 
 /**
   * \brief struct holding PeleLMeX EF model options
-           default is 
+           default is
   */
 struct EFModel
 {

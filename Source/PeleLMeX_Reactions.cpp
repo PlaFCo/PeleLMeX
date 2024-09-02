@@ -82,9 +82,9 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
     // Pass nE -> rhoY_e & FnE -> FrhoY_e
     if (m_ef_model == EFModel::EFglobal) {
       auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
-      auto const& FnE  = a_extForcing.array(mfi, NUM_SPECIES + 1);
+      auto const& FnE = a_extForcing.array(mfi, NUM_SPECIES + 1);
       auto const& rhoYe_n = ldataNew_p->state.array(mfi, FIRSTSPEC + E_ID);
-      auto const& FrhoYe  = a_extForcing.array(mfi, E_ID);
+      auto const& FrhoYe = a_extForcing.array(mfi, E_ID);
       auto eos = pele::physics::PhysicsType::eos();
       Real mwt[NUM_SPECIES] = {0.0};
       eos.molecular_weight(mwt);
@@ -92,7 +92,7 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
         bx, [mwt, nE_o, FnE, rhoYe_n,
              FrhoYe] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
           rhoYe_n(i, j, k) = nE_o(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
-          FrhoYe(i, j, k)  = FnE(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
+          FrhoYe(i, j, k) = FnE(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
         });
     }
 #endif

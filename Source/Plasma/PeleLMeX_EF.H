@@ -11,7 +11,7 @@ static_assert(
 #endif
 
 // Algorithm int/real data holder
-int m_ef_model = 0;       // type of EF approximation
+nt m_ef_model = 0; // type of EF approximation
 int ef_verbose = 1;
 int ef_substep = 1;       // number of sub time steps
 amrex::Real dtsub;        // sub time step size

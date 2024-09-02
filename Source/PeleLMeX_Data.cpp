@@ -163,7 +163,8 @@ PeleLM::AdvanceAdvData::AdvanceAdvData(
   int nGrowAdv,
   int nGrowMAC
 #ifdef PELE_USE_PLASMA
-  , int a_ef_model
+  , 
+  int a_ef_model
 #endif
   )
 {
@@ -197,14 +198,13 @@ PeleLM::AdvanceAdvData::AdvanceAdvData(
     } else {
       AofS[lev].define(ba[lev], dm[lev], NVAR, 0, MFInfo(), *factory[lev]);
       chi[lev].define(ba[lev], dm[lev], 1, 1, MFInfo(), *factory[lev]);
-      int ncomp_force =  NUM_SPECIES + 1; //Species + TEMP
+      int ncomp_force = NUM_SPECIES + 1; //Species + TEMP
 #ifdef PELE_USE_PLASMA
       // PLASMA TODO
       ncomp_force += 1; // add NE
 #endif
       Forcing[lev].define(
-        ba[lev], dm[lev], ncomp_force, nGrowAdv, MFInfo(),
-        *factory[lev]);
+        ba[lev], dm[lev], ncomp_force, nGrowAdv, MFInfo(), *factory[lev]);
       mac_divu[lev].define(
         ba[lev], dm[lev], 1, nGrowAdv, MFInfo(), *factory[lev]);
     }

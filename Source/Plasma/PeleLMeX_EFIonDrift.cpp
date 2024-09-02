@@ -38,7 +38,7 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
   }
 
   if (m_ef_model == EFModel::EFglobal) { // E is grad PhiV
-    int do_avgDown = 0; // TODO or should I ?
+    int do_avgDown = 0;                  // TODO or should I ?
     auto bcRecPhiV = fetchBCRecArray(PHIV, 1);
     getDiffusionOp()->computeGradient(
       GetVecOfArrOfPtrs(EOld), {}, // don't need the laplacian out
