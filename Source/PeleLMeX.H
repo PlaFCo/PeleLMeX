@@ -257,7 +257,7 @@ public:
       int a_nGrowAdv,
       int a_nGrowMAC
 #ifdef PELE_USE_PLASMA
-      , 
+      ,
       int a_ef_model
 #endif
     );
