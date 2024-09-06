@@ -331,7 +331,7 @@ PeleLM::readParameters()
     m_spark.resize(m_n_sparks);
     m_spark_time.resize(m_n_sparks);
     m_spark_duration.resize(m_n_sparks);
-    m_spark_tau.resize(m_n_sparks);
+    m_spark_power.resize(m_n_sparks);
     m_spark_location.resize(m_n_sparks);
     m_spark_temp.resize(m_n_sparks);
     m_spark_radius.resize(m_n_sparks);
@@ -349,7 +349,7 @@ PeleLM::readParameters()
       pps.get("radius", m_spark_radius[n]);
       m_spark_radiusz[n] = 0.0;
       pps.get("radiusz", m_spark_radiusz[n]);
-      pps.get("tau", m_spark_tau[n]);
+      pps.get("power", m_spark_power[n]);
     }
     if (m_spark_verbose > 0) {
       Print() << "Spark list:" << std::endl;
@@ -358,7 +358,7 @@ PeleLM::readParameters()
         Print() << "Spark " << n << " time: " << m_spark_time[n] << std::endl;
         Print() << "Spark " << n << " duration: " << m_spark_duration[n]
                 << std::endl;
-        Print() << "Spark " << n << " tau: " << m_spark_tau[n]
+        Print() << "Spark " << n << " power: " << m_spark_power[n]
                 << std::endl;
         Print() << "Spark " << n << " location: ";
         for (int d = 0; d < AMREX_SPACEDIM; d++) {

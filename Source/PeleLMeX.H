@@ -1836,7 +1836,7 @@ public:
   amrex::Vector<std::string> m_spark;
   amrex::Vector<amrex::Real> m_spark_time;
   amrex::Vector<amrex::Real> m_spark_duration;
-  amrex::Vector<amrex::Real> m_spark_tau;
+  amrex::Vector<amrex::Real> m_spark_power;
   amrex::Vector<amrex::Vector<amrex::Real>> m_spark_location;
   amrex::Vector<amrex::Real> m_spark_temp;
   amrex::Vector<amrex::Real> m_spark_radius;

@@ -1,0 +1,134 @@
+#----------------------DOMAIN DEFINITION------------------------
+geometry.is_periodic = 0 0 0              # For each dir, 0: non-perio, 1: periodic
+geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
+geometry.prob_lo     = -0.015 -0.015 0.0    # x_lo y_lo (z_lo)
+geometry.prob_hi     =  0.015  0.015 0.24  # x_hi y_hi (z_hi)
+
+# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+# Interior, Inflow, Outflow, Symmetry,
+# SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
+peleLM.lo_bc = Inflow NoSlipWallIsoTherm Outflow
+peleLM.hi_bc = Inflow NoSlipWallIsoTherm NoSlipWallAdiab
+
+
+#-------------------------AMR CONTROL----------------------------
+amr.n_cell          = 16 16 128 #32 32 128 # Level 0 number of cells in each direction   
+amr.v               = 1                # AMR verbose
+amr.max_level       = 2                # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2 2 2       # refinement ratio
+amr.regrid_int      = 2                # how often to regrid
+amr.n_error_buf     = 2 2 2 2 2 2        # number of buffer cells in error est
+amr.grid_eff        = 0.75              # what constitutes an efficient grid
+amr.blocking_factor = 4              # block factor in grid generation (min box size)
+amr.max_grid_size   = 16
+amr.check_int       = 100
+amr.check_file = "chk"
+#amr.restart         = chk03100
+#amr.max_grid_size   = 64               # max box size
+
+#-------------------------PeleLM CONTROL----------------------------
+# Solvers verbosity
+peleLM.v = 2
+peleLM.verbose = 2
+nodal_proj.verbose = 2
+mac_proj.verbose = 2
+# Solvers tols
+mac_proj.rtol   = 1e-10
+mac_proj.maxiter   = 2000
+diffusion.rtol  = 1e-10
+nodal_proj.rtol = 1e-10
+nodal_proj.mg_max_coarsening_level = 1 # this was only turned on at a restart iter 3100
+mac_proj.mg_max_coarsening_level = 1 # this was only turned on at a restart iter 3100
+peleLM.incompressible = 0
+peleLM.rho = 1.17
+peleLM.mu = 0
+peleLM.gravity = 0.0 0.0 0.0
+# Diffusion
+peleLM.use_wbar = 1
+peleLM.deltaT_verbose = 2
+peleLM.deltaT_iterMax = 100
+peleLM.deltaT_tol = 1e-10
+# Advance
+peleLM.sdc_iterMax = 1
+peleLM.floor_species = 1
+# Reaction
+peleLM.do_react = 1
+peleLM.use_typ_vals_chem = 1
+peleLM.typical_values_reset_int = 1
+# Advection
+godunov.use_ppm = 0
+# Temporals
+peleLM.do_temporals = 1
+peleLM.do_mass_balance = 1
+# Chamber
+peleLM.closed_chamber = 1
+
+# Chemistry
+#cvode.solve_type = dense               # CVODE Linear solve type (for Newton direction) 
+#ode.analytical_jacobian = 0            # Provide analytical jacobian (from Fuego) 
+
+amr.plot_int = 100
+amr.max_step = 150000
+amr.dt_shrink = 0.35
+amr.max_dt = 1e-4
+amr.stop_time = 2.5
+amr.cfl = 0.3
+amr.derive_plot_vars = avg_pressure mag_vort mole_fractions mag_vel viscosity
+
+#--------------------------- Problem -------------------------------
+prob.P_mean = 101325 
+prob.T_mean = 293.15
+prob.vmean_tan = 16.471
+prob.vmean_rad =  2.982
+
+peleLM.refine_EB_max_level = 0 # this was only turned on at a restart on iteration 3100
+peleLM.refine_EB_buffer = 1.0
+peleLM.refine_EB_type = Static
+
+eb2.geom_type = UserDefined
+eb2.maxiter = 500
+eb2.num_coarsen_opt=3
+eb2.max_grid_size=64
+eb2.small_volfrac = 1.0e-2
+
+eb2.cyl_R = 0.013
+eb2.cyl_dir = 2
+eb2.cyl_x = 0.0
+eb2.cyl_y = 0.0
+eb2.cyl_z = 0.08
+eb2.cylt_R = 0.0015
+eb2.cylt_dir = 0
+eb2.cylt_x = 0.0
+eb2.cylt_y = 0.0
+eb2.cylt_z = 0.03 
+eb2.rtan = 0.003279
+eb2.ztan = -0.009
+eb2.zrad = -0.132
+
+
+#-----------------spark--------------------
+peleLM.spark_verbose = 1               # [OPT, DEF=0] Verbosity of spark ignition
+peleLM.sparks = spark1       # [OPT] List of spark names - multiple can be given
+peleLM.spark1.location = 0.0 0.0 0.14   # [OPT] Spark location (in x,y,z coordinates) [m]
+peleLM.spark1.temp = 7000.0            # [OPT] Temperature of the spark [K]
+peleLM.spark1.radius = 0.007            # [OPT] Radius of the spark [m]
+peleLM.spark1.radiusz = 0.04           # [OPT] Radius along z in case of an ellipsoid
+peleLM.spark1.duration = 0.15         # [OPT] Duration of the spark [s]
+peleLM.spark1.power = 4.0e2          # [OPT] Duration of the spark [W]
+peleLM.spark1.time = 0.1              # [OPT] Time when spark starts [s]
+
+#--------------------REFINEMENT CONTROL------------------------
+amr.refinement_indicators = temp density magVel
+amr.temp.max_level     = 1
+amr.temp.value_greater = 4000
+#amr.temp.adjacent_difference_greater = 50
+amr.temp.field_name    = temp
+
+amr.density.max_level     = 1
+amr.density.adjacent_difference_greater = 0.5
+amr.density.field_name    = density
+
+amr.magVel.max_level     = 1
+amr.magVel.adjacent_difference_greater = 0.1
+amr.magVel.field_name    = mag_vel
+

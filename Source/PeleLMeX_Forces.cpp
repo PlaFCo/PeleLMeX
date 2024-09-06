@@ -183,7 +183,7 @@ PeleLM::addSpark(const int lev, const TimeStamp& a_timestamp)
     IntVect spark_idx;
     Real time = getTime(lev, a_timestamp);
     if (
-      time < m_spark_time[n] || time > m_spark_time[n] + m_spark_duration[n]) {
+      time < m_spark_time[n] ){ // || time > m_spark_time[n] + m_spark_duration[n]) {
       if (verb) {
         Print() << m_spark[n] << " not active" << std::endl;
       }
@@ -203,6 +203,7 @@ PeleLM::addSpark(const int lev, const TimeStamp& a_timestamp)
     }
     auto* ldata_p = getLevelDataPtr(lev, a_timestamp);
     auto eos = pele::physics::PhysicsType::eos();
+    Real time_ramp = std::min(time,m_spark_duration[n])/m_spark_duration[n];
     for (MFIter mfi(*(m_extSource[lev]), TilingIfNotGPU()); mfi.isValid();
          ++mfi) {
       const Box& src_bx = mfi.growntilebox();
@@ -213,35 +214,16 @@ PeleLM::addSpark(const int lev, const TimeStamp& a_timestamp)
       auto const& temp_src_a = m_extSource[lev]->array(mfi, TEMP);
       auto const& rhoh_src_a = m_extSource[lev]->array(mfi, RHOH);
       amrex::ParallelFor(
-        src_bx, [spark_tau = m_spark_tau[n], spark_idx,
-                 spark_temp = m_spark_temp[n], spark_radius = m_spark_radius[n], spark_radiusz = m_spark_radiusz[n],
-                 rho_a, rhoY_a, temp_src_a, temp_a, rhoh_src_a, eos,
+        src_bx, [spark_power = m_spark_power[n]*time_ramp, spark_idx,
+                 spark_radius = m_spark_radius[n], spark_radiusz = m_spark_radiusz[n],
+                 rho_a, rhoY_a, temp_src_a, temp_a, rhoh_src_a, eos, 
                  dx] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-//          Real dist_to_center = std::sqrt(AMREX_D_TERM(
-//            (i - spark_idx[0]) * (i - spark_idx[0]) * dx[0] * dx[0]/spark_radius/spark_radius,
-//            +(j - spark_idx[1]) * (j - spark_idx[1]) * dx[1] * dx[1]/spark_radius/spark_radius,
-//            +(k - spark_idx[2]) * (k - spark_idx[2]) * dx[2] * dx[2]/spark_radiusz/spark_radiusz));
           Real dist_to_center = (i - spark_idx[0]) * (i - spark_idx[0]) * dx[0] * dx[0]/spark_radius/spark_radius + (j - spark_idx[1]) * (j - spark_idx[1]) * dx[1] * dx[1]/spark_radius/spark_radius;
           Real dist_to_centerz = (k - spark_idx[2]) * (k - spark_idx[2]) * dx[2] * dx[2]/spark_radiusz/spark_radiusz;
 
           if (dist_to_center < 1.0 and dist_to_centerz < 1.0) {
-            Real temp_loc = temp_a(i,j,k);
-            Real spark_temp_diff = (1.0-dist_to_centerz)*(1.0-dist_to_center)*spark_temp;
-            // probably doesn't actually
-            // contribute to anything
-            temp_src_a(i, j, k) = spark_temp_diff / spark_tau;
-            Real rhoh_src_loc = 0;
-            Real rhoh_src_loc_current = 0;
-            Real rho = rho_a(i, j, k);
-            Real Y[NUM_SPECIES];
-            for (int ns = 0; ns < NUM_SPECIES; ns++) {
-              Y[ns] = rhoY_a(i, j, k, ns) / rho;
-            }
-            eos.TY2H(spark_temp_diff, Y, rhoh_src_loc);
-            eos.TY2H(temp_loc, Y, rhoh_src_loc_current);
-            // rhoh_src_loc_current = 0.0;
-            rhoh_src_a(i, j, k) =  max(rhoh_src_loc - rhoh_src_loc_current,0.0); //  SI to cgs conversion
-            rhoh_src_a(i, j, k) =  rhoh_src_a(i, j, k)*rho/spark_tau*1e-4; //  SI to cgs conversion
+	    Real volume = 2.0/3.0*3.14*spark_radius*spark_radius*spark_radiusz;
+            rhoh_src_a(i, j, k) = spark_power*(1.0-dist_to_center)*(1.0-dist_to_centerz)/volume; //max(rhoh_src_loc - rhoh_src_loc_current,0.0); //  SI to cgs conversion
           }
         });
     }
