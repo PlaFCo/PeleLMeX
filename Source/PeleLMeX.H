@@ -1840,9 +1840,8 @@ public:
   amrex::Vector<amrex::Real> m_spark_duration;
   amrex::Vector<amrex::Real> m_spark_power;
   amrex::Vector<amrex::Vector<amrex::Real>> m_spark_location;
+  amrex::Vector<amrex::Vector<amrex::Real>> m_spark_radius;
   amrex::Vector<amrex::Real> m_spark_temp;
-  amrex::Vector<amrex::Real> m_spark_radius;
-  amrex::Vector<amrex::Real> m_spark_radiusz;
 
   // DivU ? default ON when not incompressible
   int m_has_divu = 1;

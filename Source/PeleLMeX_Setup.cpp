@@ -335,7 +335,6 @@ PeleLM::readParameters()
     m_spark_location.resize(m_n_sparks);
     m_spark_temp.resize(m_n_sparks);
     m_spark_radius.resize(m_n_sparks);
-    m_spark_radiusz.resize(m_n_sparks);
     pp.query("spark_verbose", m_spark_verbose);
     for (int n = 0; n < m_n_sparks; n++) {
       pp.get("sparks", m_spark[n], n);
@@ -345,10 +344,8 @@ PeleLM::readParameters()
       pps.get("duration", m_spark_duration[n]);
       m_spark_location[n].resize(AMREX_SPACEDIM);
       pps.getarr("location", m_spark_location[n], 0, AMREX_SPACEDIM);
+      pps.getarr("radius", m_spark_radius[n], 0, AMREX_SPACEDIM);
       pps.get("temp", m_spark_temp[n]);
-      pps.get("radius", m_spark_radius[n]);
-      m_spark_radiusz[n] = 0.0;
-      pps.get("radiusz", m_spark_radiusz[n]);
       pps.get("power", m_spark_power[n]);
     }
     if (m_spark_verbose > 0) {
@@ -360,6 +357,10 @@ PeleLM::readParameters()
                 << std::endl;
         Print() << "Spark " << n << " power: " << m_spark_power[n]
                 << std::endl;
+        Print() << "Spark " << n << " radius: ";
+        for (int d = 0; d < AMREX_SPACEDIM; d++) {
+          Print() << m_spark_radius[n][d] << " ";
+        }
         Print() << "Spark " << n << " location: ";
         for (int d = 0; d < AMREX_SPACEDIM; d++) {
           Print() << m_spark_location[n][d] << " ";
@@ -367,15 +368,6 @@ PeleLM::readParameters()
         Print() << std::endl;
         Print() << "Spark " << n << " temperature: " << m_spark_temp[n]
                 << std::endl;
-        Print() << "Spark " << n << " radius: " << m_spark_radius[n]
-                << std::endl;
-        if (m_spark_radiusz[n] == 0.0){
-          m_spark_radiusz[n] = m_spark_radius[n];
-        }
-        else{
-          Print() << "Spark " << n << " radius z: " << m_spark_radiusz[n]
-                  << std::endl;
-        }
       }
     }
   }

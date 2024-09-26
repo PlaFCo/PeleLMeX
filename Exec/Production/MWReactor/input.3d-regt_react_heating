@@ -1,0 +1,247 @@
+#----------------------DOMAIN DEFINITION------------------------
+geometry.is_periodic = 0 0 0              # For each dir, 0: non-perio, 1: periodic
+geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
+geometry.prob_lo     = -0.015 -0.015 0.0    # x_lo y_lo (z_lo)
+geometry.prob_hi     =  0.015  0.015 0.24  # x_hi y_hi (z_hi)
+
+# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+# Interior, Inflow, Outflow, Symmetry,
+# SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
+peleLM.lo_bc = Inflow NoSlipWallIsoTherm Outflow
+peleLM.hi_bc = Inflow NoSlipWallIsoTherm NoSlipWallIsoTherm
+
+
+#-------------------------AMR CONTROL----------------------------
+amr.n_cell          = 32 32 256 #32 32 128 # Level 0 number of cells in each direction   
+amr.v               = 2                # AMR verbose
+amr.max_level       = 1                # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2 2 2       # refinement ratio
+amr.regrid_int      = 10                # how often to regrid
+amr.n_error_buf     = 2 2 2 2 2 2        # number of buffer cells in error est
+amr.grid_eff        = 0.75              # what constitutes an efficient grid
+amr.blocking_factor = 4              # block factor in grid generation (min box size)
+amr.max_grid_size   = 32
+#amr.regrid_on_restart = 1
+amr.check_int       = 50
+amr.check_file = "chk"
+#amr.restart         = chk31000
+#amr.max_grid_size   = 64               # max box size
+
+#-------------------------PeleLM CONTROL----------------------------
+# Solvers verbosity
+peleLM.v = 2
+peleLM.verbose = 2
+nodal_proj.verbose = 2
+mac_proj.verbose = 2
+# Solvers tols
+mac_proj.rtol   = 1e-10
+mac_proj.maxiter   = 2000
+nodal_proj.maxiter   = 2000
+diffusion.rtol  = 1e-10
+nodal_proj.rtol = 1e-10
+#nodal_proj.mg_max_coarsening_level = 1
+#mac_proj.mg_max_coarsening_level = 1
+# 
+peleLM.incompressible = 0
+peleLM.rho = 1.17
+peleLM.mu = 0
+peleLM.gravity = 0.0 0.0 0.0
+# Diffusion
+peleLM.use_wbar = 1
+peleLM.deltaT_verbose = 2
+peleLM.deltaT_iterMax = 200
+peleLM.deltaT_tol = 1e-8
+# Advance
+peleLM.sdc_iterMax = 1
+peleLM.floor_species = 0
+# Reaction
+peleLM.do_react = 1
+peleLM.use_typ_vals_chem = 1
+peleLM.typical_values_reset_int = 10
+# Advection
+godunov.use_ppm = 0
+# Temporals
+peleLM.do_temporals = 1
+peleLM.do_mass_balance = 1
+# Chamber
+peleLM.closed_chamber = 1
+
+# Chemistry
+cvode.hmin = 1e-20               # CVODE Linear solve type (for Newton direction) 
+peleLM.chem_integrator = "ReactorCvode"
+peleLM.use_typ_vals_chem = 1          # Use species/temp typical values in CVODE
+#ode.rtol = 1.0e-6                     # Relative tolerance of the chemical solve
+#ode.atol = 1.0e-5                     # Absolute tolerance factor applied on typical values
+cvode.solve_type = denseAJ_direct     # CVODE Linear solve type (for Newton direction) 
+ode.analytical_jacobian = 1            # Provide analytical jacobian (from Fuego) 
+
+
+amr.plot_int = 200
+amr.max_step = 150000
+amr.dt_shrink = 0.35
+amr.min_dt = 1e-14
+#amr.dt_change_max = 1.1
+#amr.max_dt = 1e-4
+amr.stop_time = 2
+amr.cfl = 0.5
+amr.derive_plot_vars = avg_pressure mag_vort mole_fractions mag_vel viscosity extSource
+
+#cvode.solve_type = dense_direct               # CVODE Linear solve type (for Newton direction) 
+#ode.analytical_jacobian = 0            # Provide analytical jacobian (from Fuego) 
+
+#--------------------------- Problem -------------------------------
+prob.P_mean = 40000 
+prob.T_mean = 293.15
+prob.vmean_tan = 41.723
+prob.vmean_rad =  7.553
+
+#eb2.geom_type = cylinder
+#eb2.cylinder_radius     = 0.45
+#eb2.cylinder_direction  = 2
+#eb2.cylinder_center     = 0.0 0.0 2.0
+#eb2.cylinder.internal_flow    = true
+#eb2.cylinder_has_fluid_inside = 1
+eb2.small_volfrac = 1.0e-2
+
+eb2.geom_type = UserDefined
+eb2.maxiter = 500
+eb2.num_coarsen_opt=3
+eb2.max_grid_size=64
+
+eb2.cyl_R = 0.013
+eb2.cyl_dir = 2
+eb2.cyl_x = 0.0
+eb2.cyl_y = 0.0
+eb2.cyl_z = 0.08
+eb2.cylt_R = 0.0015
+eb2.cylt_dir = 0
+eb2.cylt_x = 0.0
+eb2.cylt_y = 0.0
+eb2.cylt_z = 0.03 # not used
+eb2.rtan = 0.003279
+eb2.ztan = -0.009
+eb2.zrad = -0.132
+
+peleLM.refine_EB_max_level = 0
+peleLM.refine_EB_buffer = 2.0
+peleLM.refine_EB_type = Static
+peleLM.isothermal_EB = 1
+
+#-----------------spark--------------------
+peleLM.spark_verbose = 1               # [OPT, DEF=0] Verbosity of spark ignition
+peleLM.sparks = spark1       # [OPT] List of spark names - multiple can be given
+peleLM.spark1.location = 0.0 0.0 0.12   # [OPT] Spark location (in x,y,z coordinates) [m]
+peleLM.spark1.temp = 7000.0          # [OPT] Radius of the spark [m]
+peleLM.spark1.radius = 0.01 0.01 0.02           # [OPT] Radius of the spark [m]
+peleLM.spark1.duration = 1.0         # [OPT] Duration of the spark [s]
+peleLM.spark1.power = 200.0          # [OPT] Duration of the spark [W] 
+peleLM.spark1.time = 0.0         # [OPT] Time when spark starts [s] #start power ramp
+
+#--------------------REFINEMENT CONTROL------------------------
+#
+amr.refinement_indicators = box1 tempG
+amr.box1.max_level   = 1
+amr.box1.in_box_lo   = -0.011 -0.011 0.0975
+amr.box1.in_box_hi   =  0.011  0.011 0.1425
+#
+#
+#
+amr.tempG.max_level     = 1
+amr.tempG.value_greater = 1e3
+###amr.tempdff.value_less = -1e4
+##amr.tempdff.adjacent_difference_greater = 1e2
+amr.tempG.field_name    = temp
+#
+#amr.density.max_level     = 2
+#amr.density.adjacent_difference_greater = 0.01
+#amr.density.field_name    = density
+#
+#amr.magVel.max_level     = 1
+#amr.magVel.adjacent_difference_greater = 0.1
+#amr.magVel.field_name    = mag_vel
+
+#amr.refinement_indicators = yH2
+#amr.yH2.max_level     = 10
+#amr.yH2.value_greater = 1.0e-8
+#amr.yH2.adjacent_difference_greater = 1e-2
+#amr.yH2.field_name    = Y(H2)
+
+#amr.refinement_indicators = divu
+#amr.divu.max_level     = 1
+#amr.divu.value_greater = 1.5
+#amr.divu.value_less = -1.5
+#amr.divu.adjacent_difference_greater = 2.0
+#amr.divu.field_name    = divu
+
+#--------------------LINEAR SOLVER CONTROL------------------------
+#mac_proj.verbose = 1
+#mac_proj.mg_max_coarsening_level = 0
+#mac_proj.rtol = 1.0e-10
+#mac_proj.atol = 1.0e-11
+#mac_proj.bottom_solver = "smoother"
+#mac_proj.hypre_namespace = nodal_proj.hypre
+#mac
+#mac_proj.hypre.verbose = 0
+#mac_proj.hypre.hypre_solver = GMRES
+#mac_proj.hypre.hypre_preconditioner = BoomerAMG
+#mac_proj.hypre.num_krylov = 200 
+#mac_proj.hypre.max_iterations = 200 
+#mac
+#mac_proj.hypre.bamg_verbose = 0
+#mac_proj.hypre.bamg_coarsen_type = 8 
+#mac_proj.hypre.bamg_interp_type = 6 
+#mac_proj.hypre.bamg_relax_type = 11
+#mac_proj.hypre.bamg_num_sweeps = 2 
+#mac_proj.hypre.bamg_cycle_type = 1 
+#mac_proj.hypre.bamg_relax_order = 0 
+#mac_proj.hypre.bamg_keep_transpose = 1 
+#mac_proj.hypre.bamg_trunc_factor = 0.44351885396256086
+#mac_proj.hypre.bamg_strong_threshold = 0.30015419030906665
+#mac_proj.hypre.bamg_pmax_elmts = 4 
+#mac
+#mac_proj.hypre.bamg_agg_num_levels = 3 
+#mac_proj.hypre.bamg_agg_interp_type = 5 
+#mac_proj.hypre.bamg_agg_pmax_elmts = 5 
+#mac
+#mac_proj.hypre.bamg_smooth_type = 5 
+#mac_proj.hypre.bamg_smooth_num_sweeps = 1 
+#mac_proj.hypre.bamg_smooth_num_levels = 1 
+#mac_proj.hypre.bamg_ilu_type = 0 
+#mac_proj.hypre.bamg_ilu_level = 0 
+#mac_proj.hypre.bamg_ilu_max_iter = 1 
+#mac_proj.hypre.bamg_ilu_reordering_type = 0 
+#mac_proj.hypre.bamg_ilu_tri_solve = 0 
+#mac_proj.hypre.bamg_ilu_lower_jacobi_iters = 13
+#mac_proj.hypre.bamg_ilu_upper_jacobi_iters = 5
+
+#amrex.fpe_trap_invalid = 1
+#amrex.fpe_trap_zero = 1
+#amrex.fpe_trap_overflow = 1
+#
+#
+#
+#
+# MLMG failing is the linear solver - FROM docs/Troubleshooting
+# Generally the projection solves are generally more prone to failure
+# than diffusion ones. Then restart simulation again and iedntify if the
+# code is failing in the nodal projection during the initial velocity,
+# following ScalarReaction, or in the MAC-projection. The verbose helps
+# understanding how the solver fails:
+# 1- if the solver hangs around a small value after an intiial reduction
+# in residuals then it generally means that the solver tolerance is too
+# small for the problem (e.g. mesh is too coarse fo the problem ?). The
+# default relative tolerances in all solvers is 1e-11. One option is to
+# increase the resolution amr.blocking_factor<16 or LARGE FLOW
+# DIVERGENCE accross coarse fine intervaces can lead to the example
+# above. So increase the tolerance of the default solve can help solve
+# the issues:
+# nodal_proj.rtol = 5e-11
+# mac_proj.rtol = 5e-11
+# diffusion.rtol = 5e-11
+# and docs say that it is sometimes necessary to increase the tolerance
+# up to 5ocs say that it is sometimes necessary to increase the
+# tolerance up to 5e-10. In case you need to go higher then probably
+# there is something wrong with the problem and one should take a look
+# at the solution.
+# 2- if the solver residuals continually increase over time then it is a
+# clear indication that the problem is not correctly set up.

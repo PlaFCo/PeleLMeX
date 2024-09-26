@@ -29,6 +29,7 @@ THREAD_SANITIZER = FALSE
 CEXE_headers += EBUserDefined.H
 
 # PelePhysics
+#Chemistry_Model = airThermal
 Chemistry_Model = air
 Eos_Model = Fuego
 Transport_Model = Simple
