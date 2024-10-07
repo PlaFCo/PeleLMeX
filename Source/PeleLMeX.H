@@ -818,6 +818,9 @@ public:
     amrex::Array4<const amrex::Real> const& temp,
     amrex::Array4<const amrex::Real> const& extMom,
     amrex::Array4<const amrex::Real> const& extRho);
+
+  void addSpark(const PeleLM::TimeStamp& a_time);
+
   //-----------------------------------------------------------------------------
 
 #ifdef PELE_USE_SPRAY
@@ -1312,6 +1315,7 @@ public:
   bool isReactVariable(std::string_view a_name);
   int stateVariableIndex(std::string_view a_name);
   int reactVariableIndex(std::string_view a_name);
+  std::string stateVariableName(int a_index);
 
   // Typical values
   void setTypicalValues(const PeleLM::TimeStamp& a_time, int is_init = 0);
@@ -1754,6 +1758,11 @@ public:
     pele::physics::PhysicsType::transport_type>>
     trans_parms;
 
+  // EOS pointer
+  static pele::physics::PeleParams<
+    pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type>>
+    eos_parms;
+
   // Reactor pointer
   std::string m_chem_integrator;
   std::unique_ptr<pele::physics::reactions::ReactorBase> m_reactor;
@@ -1835,6 +1844,15 @@ public:
   int m_do_periodic_channel = 0;
   int m_periodic_channel_dir = -1;
 
+  int m_n_sparks = 0;
+  int m_spark_verbose = 0;
+  amrex::Vector<std::string> m_spark;
+  amrex::Vector<amrex::Real> m_spark_time;
+  amrex::Vector<amrex::Real> m_spark_duration;
+  amrex::Vector<amrex::Vector<amrex::Real>> m_spark_location;
+  amrex::Vector<amrex::Real> m_spark_temp;
+  amrex::Vector<amrex::Real> m_spark_radius;
+
   // DivU ? default ON when not incompressible
   int m_has_divu = 1;
 
@@ -1898,6 +1916,8 @@ public:
   // SDC
   int m_nSDCmax = 1;
   int m_sdcIter = 0;
+  bool m_print_chi_convergence = false;
+  int m_chi_correction_type{ChiCorrectionType::DivuEveryIter};
 
   // DeltaT iterations
   int m_deltaT_verbose = 0;

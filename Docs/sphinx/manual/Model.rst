@@ -237,6 +237,7 @@ the time-explicit advective fluxes for :math:`U`, :math:`\rho h`, and :math:`\rh
 
         S^{MAC} = \frac{1}{2}(\widehat S^n + \widehat S^{n+1,(k)}) + \sum_{i=0}^k \frac{1}{p_{therm}^{n+1,(i)}}\frac{p_{therm}^{n+1,(i)}-p_0}{\Delta t}
 
+     In this update, it is optional whether to update the :math:`\widehat S^{n+1}` term on every SDC iteration, or to simply compute it for :math:`k = 0` and then hold it constant, with the :math:`\chi` correction iterations accounting for changes during the SDC iterations. The latter strategy has been observed to improve convergence in some cases.
 
   #. Perform **Step 1** to obtain the time-centered, staggered :math:`U^{ADV}`
 
@@ -357,6 +358,7 @@ In practice, `PeleLM` will perform a total of 7 single-level advance steps, whil
 
 Geometry with Embedded Boundaries
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _ssec:geoEB:
 
 `PeleLMeX` relies on `AMReX's implementation <https://amrex-codes.github.io/amrex/docs_html/EB_Chapter.html>`_ of
 the Embedded Boundaries (EB) approach to represent geometrical objects. In this approach, the underlying computational

@@ -105,7 +105,14 @@ PeleLM::Setup()
 
   // Initialize EOS and others
   if (m_incompressible == 0) {
+    amrex::Print() << " Initialization of Eos ... \n";
+    eos_parms.initialize();
+
     amrex::Print() << " Initialization of Transport ... \n";
+#ifdef USE_MANIFOLD_EOS
+    trans_parms.host_only_parm().manfunc_par =
+      eos_parms.host_only_parm().manfunc_par;
+#endif
     trans_parms.initialize();
     if ((m_les_verbose != 0) and m_do_les) { // Say what transport model we're
                                              // going to use
@@ -142,6 +149,7 @@ PeleLM::Setup()
       m_reactor =
         pele::physics::reactions::ReactorBase::create(m_chem_integrator);
       m_reactor->init(reactor_type, ncells_chem);
+      m_reactor->set_eos_parm(eos_parms.device_parm());
       // For ReactorNull, we need to also skip instantaneous RR used in divU
       if (m_chem_integrator == "ReactorNull") {
         m_skipInstantRR = 1;
@@ -328,6 +336,47 @@ PeleLM::readParameters()
     pp.get("periodic_channel_dir", m_periodic_channel_dir);
   }
 
+  // Add a "spark", i.e. sphere of heat source to energy equation
+  m_n_sparks = pp.countval("sparks");
+  if (m_n_sparks > 0) {
+    m_spark.resize(m_n_sparks);
+    m_spark_time.resize(m_n_sparks);
+    m_spark_duration.resize(m_n_sparks);
+    m_spark_location.resize(m_n_sparks);
+    m_spark_temp.resize(m_n_sparks);
+    m_spark_radius.resize(m_n_sparks);
+    pp.query("spark_verbose", m_spark_verbose);
+    for (int n = 0; n < m_n_sparks; n++) {
+      pp.get("sparks", m_spark[n], n);
+      std::string spark_prefix = "peleLM." + m_spark[n];
+      ParmParse pps(spark_prefix);
+      pps.get("time", m_spark_time[n]);
+      pps.get("duration", m_spark_duration[n]);
+      m_spark_location[n].resize(AMREX_SPACEDIM);
+      pps.getarr("location", m_spark_location[n], 0, AMREX_SPACEDIM);
+      pps.get("temp", m_spark_temp[n]);
+      pps.get("radius", m_spark_radius[n]);
+    }
+    if (m_spark_verbose > 0) {
+      Print() << "Spark list:" << std::endl;
+      for (int n = 0; n < m_n_sparks; n++) {
+        Print() << "Spark " << n << " name: " << m_spark[n] << std::endl;
+        Print() << "Spark " << n << " time: " << m_spark_time[n] << std::endl;
+        Print() << "Spark " << n << " duration: " << m_spark_duration[n]
+                << std::endl;
+        Print() << "Spark " << n << " location: ";
+        for (int d = 0; d < AMREX_SPACEDIM; d++) {
+          Print() << m_spark_location[n][d] << " ";
+        }
+        Print() << std::endl;
+        Print() << "Spark " << n << " temperature: " << m_spark_temp[n]
+                << std::endl;
+        Print() << "Spark " << n << " radius: " << m_spark_radius[n]
+                << std::endl;
+      }
+    }
+  }
+
   // -----------------------------------------
   // LES
   // -----------------------------------------
@@ -428,6 +477,9 @@ PeleLM::readParameters()
   // advance
   // -----------------------------------------
   pp.query("sdc_iterMax", m_nSDCmax);
+  m_print_chi_convergence = m_verbose > 1;
+  pp.query("print_chi_convergence", m_print_chi_convergence);
+  parseUserKey(pp, "chi_correction_type", chicorr, m_chi_correction_type);
   pp.query("floor_species", m_floor_species);
   pp.query("dPdt_factor", m_dpdtFactor);
   pp.query("memory_checks", m_checkMem);
@@ -599,6 +651,8 @@ PeleLM::readParameters()
     }
   }
   pp.query("isothermal_EB", m_isothermalEB);
+  pp.query("adv_redist_type", m_adv_redist_type);
+  pp.query("diff_redist_type", m_diff_redist_type);
 #endif
 
   // -----------------------------------------

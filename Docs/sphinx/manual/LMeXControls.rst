@@ -246,6 +246,8 @@ PeleLMeX algorithm
     peleLM.num_divu_iter = 1               # [OPT, DEF=1] Number of divU iterations to get initial dt estimate
     peleLM.do_init_proj = 1                # [OPT, DEF=1] Control over initial projection
     peleLM.advection_scheme = Godunov_BDS  # [OPT, DEF=Godunov_PLM] Advection scheme: Godunov_PLM, Godunov_PPM or Godunov_BDS
+    peleLM.chi_correction_type = DivuFirstIter  # [OPT, DEF=DivuEveryIter] When to compute divu for MAC proj divu constraint [DivuEveryIter, DivuFirstIter, NoDivu]
+    peleLM.print_chi_convergence = 1            # [OPT, DEF=(peleLM.v > 1)] Boolean flag on whether to print size of chi correction on each SDC iter
     peleLM.incompressible = 0              # [OPT, DEF=0] Enable to run fully incompressible, scalar advance is bypassed
     peleLM.m_rho = 1.17                    # [OPT, DEF=-1] If incompressible, density value [MKS]
     peleLM.m_mu = 1.8e-5                   # [OPT, DEF=-1] If incompressible, kinematic visc. value [MKS]
@@ -260,6 +262,15 @@ PeleLMeX algorithm
     peleLM.deltaT_tol = 1e-10              # [OPT, DEF=1.e-10] Tolerance of the deltaT solve
     peleLM.evaluate_vars =...              # [OPT, DEF=""] In evaluate mode, list unitTest: diffTerm, divU, instRR, transportCC
 
+    peleLM.spark_verbose = 0               # [OPT, DEF=0] Verbosity of spark ignition
+    peleLM.sparks = spark1 spark2 ...      # [OPT] List of spark names - multiple can be given
+    peleLM.spark1.location = 0.0 0.0 0.0   # [OPT] Spark location (in x,y,z coordinates) [m]
+    peleLM.spark1.temp = 2000.0            # [OPT] Temperature of the spark [K]
+    peleLM.spark1.radius = 1e-3            # [OPT] Radius of the spark [m]
+    peleLM.spark1.duration = 1e-3          # [OPT] Duration of the spark [s]
+    peleLM.spark1.time = 1e-2              # [OPT] Time when spark starts [s]
+    
+    
 Transport coefficients and LES
 ------------------------------
 
@@ -381,6 +392,12 @@ in ``Exec/RegTest/EB_BackwardStepFlame`` and ``Exec/RegTest/EB_FlowPastCylinder`
 
 .. note::
    Note that when using isothermal EB in combination with LES, the thermal diffusion coefficient employed to compute the EB boundary thermal flux only uses the molecular contribution.
+
+Lastly, it is possible to change the default redistribution scheme described in the :ref:`geometry with embedded boundaries section: <ssec:geoEB>`
+::
+
+    peleLM.adv_redist_type = StateRedist  # [OPT, DEF=StateRedist] Redistribution scheme for advection [StateRedist, FluxRedist, NoRedist]
+    peleLM.diff_redist_type = FluxRedist  # [OPT, DEF=FluxRedist]  Redistribution scheme for diffusion [StateRedist, FluxRedist, NoRedist]
 
 Linear solvers
 --------------
