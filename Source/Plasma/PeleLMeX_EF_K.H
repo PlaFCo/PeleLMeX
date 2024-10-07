@@ -88,6 +88,7 @@ getKappaSp(
     if (a_zk[n] != 0.0) {
       Ksp(i, j, k, ionCnt) = rhoD(i, j, k, n) * mwt[n] * 0.001 * a_zk[n] /
                              (rho * PP_RU_MKS * T(i, j, k));
+      // PLASMA TODO : do not put this to 0 for Eamb
       if (n == E_ID)
         Ksp(i, j, k, ionCnt) = 0.0; // Set the E species mobility to zero.
                                     // Electron are treated separately.

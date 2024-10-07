@@ -226,24 +226,34 @@ PeleLM::computeDifferentialDiffusionFluxes(
   auto bcRecSpec = fetchBCRecArray(FIRSTSPEC, NUM_SPECIES);
 
 #ifdef PELE_USE_PLASMA
-  // Get the species diffusion fluxes from the DiffusionOp
-  // Don't average down just yet
   int do_avgDown = 0;
-  getMCDiffusionOp(NUM_SPECIES - NUM_IONS)
-    ->computeDiffFluxes(
-      a_fluxes, 0, GetVecOfConstPtrs(getSpeciesVect(a_time)), 0,
-      GetVecOfConstPtrs(getDensityVect(a_time)),
-      GetVecOfConstPtrs(getDiffusivityVect(a_time)), 0, bcRecSpec,
-      NUM_SPECIES - NUM_IONS, do_avgDown);
-  // Ions one by one
-  for (int n = 0; n < NUM_IONS; n++) {
-    auto bcRecIons = fetchBCRecArray(FIRSTSPEC + NUM_SPECIES - NUM_IONS + n, 1);
-    getDiffusionOp()->computeDiffFluxes(
-      a_fluxes, NUM_SPECIES - NUM_IONS + n,
-      GetVecOfConstPtrs(getSpeciesVect(a_time)), NUM_SPECIES - NUM_IONS + n,
-      GetVecOfConstPtrs(getDensityVect(a_time)),
-      GetVecOfConstPtrs(getDiffusivityVect(a_time)), NUM_SPECIES - NUM_IONS + n,
-      bcRecIons, 1, do_avgDown);
+  if (m_ef_model == EFModel::EFglobal) {
+    // Get the species diffusion fluxes from the DiffusionOp
+    // Don't average down just yet
+    getMCDiffusionOp(NUM_SPECIES - NUM_IONS)
+      ->computeDiffFluxes(
+        a_fluxes, 0, GetVecOfConstPtrs(getSpeciesVect(a_time)), 0,
+        GetVecOfConstPtrs(getDensityVect(a_time)),
+        GetVecOfConstPtrs(getDiffusivityVect(a_time)), 0, bcRecSpec,
+        NUM_SPECIES - NUM_IONS, do_avgDown);
+    // Ions one by one
+    for (int n = 0; n < NUM_IONS; n++) {
+      auto bcRecIons =
+        fetchBCRecArray(FIRSTSPEC + NUM_SPECIES - NUM_IONS + n, 1);
+      getDiffusionOp()->computeDiffFluxes(
+        a_fluxes, NUM_SPECIES - NUM_IONS + n,
+        GetVecOfConstPtrs(getSpeciesVect(a_time)), NUM_SPECIES - NUM_IONS + n,
+        GetVecOfConstPtrs(getDensityVect(a_time)),
+        GetVecOfConstPtrs(getDiffusivityVect(a_time)),
+        NUM_SPECIES - NUM_IONS + n, bcRecIons, 1, do_avgDown);
+    }
+  } else {
+    getMCDiffusionOp(NUM_SPECIES)
+      ->computeDiffFluxes(
+        a_fluxes, 0, GetVecOfConstPtrs(getSpeciesVect(a_time)), 0,
+        GetVecOfConstPtrs(getDensityVect(a_time)),
+        GetVecOfConstPtrs(getDiffusivityVect(a_time)), 0, bcRecSpec,
+        NUM_SPECIES, do_avgDown);
   }
 #else
   // Get the species diffusion fluxes from the DiffusionOp
@@ -907,33 +917,47 @@ PeleLM::differentialDiffusionUpdate(
   auto bcRecSpec = fetchBCRecArray(FIRSTSPEC, NUM_SPECIES);
 
 #ifdef PELE_USE_PLASMA
-  // Solve for \widetilda{rhoY^{np1,kp1}}
-  // -> return the uncorrected fluxes^{np1,kp1}
-  // -> and the partially updated species (not including wbar or flux
-  // correction)
-  getMCDiffusionOp(NUM_SPECIES - NUM_IONS)
-    ->diffuse_scalar(
-      GetVecOfPtrs(getSpeciesVect(AmrNewTime)), 0,
-      GetVecOfConstPtrs(advData->Forcing), 0, GetVecOfArrOfPtrs(fluxes), 0,
-      GetVecOfConstPtrs(
-        getDensityVect(AmrNewTime)), // this is the acoeff of LinOp
-      GetVecOfConstPtrs(
-        getDensityVect(AmrNewTime)), // this triggers proper scaling by density
-      GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)), 0, bcRecSpec,
-      NUM_SPECIES - NUM_IONS, 0, m_dt);
-  // Ions one by one
-  for (int n = 0; n < NUM_IONS; n++) {
-    auto bcRecIons = fetchBCRecArray(FIRSTSPEC + NUM_SPECIES - NUM_IONS + n, 1);
-    getDiffusionOp()->diffuse_scalar(
-      GetVecOfPtrs(getSpeciesVect(AmrNewTime)), NUM_SPECIES - NUM_IONS + n,
-      GetVecOfConstPtrs(advData->Forcing), NUM_SPECIES - NUM_IONS + n,
-      GetVecOfArrOfPtrs(fluxes), NUM_SPECIES - NUM_IONS + n,
-      GetVecOfConstPtrs(
-        getDensityVect(AmrNewTime)), // this is the acoeff of LinOp
-      GetVecOfConstPtrs(
-        getDensityVect(AmrNewTime)), // this triggers proper scaling by density
-      GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)), 0, bcRecIons, 1, 0,
-      m_dt);
+  if (m_ef_model == EFModel::EFglobal) {
+    // Solve for \widetilda{rhoY^{np1,kp1}}
+    // -> return the uncorrected fluxes^{np1,kp1}
+    // -> and the partially updated species (not including wbar or flux
+    // correction)
+    getMCDiffusionOp(NUM_SPECIES - NUM_IONS)
+      ->diffuse_scalar(
+        GetVecOfPtrs(getSpeciesVect(AmrNewTime)), 0,
+        GetVecOfConstPtrs(advData->Forcing), 0, GetVecOfArrOfPtrs(fluxes), 0,
+        GetVecOfConstPtrs(
+          getDensityVect(AmrNewTime)), // this is the acoeff of LinOp
+        GetVecOfConstPtrs(getDensityVect(
+          AmrNewTime)), // this triggers proper scaling by density
+        GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)), 0, bcRecSpec,
+        NUM_SPECIES - NUM_IONS, 0, m_dt);
+    // Ions one by one
+    for (int n = 0; n < NUM_IONS; n++) {
+      auto bcRecIons =
+        fetchBCRecArray(FIRSTSPEC + NUM_SPECIES - NUM_IONS + n, 1);
+      getDiffusionOp()->diffuse_scalar(
+        GetVecOfPtrs(getSpeciesVect(AmrNewTime)), NUM_SPECIES - NUM_IONS + n,
+        GetVecOfConstPtrs(advData->Forcing), NUM_SPECIES - NUM_IONS + n,
+        GetVecOfArrOfPtrs(fluxes), NUM_SPECIES - NUM_IONS + n,
+        GetVecOfConstPtrs(
+          getDensityVect(AmrNewTime)), // this is the acoeff of LinOp
+        GetVecOfConstPtrs(getDensityVect(
+          AmrNewTime)), // this triggers proper scaling by density
+        GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)),
+        NUM_SPECIES - NUM_IONS + n, bcRecIons, 1, 0, m_dt);
+    }
+  } else {
+    getMCDiffusionOp(NUM_SPECIES)
+      ->diffuse_scalar(
+        GetVecOfPtrs(getSpeciesVect(AmrNewTime)), 0,
+        GetVecOfConstPtrs(advData->Forcing), 0, GetVecOfArrOfPtrs(fluxes), 0,
+        GetVecOfConstPtrs(
+          getDensityVect(AmrNewTime)), // this is the acoeff of LinOp
+        GetVecOfConstPtrs(getDensityVect(
+          AmrNewTime)), // this triggers proper scaling by density
+        GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)), 0, bcRecSpec,
+        NUM_SPECIES, 0, m_dt);
   }
 #else
   // Solve for \widetilda{rhoY^{np1,kp1}}

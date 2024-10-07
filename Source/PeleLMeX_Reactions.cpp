@@ -80,19 +80,21 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
 
 #ifdef PELE_USE_PLASMA
     // Pass nE -> rhoY_e & FnE -> FrhoY_e
-    auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
-    auto const& FnE = a_extForcing.array(mfi, NUM_SPECIES + 1);
-    auto const& rhoYe_n = ldataNew_p->state.array(mfi, FIRSTSPEC + E_ID);
-    auto const& FrhoYe = a_extForcing.array(mfi, E_ID);
-    auto eos = pele::physics::PhysicsType::eos(&eos_parms.host_parm());
-    Real mwt[NUM_SPECIES] = {0.0};
-    eos.molecular_weight(mwt);
-    ParallelFor(
-      bx, [mwt, nE_o, FnE, rhoYe_n,
-           FrhoYe] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        rhoYe_n(i, j, k) = nE_o(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
-        FrhoYe(i, j, k) = FnE(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
-      });
+    if (m_ef_model == EFModel::EFglobal) {
+      auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
+      auto const& FnE = a_extForcing.array(mfi, NUM_SPECIES + 1);
+      auto const& rhoYe_n = ldataNew_p->state.array(mfi, FIRSTSPEC + E_ID);
+      auto const& FrhoYe = a_extForcing.array(mfi, E_ID);
+      auto eos = pele::physics::PhysicsType::eos(&eos_parms.host_parm());
+      Real mwt[NUM_SPECIES] = {0.0};
+      eos.molecular_weight(mwt);
+      ParallelFor(
+        bx, [mwt, nE_o, FnE, rhoYe_n,
+             FrhoYe] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          rhoYe_n(i, j, k) = nE_o(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
+          FrhoYe(i, j, k) = FnE(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
+        });
+    }
 #endif
 
     Real dt_incr = a_dt;
@@ -121,16 +123,20 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
 
 #ifdef PELE_USE_PLASMA
     // rhoY_e -> nE and set rhoY_e to zero
-    auto const& nE_n = ldataNew_p->state.array(mfi, NE);
-    Real invmwt[NUM_SPECIES] = {0.0};
-    eos.inv_molecular_weight(invmwt);
-    ParallelFor(
-      bx, [invmwt, nE_n, rhoYe_n,
-           extF_rhoY] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        nE_n(i, j, k) = rhoYe_n(i, j, k) * Na * invmwt[E_ID] * 1.0e3;
-        rhoYe_n(i, j, k) = 0.0;
-        extF_rhoY(i, j, k, E_ID) = 0.0;
-      });
+    if (m_ef_model == EFModel::EFglobal) {
+      auto eos = pele::physics::PhysicsType::eos();
+      auto const& nE_n = ldataNew_p->state.array(mfi, NE);
+      auto const& rhoYe_n = ldataNew_p->state.array(mfi, FIRSTSPEC + E_ID);
+      Real invmwt[NUM_SPECIES] = {0.0};
+      eos.inv_molecular_weight(invmwt);
+      ParallelFor(
+        bx, [invmwt, nE_n, rhoYe_n,
+             extF_rhoY] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          nE_n(i, j, k) = rhoYe_n(i, j, k) * Na * invmwt[E_ID] * 1.0e3;
+          rhoYe_n(i, j, k) = 0.0;
+          extF_rhoY(i, j, k, E_ID) = 0.0;
+        });
+    }
 #endif
 
 #ifdef AMREX_USE_GPU
@@ -160,16 +166,18 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
       });
 
 #ifdef PELE_USE_PLASMA
-    auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
-    auto const& nE_n = ldataNew_p->state.const_array(mfi, NE);
-    auto const& FnE = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
-    auto const& nEdot = ldataR_p->I_R.array(mfi, NUM_SPECIES);
-    ParallelFor(
-      bx, [nE_o, nE_n, FnE, nEdot,
-           dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        nEdot(i, j, k) =
-          -(nE_o(i, j, k) - nE_n(i, j, k)) * dt_inv - FnE(i, j, k);
-      });
+    if (m_ef_model == EFModel::EFglobal) {
+      auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
+      auto const& nE_n = ldataNew_p->state.const_array(mfi, NE);
+      auto const& FnE = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
+      auto const& nEdot = ldataR_p->I_R.array(mfi, NUM_SPECIES);
+      ParallelFor(
+        bx, [nE_o, nE_n, FnE, nEdot,
+             dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          nEdot(i, j, k) =
+            -(nE_o(i, j, k) - nE_n(i, j, k)) * dt_inv - FnE(i, j, k);
+        });
+    }
 #endif
   }
 }
@@ -241,19 +249,21 @@ PeleLM::advanceChemistryBAChem(
 
 #ifdef PELE_USE_PLASMA
     // Pass nE -> rhoY_e & FnE -> FrhoY_e
-    auto const& nE_o = chemnE.array(mfi);
-    auto const& FnE = chemForcing.array(mfi, NUM_SPECIES + 1);
-    auto const& rhoYe_o = chemState.array(mfi, E_ID);
-    auto const& FrhoYe = chemForcing.array(mfi, E_ID);
-    auto eos = pele::physics::PhysicsType::eos(&eos_parms.host_parm());
-    Real mwt[NUM_SPECIES] = {0.0};
-    eos.molecular_weight(mwt);
-    ParallelFor(
-      bx, [mwt, nE_o, FnE, rhoYe_o,
-           FrhoYe] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        rhoYe_o(i, j, k) = nE_o(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
-        FrhoYe(i, j, k) = FnE(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
-      });
+    if (m_ef_model == EFModel::EFglobal) {
+      auto const& nE_o = chemnE.array(mfi);
+      auto const& FnE = chemForcing.array(mfi, NUM_SPECIES + 1);
+      auto const& rhoYe_o = chemState.array(mfi, E_ID);
+      auto const& FrhoYe = chemForcing.array(mfi, E_ID);
+      auto eos = pele::physics::PhysicsType::eos(&eos_parms.host_parm());
+      Real mwt[NUM_SPECIES] = {0.0};
+      eos.molecular_weight(mwt);
+      ParallelFor(
+        bx, [mwt, nE_o, FnE, rhoYe_o,
+             FrhoYe] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          rhoYe_o(i, j, k) = nE_o(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
+          FrhoYe(i, j, k) = FnE(i, j, k) / Na * mwt[E_ID] * 1.0e-6;
+        });
+    }
 #endif
 
     // Do reaction only on uncovered box
@@ -290,14 +300,19 @@ PeleLM::advanceChemistryBAChem(
 
 #ifdef PELE_USE_PLASMA
     // rhoY_e -> nE and set rhoY_e to zero
-    Real invmwt[NUM_SPECIES] = {0.0};
-    eos.inv_molecular_weight(invmwt);
-    ParallelFor(
-      bx,
-      [invmwt, nE_o, rhoYe_o] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        nE_o(i, j, k) = rhoYe_o(i, j, k) * Na * invmwt[E_ID] * 1.0e3;
-        rhoYe_o(i, j, k) = 0.0;
-      });
+    if (m_ef_model == EFModel::EFglobal) {
+      auto eos = pele::physics::PhysicsType::eos();
+      auto const& nE_o = chemnE.array(mfi);
+      auto const& rhoYe_o = chemState.array(mfi, E_ID);
+      Real invmwt[NUM_SPECIES] = {0.0};
+      eos.inv_molecular_weight(invmwt);
+      ParallelFor(
+        bx,
+        [invmwt, nE_o, rhoYe_o] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          nE_o(i, j, k) = rhoYe_o(i, j, k) * Na * invmwt[E_ID] * 1.0e3;
+          rhoYe_o(i, j, k) = 0.0;
+        });
+    }
 #endif
 
 #ifdef AMREX_USE_GPU
@@ -348,20 +363,22 @@ PeleLM::advanceChemistryBAChem(
       });
 
 #ifdef PELE_USE_PLASMA
-    auto const& nE_arr = nETemp.const_array(mfi);
-    auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
-    auto const& nE_n = ldataNew_p->state.array(mfi, NE);
-    auto const& FnE = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
-    auto const& nEdot = ldataR_p->I_R.array(mfi, NUM_SPECIES);
-    ParallelFor(
-      bx, [nE_arr, nE_o, nE_n, FnE, nEdot,
-           dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        // Pass into leveldata_new
-        nE_n(i, j, k) = nE_arr(i, j, k);
-        // Compute I_R
-        nEdot(i, j, k) =
-          -(nE_o(i, j, k) - nE_n(i, j, k)) * dt_inv - FnE(i, j, k);
-      });
+    if (m_ef_model == EFModel::EFglobal) {
+      auto const& nE_arr = nETemp.const_array(mfi);
+      auto const& nE_o = ldataOld_p->state.const_array(mfi, NE);
+      auto const& nE_n = ldataNew_p->state.array(mfi, NE);
+      auto const& FnE = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
+      auto const& nEdot = ldataR_p->I_R.array(mfi, NUM_SPECIES);
+      ParallelFor(
+        bx, [nE_arr, nE_o, nE_n, FnE, nEdot,
+             dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          // Pass into leveldata_new
+          nE_n(i, j, k) = nE_arr(i, j, k);
+          // Compute I_R
+          nEdot(i, j, k) =
+            -(nE_o(i, j, k) - nE_n(i, j, k)) * dt_inv - FnE(i, j, k);
+        });
+    }
 #endif
   }
 }
@@ -372,7 +389,11 @@ PeleLM::computeInstantaneousReactionRate(
 {
   for (int lev = 0; lev <= finest_level; ++lev) {
 #ifdef PELE_USE_PLASMA
-    computeInstantaneousReactionRateEF(lev, a_time, I_R[lev]);
+    if (m_ef_model == EFModel::EFglobal) {
+      computeInstantaneousReactionRateEF(lev, a_time, I_R[lev]);
+    } else {
+      computeInstantaneousReactionRate(lev, a_time, I_R[lev]);
+    }
 #else
     computeInstantaneousReactionRate(lev, a_time, I_R[lev]);
 #endif

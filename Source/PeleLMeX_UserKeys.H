@@ -162,6 +162,22 @@ struct LoadBalanceMethod
 const LoadBalanceMethod lbmethod;
 
 /**
+  * \brief struct holding PeleLMeX EF model options
+           default is
+  */
+struct EFModel
+{
+  EFModel() = default;
+  enum { EFglobal = 0, EFambipolar };
+  const std::map<const std::string, int> str2int = {
+    {"efglobal", EFglobal},
+    {"efambipolar", EFambipolar},
+    {"default", EFglobal}};
+  const amrex::Array<std::string, 1> searchKey{"ef_model"};
+};
+const EFModel efmodel;
+
+/**
   * \brief struct holding PeleLMeX DivU/chi constraint options
            default is DivuEveryIter
   */

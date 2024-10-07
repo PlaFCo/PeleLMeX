@@ -388,12 +388,16 @@ PeleLM::MakeNewLevelFromCoarse(
   m_resetCoveredMask = 1;
 
 #ifdef PELE_USE_PLASMA
-  m_leveldatanlsolve[lev].reset(
-    new LevelDataNLSolve(ba, dm, *m_factory[lev], m_nGrowState));
+  if (m_ef_model == EFModel::EFglobal) {
+    m_leveldatanlsolve[lev].reset(
+      new LevelDataNLSolve(ba, dm, *m_factory[lev], m_nGrowState));
+  }
   if (m_do_extraEFdiags) {
     m_ionsFluxes[lev].reset(new MultiFab(ba, dm, NUM_IONS * AMREX_SPACEDIM, 0));
   }
-  m_precond_op.reset();
+  if (m_ef_model == EFModel::EFglobal) {
+    m_precond_op.reset();
+  }
 #endif
 
   // Load balance
@@ -499,12 +503,16 @@ PeleLM::RemakeLevel(
   }
 
 #ifdef PELE_USE_PLASMA
-  m_leveldatanlsolve[lev].reset(
-    new LevelDataNLSolve(ba, dm, *m_factory[lev], m_nGrowState));
+  if (m_ef_model == EFModel::EFglobal) {
+    m_leveldatanlsolve[lev].reset(
+      new LevelDataNLSolve(ba, dm, *m_factory[lev], m_nGrowState));
+  }
   if (m_do_extraEFdiags) {
     m_ionsFluxes[lev].reset(new MultiFab(ba, dm, NUM_IONS * AMREX_SPACEDIM, 0));
   }
-  m_precond_op.reset();
+  if (m_ef_model == EFModel::EFglobal) {
+    m_precond_op.reset();
+  }
 #endif
 
   // Load balance
@@ -544,7 +552,9 @@ PeleLM::ClearLevel(int lev)
   m_diffusionTensor_op.reset();
   macproj.reset();
 #ifdef PELE_USE_PLASMA
-  m_leveldatanlsolve[lev].reset();
+  if (m_ef_model == EFModel::EFglobal) {
+    m_leveldatanlsolve[lev].reset();
+  }
   if (m_do_extraEFdiags) {
     m_ionsFluxes[lev].reset();
   }

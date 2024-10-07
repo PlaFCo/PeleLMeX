@@ -343,6 +343,7 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
 #ifdef PELE_USE_PLASMA
     //----------------------------------------------------------------
     // Assemble drift and mac velocities
+    // PLASMA TODO change
     ionDriftAddUmac(lev, advData);
 #endif
 

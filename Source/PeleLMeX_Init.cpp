@@ -84,8 +84,10 @@ PeleLM::MakeNewLevelFromScratch(
   }
 
 #ifdef PELE_USE_PLASMA
-  m_leveldatanlsolve[lev].reset(
-    new LevelDataNLSolve(grids[lev], dmap[lev], *m_factory[lev], m_nGrowState));
+  if (m_ef_model == EFModel::EFglobal) {
+    m_leveldatanlsolve[lev].reset(new LevelDataNLSolve(
+      grids[lev], dmap[lev], *m_factory[lev], m_nGrowState));
+  }
   if (m_do_extraEFdiags) {
     m_ionsFluxes[lev].reset(
       new MultiFab(grids[lev], dmap[lev], NUM_IONS * AMREX_SPACEDIM, 0));
@@ -275,8 +277,10 @@ PeleLM::initData()
       }
 
       // do an initial Poisson solve
-      fillPatchPhiV(AmrNewTime);
-      poissonSolveEF(AmrNewTime);
+      if (m_ef_model == EFModel::EFglobal) {
+        fillPatchPhiV(AmrNewTime);
+        poissonSolveEF(AmrNewTime);
+      }
 
       // Reset time data
       if (m_restart_resetTime) {
@@ -375,8 +379,10 @@ PeleLM::projectInitSolution()
   const int is_init = 1;
 
 #ifdef PELE_USE_PLASMA
-  poissonSolveEF(AmrNewTime);
-  fillPatchPhiV(AmrNewTime);
+  if (m_ef_model == EFModel::EFglobal) {
+    poissonSolveEF(AmrNewTime);
+    fillPatchPhiV(AmrNewTime);
+  }
 #endif
 
   // Post data Init time step estimate

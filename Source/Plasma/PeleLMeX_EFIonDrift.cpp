@@ -21,30 +21,39 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
 
   //----------------------------------------------------------------
   // Get the gradient of Old and New phiV
-  Vector<Array<MultiFab, AMREX_SPACEDIM>> gphiVOld(finest_level + 1);
-  Vector<Array<MultiFab, AMREX_SPACEDIM>> gphiVNew(finest_level + 1);
+  Vector<Array<MultiFab, AMREX_SPACEDIM>> EOld(finest_level + 1);
+  Vector<Array<MultiFab, AMREX_SPACEDIM>> ENew(finest_level + 1);
   int nGrow = 0; // No need for ghost face on gphiV
   for (int lev = 0; lev <= finest_level; ++lev) {
     const auto& ba = grids[lev];
     const auto& factory = Factory(lev);
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      gphiVOld[lev][idim].define(
+      EOld[lev][idim].define(
         amrex::convert(ba, IntVect::TheDimensionVector(idim)), dmap[lev], 1,
         nGrow, MFInfo(), factory);
-      gphiVNew[lev][idim].define(
+      ENew[lev][idim].define(
         amrex::convert(ba, IntVect::TheDimensionVector(idim)), dmap[lev], 1,
         nGrow, MFInfo(), factory);
     }
   }
 
-  int do_avgDown = 0; // TODO or should I ?
-  auto bcRecPhiV = fetchBCRecArray(PHIV, 1);
-  getDiffusionOp()->computeGradient(
-    GetVecOfArrOfPtrs(gphiVOld), {}, // don't need the laplacian out
-    GetVecOfConstPtrs(getPhiVVect(AmrOldTime)), bcRecPhiV[0], do_avgDown);
-  getDiffusionOp()->computeGradient(
-    GetVecOfArrOfPtrs(gphiVNew), {}, // don't need the laplacian out
-    GetVecOfConstPtrs(getPhiVVect(AmrNewTime)), bcRecPhiV[0], do_avgDown);
+  if (m_ef_model == EFModel::EFglobal) { // E is grad PhiV
+    int do_avgDown = 0;                  // TODO or should I ?
+    auto bcRecPhiV = fetchBCRecArray(PHIV, 1);
+    getDiffusionOp()->computeGradient(
+      GetVecOfArrOfPtrs(EOld), {}, // don't need the laplacian out
+      GetVecOfConstPtrs(getPhiVVect(AmrOldTime)), bcRecPhiV[0], do_avgDown);
+    getDiffusionOp()->computeGradient(
+      GetVecOfArrOfPtrs(ENew), {}, // don't need the laplacian out
+      GetVecOfConstPtrs(getPhiVVect(AmrNewTime)), bcRecPhiV[0], do_avgDown);
+  } else { // Eamb
+    for (int lev = 0; lev <= finest_level; ++lev) {
+      for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+        EOld[lev][idim].setVal(0.0);
+        ENew[lev][idim].setVal(0.0);
+      }
+    }
+  }
 
   //----------------------------------------------------------------
   // TODO : this assumes that all the ions are grouped together at th end ...
@@ -87,8 +96,8 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
       for (MFIter mfi(mobH_ec[idim], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         const Box bx = mfi.tilebox();
         const auto& mob_h = mobH_ec[idim].const_array(mfi);
-        const auto& gp_o = gphiVOld[lev][idim].const_array(mfi);
-        const auto& gp_n = gphiVNew[lev][idim].const_array(mfi);
+        const auto& gp_o = EOld[lev][idim].const_array(mfi);
+        const auto& gp_n = ENew[lev][idim].const_array(mfi);
         const auto& Ud_Sp = advData->uDrift[lev][idim].array(mfi);
         amrex::ParallelFor(
           bx, NUM_IONS,

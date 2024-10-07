@@ -268,6 +268,9 @@ PeleLM::readParameters()
     }
   }
 
+  // Get the type of EF approximation
+  parseUserKey(ppef, "ef_model", efmodel, m_ef_model);
+
   // Get the polarity of BCs
   ppef.getarr("phiV_polarity_lo", lo_bc_char, 0, AMREX_SPACEDIM);
   ppef.getarr("phiV_polarity_hi", hi_bc_char, 0, AMREX_SPACEDIM);
@@ -1102,6 +1105,7 @@ PeleLM::derivedSetup()
     grow_box_by_two);
 
 #ifdef PELE_USE_PLASMA
+  // PLASMA TODO
   // Charge distribution
   derive_lst.add(
     "chargedistrib", IndexType::TheCellType(), 1, pelelmex_derchargedist,
@@ -1373,7 +1377,9 @@ PeleLM::resizeArray()
   m_baChemFlag.resize(max_level + 1);
 
 #ifdef PELE_USE_PLASMA
-  m_leveldatanlsolve.resize(max_level + 1);
+  if (m_ef_model == EFModel::EFglobal) {
+    m_leveldatanlsolve.resize(max_level + 1);
+  }
   m_ionsFluxes.resize(max_level + 1);
 #endif
 

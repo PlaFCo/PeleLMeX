@@ -45,6 +45,7 @@ PeleLM::LevelData::LevelData(
     }
 
 #ifdef PELE_USE_PLASMA
+    // PLASMA TODO do we need these
     diffE_cc.define(ba, dm, 1, 1, MFInfo(), factory);
     mobE_cc.define(ba, dm, 1, 1, MFInfo(), factory);
     mob_cc.define(ba, dm, NUM_IONS, 1, MFInfo(), factory);
@@ -160,7 +161,12 @@ PeleLM::AdvanceAdvData::AdvanceAdvData(
   const amrex::Vector<std::unique_ptr<amrex::FabFactory<FArrayBox>>>& factory,
   int a_incompressible,
   int nGrowAdv,
-  int nGrowMAC)
+  int nGrowMAC
+#ifdef PELE_USE_PLASMA
+  ,
+  int a_ef_model
+#endif
+)
 {
   // Resize Vectors
   umac.resize(a_finestLevel + 1);
@@ -192,15 +198,13 @@ PeleLM::AdvanceAdvData::AdvanceAdvData(
     } else {
       AofS[lev].define(ba[lev], dm[lev], NVAR, 0, MFInfo(), *factory[lev]);
       chi[lev].define(ba[lev], dm[lev], 1, 1, MFInfo(), *factory[lev]);
+      int ncomp_force = NUM_SPECIES + 1; // Species + TEMP
 #ifdef PELE_USE_PLASMA
-      Forcing[lev].define(
-        ba[lev], dm[lev], NUM_SPECIES + 2, nGrowAdv, MFInfo(),
-        *factory[lev]); // Species + TEMP + nE
-#else
-      Forcing[lev].define(
-        ba[lev], dm[lev], NUM_SPECIES + 1, nGrowAdv, MFInfo(),
-        *factory[lev]); // Species + TEMP
+      // PLASMA TODO
+      ncomp_force += 1; // add NE
 #endif
+      Forcing[lev].define(
+        ba[lev], dm[lev], ncomp_force, nGrowAdv, MFInfo(), *factory[lev]);
       mac_divu[lev].define(
         ba[lev], dm[lev], 1, nGrowAdv, MFInfo(), *factory[lev]);
     }

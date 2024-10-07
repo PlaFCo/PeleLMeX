@@ -175,18 +175,21 @@ PeleLM::setBoundaryConditions()
     }
 
 #ifdef PELE_USE_PLASMA
-    // nE
-    for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      m_bcrec_state[NE].setLo(idim, nE_bc[lo_bc[idim]]);
-      m_bcrec_state[NE].setHi(idim, nE_bc[hi_bc[idim]]);
-    }
 
-    // Get m_phiV_bc
-    const int* lo_phibc = m_phiV_bc.lo();
-    const int* hi_phibc = m_phiV_bc.hi();
-    for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      m_bcrec_state[PHIV].setLo(idim, phiV_bc[lo_phibc[idim]]);
-      m_bcrec_state[PHIV].setHi(idim, phiV_bc[hi_phibc[idim]]);
+    if (m_ef_model == EFModel::EFglobal) {
+      // nE
+      for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+        m_bcrec_state[NE].setLo(idim, nE_bc[lo_bc[idim]]);
+        m_bcrec_state[NE].setHi(idim, nE_bc[hi_bc[idim]]);
+      }
+
+      // Get m_phiV_bc
+      const int* lo_phibc = m_phiV_bc.lo();
+      const int* hi_phibc = m_phiV_bc.hi();
+      for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+        m_bcrec_state[PHIV].setLo(idim, phiV_bc[lo_phibc[idim]]);
+        m_bcrec_state[PHIV].setHi(idim, phiV_bc[hi_phibc[idim]]);
+      }
     }
 
     // Hack charged species BCs
@@ -199,10 +202,12 @@ PeleLM::setBoundaryConditions()
           hackBCChargedParticle(zk[FIRSTIONinSpec + n], bcIonSave);
       }
     }
-    // Need to hack nE too actually ...
-    for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      auto const bcnESave = m_bcrec_state[NE];
-      m_bcrec_state[NE] = hackBCChargedParticle(-1.0, bcnESave);
+    if (m_ef_model == EFModel::EFglobal) {
+      // Need to hack nE too actually ...
+      for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+        auto const bcnESave = m_bcrec_state[NE];
+        m_bcrec_state[NE] = hackBCChargedParticle(-1.0, bcnESave);
+      }
     }
 #endif
 #ifdef PELE_USE_SOOT
@@ -332,6 +337,7 @@ PeleLM::fillPatchReact(int lev, Real a_time, int nGrow)
 
   int IRsize = NUM_SPECIES;
 #ifdef PELE_USE_PLASMA
+  // PLASMA TODO
   IRsize += 1;
 #endif
   std::unique_ptr<MultiFab> mf;
