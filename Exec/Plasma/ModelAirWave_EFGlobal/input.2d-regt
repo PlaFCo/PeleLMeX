@@ -46,14 +46,13 @@ peleLM.num_init_iter = 0
 #amr.check_int = 2000
 amr.plot_int = 10
 amr.plot_overwrite = true
-#amr.plot_file = "plt_NoDrift_"
-amr.max_step = 100
+amr.max_step = 10
 amr.dt_shrink = 0.01
 amr.fixed_dt = 2.0e-6
 amr.stop_time = 0.005
 #amr.stop_time = 1.00
 amr.cfl = 0.2
-amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib diffcoeff y_velocity
+amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib diffcoeff y_velocity efieldx efieldy
 
 #---------------------- Reactor CONTROL --------------------------
 #peleLM.chem_integrator = "ReactorCvode"
@@ -61,9 +60,9 @@ amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib diffco
 #cvode.solve_type = dense_direct         # CVODE Linear solve type (for Newton direction)
 
 #--------------------PLASMA CONTROL------------------------
-ef.ef_model = "efambipolar"
-ef.phiV_lo_bc = Interior Dirichlet
-ef.phiV_hi_bc = Interior Dirichlet
+#ef.ef_model = "efambipolar"
+ef.phiV_lo_bc = Interior Neumann
+ef.phiV_hi_bc = Interior Neumann
 ef.phiV_polarity_lo = Neutral Neutral
 ef.phiV_polarity_hi = Neutral Neutral
 ef.GMRES_rel_tol  = 1.0e-6
@@ -86,10 +85,8 @@ gmres.krylovBasis_size = 20
 gmres.verbose  = 0
 gmres.max_restart = 3 
 
-mac_proj.verbose = 1
+mac_proj.verbose = 0
 mac_proj.atol = 1e-10
-nodal_proj.verbose = 2
-nodal_proj.atol = 1e-10
 
 #--------------------REFINEMENT CONTROL------------------------
 #amr.refinement_indicators = temp
@@ -104,8 +101,8 @@ nodal_proj.atol = 1e-10
 
 amr.refinement_indicators = yE
 amr.yE.max_level     = 3
-amr.yE.value_greater = 1.0e-17
-amr.yE.field_name    = Y(E)
+amr.yE.value_greater = 1.0e13
+amr.yE.field_name    = nE
 
 #amrex.fpe_trap_invalid = 1
 #amrex.fpe_trap_zero = 1
