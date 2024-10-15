@@ -46,7 +46,125 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
     getDiffusionOp()->computeGradient(
       GetVecOfArrOfPtrs(ENew), {}, // don't need the laplacian out
       GetVecOfConstPtrs(getPhiVVect(AmrNewTime)), bcRecPhiV[0], do_avgDown);
-  } else { // Eamb
+  } else if (m_ef_model == EFModel::EFlocal) { // Eamb
+    for (int lev = 0; lev <= finest_level; ++lev) {
+      //---------------------------------------------------------------
+      // Compute the old and new charge distribution
+      //---------------------------------------------------------------
+      const auto geomdata = geom[lev].data();
+      int nGhost = 1;
+      auto ChargeOld_CC = MultiFab(grids[lev], dmap[lev],
+                              1, nGhost, MFInfo(), *m_factory[lev]);
+      auto ChargeNew_CC = MultiFab(grids[lev], dmap[lev],
+                              1, nGhost, MFInfo(), *m_factory[lev]);
+
+      // Get level data
+      auto ldataOld_p = getLevelDataPtr(lev, AmrOldTime);
+      auto ldataNew_p = getLevelDataPtr(lev, AmrNewTime);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+      for (MFIter mfi(ChargeOld_CC, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.growntilebox();
+        auto const& rhoYOld =  ldataOld_p->state.const_array(mfi, FIRSTSPEC);
+        auto const& rhoYNew =  ldataNew_p->state.const_array(mfi, FIRSTSPEC);
+        //auto const& nEOld = ldataOld_p->state.const_array(mfi, NE);
+        //auto const& nENew = ldataNew_p->state.const_array(mfi, NE);
+        auto const& ChO = ChargeOld_CC.array(mfi);
+        auto const& ChN = ChargeNew_CC.array(mfi);
+        Real factor = 1.0 / (eps0*epsr);
+        amrex::ParallelFor(
+          bx, [ChO, ChN, rhoYOld, rhoYNew, factor,
+               zk = zk] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            ChO(i, j, k) = 0.0; //-nEOld(i, j, k) * elemCharge * factor;
+            ChN(i, j, k) = 0.0; //-nEOld(i, j, k) * elemCharge * factor;
+            for (int n = 0; n < NUM_SPECIES; n++) {
+              ChO(i, j, k) += zk[n] * rhoYOld(i, j, k, n) * factor;
+              ChN(i, j, k) += zk[n] * rhoYNew(i, j, k, n) * factor;
+            }
+          });
+      }
+
+      //---------------------------------------------------------------
+      // Compute EField
+      //---------------------------------------------------------------
+      const amrex::Real* dx = geomdata.CellSize();
+      for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+        EOld[lev][idim].setVal(0.0);
+        ENew[lev][idim].setVal(0.0);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MFIter mfi(EOld[lev][idim], TilingIfNotGPU()); mfi.isValid();
+             ++mfi) {
+          const Box bx = mfi.tilebox();
+          const auto& ef_old = EOld[lev][idim].array(mfi);
+          const auto& ef_new = ENew[lev][idim].array(mfi);
+          const auto& ChO = ChargeOld_CC.const_array(mfi);
+          const auto& ChN = ChargeNew_CC.const_array(mfi);
+          if (idim == 0) {
+            amrex::ParallelFor(
+              bx, 
+              [ef_old, ef_new, ChO, ChN, dx] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                ef_old(i, j, k) = (ChO(i, j, k) - ChO(i-1, j, k));///dx[0];
+                ef_new(i, j, k) = (ChN(i, j, k) - ChN(i-1, j, k));///dx[0];
+              });
+          } else if (idim == 1) {
+            amrex::ParallelFor(
+              bx, 
+              [ef_old, ef_new, ChO, ChN, dx] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                ef_old(i, j, k) = (ChO(i, j, k) - ChO(i, j-1, k));///dx[1];
+                ef_new(i, j, k) = (ChN(i, j, k) - ChN(i, j-1, k));///dx[1];
+              });
+          } else if (idim == 2) {
+            amrex::ParallelFor(
+              bx, 
+              [ef_old, ef_new, ChO, ChN, dx] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                ef_old(i, j, k) = (ChO(i, j, k) - ChO(i, j, k-1));///dx[2];
+                ef_new(i, j, k) = (ChN(i, j, k) - ChN(i, j, k-1));///dx[2];
+              });
+          }
+        }
+        //EOld[lev][idim].setVal(0.0);
+        //ENew[lev][idim].setVal(0.0);
+      }
+    }
+  
+    //---------------------------------------------------------------
+    // Average down efield faces to make consistent across levels
+    //---------------------------------------------------------------
+    // Average down the fluxes
+    for (int lev = finest_level; lev > 0; --lev) {
+#ifdef AMREX_USE_EB
+      EB_average_down_faces(
+        GetArrOfConstPtrs(EOld[lev]), GetArrOfPtrs(EOld[lev - 1]), 
+        refRatio(lev - 1), geom[lev - 1]); 
+      EB_average_down_faces(
+        GetArrOfConstPtrs(ENew[lev]), GetArrOfPtrs(ENew[lev - 1]), 
+        refRatio(lev - 1), geom[lev - 1]); 
+#else
+      average_down_faces(
+        GetArrOfConstPtrs(EOld[lev]), GetArrOfPtrs(EOld[lev - 1]), 
+        refRatio(lev - 1), geom[lev - 1]); 
+      average_down_faces(
+        GetArrOfConstPtrs(ENew[lev]), GetArrOfPtrs(ENew[lev - 1]), 
+        refRatio(lev - 1), geom[lev - 1]); 
+#endif
+    }
+
+    //Vector<std::unique_ptr<MultiFab>> EF_CC(finest_level + 1);
+    //for (int lev = 0; lev <= finest_level; ++lev) {
+    //  EF_CC[lev].reset(new MultiFab(
+    //    grids[lev], dmap[lev], AMREX_SPACEDIM, 0, MFInfo(), *m_factory[lev]));
+    //  EF_CC[lev]->setVal(0.0);
+    //  average_face_to_cellcenter(
+    //    *EF_CC[lev], 0, GetArrOfConstPtrs(ENew[lev]));
+    //}
+    //WriteDebugPlotFile(GetVecOfConstPtrs(EF_CC),"plt_EF_CCNew_test_"+std::to_string(m_nstep));
+    //amrex::Abort();
+  } else {
     for (int lev = 0; lev <= finest_level; ++lev) {
       for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
         EOld[lev][idim].setVal(0.0);
