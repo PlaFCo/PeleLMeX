@@ -42,15 +42,15 @@ peleLM.sdc_iterMax = 2
 peleLM.floor_species = 0
 peleLM.num_init_iter = 0
 
-#amr.restart = chk00005
-#amr.check_int = 2000
-amr.plot_int = 10
+#amr.restart = chk00200
+amr.check_int = 2000
+amr.plot_int = 50
 amr.plot_overwrite = true
 #amr.plot_file = "plt_NoDrift_"
-amr.max_step = 100
-amr.dt_shrink = 0.01
-amr.fixed_dt = 2.0e-6
-amr.stop_time = 0.005
+amr.max_step = 200
+amr.dt_shrink = 0.1
+amr.fixed_dt = 5.0e-10
+amr.stop_time = 0.001
 #amr.stop_time = 1.00
 amr.cfl = 0.2
 amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib diffcoeff y_velocity
@@ -61,7 +61,7 @@ amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib diffco
 #cvode.solve_type = dense_direct         # CVODE Linear solve type (for Newton direction)
 
 #--------------------PLASMA CONTROL------------------------
-ef.ef_model = "efambipolar"
+ef.ef_model = "eflocal"
 ef.phiV_lo_bc = Interior Dirichlet
 ef.phiV_hi_bc = Interior Dirichlet
 ef.phiV_polarity_lo = Neutral Neutral
