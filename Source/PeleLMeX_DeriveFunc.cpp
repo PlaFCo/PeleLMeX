@@ -9,6 +9,9 @@
 #include <AMReX_EBFabFactory.H>
 #include <AMReX_EBFArrayBox.H>
 #endif
+#ifdef PELE_USE_PLASMA
+#include <PeleLMeX_EF_K.H>
+#endif
 
 using namespace amrex;
 
@@ -1367,6 +1370,13 @@ pelelmex_derdiffc(
   bool do_fixed_Pr = (a_pelelm->m_fixed_Pr != 0);
   bool do_soret = (a_pelelm->m_use_soret != 0);
   FArrayBox dummies(bx, NUM_SPECIES + 2, The_Async_Arena());
+#ifdef PELE_USE_PLASMA
+  FArrayBox plasma_dummies(bx, 1, The_Async_Arena());
+  auto kappa_E = plasma_dummies.array();
+  auto rhoD_E = derfab.array(dcomp+E_ID);
+  Real factor = PP_RU_MKS / (Na * elemCharge);
+  amrex::Real fixedKe = a_pelelm->m_fixedKappaE;
+#endif
   auto const& rhoY = statefab.const_array(FIRSTSPEC);
   auto const& T = statefab.array(TEMP);
   auto rhoD = derfab.array(dcomp);
@@ -1381,10 +1391,18 @@ pelelmex_derdiffc(
   amrex::ParallelFor(
     bx, [do_fixed_Le, do_fixed_Pr, do_soret, LeInv, PrInv, rhoY, T, rhoD,
          rhotheta, lambda, mu, ltransparm,
+#ifdef PELE_USE_PLASMA
+         kappa_E, factor, rhoD_E, fixedKe,
+#endif
          leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
       getTransportCoeff(
         i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, LeInv, PrInv, rhoY, T,
         rhoD, rhotheta, lambda, mu, ltransparm, leosparm);
+#ifdef PELE_USE_PLASMA
+      getKappaE_EFlocal(
+        i, j, k, fixedKe, kappa_E);
+      getDiffE(i, j, k, factor, T, kappa_E, rhoD_E);
+#endif
     });
 }
 
