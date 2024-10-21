@@ -334,6 +334,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
         getKappaE_EFlocal(
           i, j, k, fixedKe , Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS)); 
         getDiffE(i, j, k, factor, Array4<Real const>(sma[box_no], TEMP),
+                 Array4<Real const>(sma[box_no], FIRSTSPEC),
                  Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
                  Array4<Real>(dma[box_no], E_ID)); 
 #endif
