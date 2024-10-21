@@ -107,7 +107,8 @@ PeleLM::Advance(int is_initIter)
   if (m_incompressible == 0) {
     calcDiffusivity(AmrOldTime);
 #ifdef PELE_USE_PLASMA
-    if (m_ef_model == EFModel::EFglobal) {
+    if (m_ef_model == EFModel::EFglobal ||
+        m_ef_model == EFModel::EFlocal) {
       poissonSolveEF(AmrOldTime);
     }
 #endif
@@ -161,6 +162,9 @@ PeleLM::Advance(int is_initIter)
   if (m_incompressible == 0) {
     copyDiffusionOldToNew(diffData);
 #ifdef PELE_USE_PLASMA
+    if (m_ef_model == EFModel::EFlocal) {
+      poissonSolveEF(AmrNewTime);
+    }
     ionDriftVelocity(advData);
 #endif
   }
@@ -309,6 +313,9 @@ PeleLM::oneSDC(
         diffData);
     }
 #ifdef PELE_USE_PLASMA
+    if (m_ef_model == EFModel::EFlocal) {
+      poissonSolveEF(AmrNewTime);
+    }
     ionDriftVelocity(advData);
 #endif
 

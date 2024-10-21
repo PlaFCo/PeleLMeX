@@ -175,8 +175,8 @@ PeleLM::setBoundaryConditions()
     }
 
 #ifdef PELE_USE_PLASMA
-
-    if (m_ef_model == EFModel::EFglobal) {
+    if (m_ef_model == EFModel::EFglobal ||
+        m_ef_model == EFModel::EFlocal) {
       // nE
       for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
         m_bcrec_state[NE].setLo(idim, nE_bc[lo_bc[idim]]);
