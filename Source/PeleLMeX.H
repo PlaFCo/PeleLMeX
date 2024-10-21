@@ -1504,6 +1504,10 @@ public:
 
   amrex::Real estEFIonsDt(const PeleLM::TimeStamp& a_time);
 
+  amrex::Real estEFglobIonsDt(const PeleLM::TimeStamp& a_time);
+
+  amrex::Real estEFlocIonsDt(const PeleLM::TimeStamp& a_time);
+
   void addLorentzVelForces(
     int lev,
     const amrex::Box& bx,
