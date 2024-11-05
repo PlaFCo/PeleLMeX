@@ -21,7 +21,7 @@ amr.regrid_int      = 5                # how often to regrid
 amr.n_error_buf     = 1 1 2 2          # number of buffer cells in error est
 amr.grid_eff        = 0.7              # what constitutes an efficient grid
 amr.blocking_factor = 16               # block factor in grid generation (min box size)
-amr.max_grid_size   = 128               # max box size
+amr.max_grid_size   = 512               # max box size
 
 
 #--------------------------- Problem -------------------------------
@@ -44,30 +44,37 @@ peleLM.num_init_iter = 0
 
 #amr.restart = chk00005
 #amr.check_int = 2000
-amr.plot_int = 10
+amr.plot_int = 25
+amr.plot_file = "plt_Drift_"
 amr.plot_overwrite = true
-amr.max_step = 10
-amr.dt_shrink = 0.01
-amr.fixed_dt = 2.0e-6
-amr.stop_time = 0.005
+amr.max_step = 10000
+amr.dt_shrink = 1.0
+#amr.fixed_dt = 1.0e-8
+amr.init_dt = 1e-7
+amr.stop_time = 2e-5
 #amr.stop_time = 1.00
 amr.cfl = 0.2
 amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib diffcoeff y_velocity efieldx efieldy
 
 #---------------------- Reactor CONTROL --------------------------
 #peleLM.chem_integrator = "ReactorCvode"
+#peleLM.use_typ_vals_chem = 1              # Use species/temp typical values in CVODE
 #peleLM.do_react = 0                     # sort of deprecated --> creates issues if uncommented. TODO
-#cvode.solve_type = dense_direct         # CVODE Linear solve type (for Newton direction)
+#cvode.solve_type = GMRES         # CVODE Linear solve type (for Newton direction)
+#ode.rtol = 1.0e-11                         # Relative tolerance of the chemical solve
+#ode.atol = 1.0e-12                         # Absolute tolerance factor applied on typical values
 
 #--------------------PLASMA CONTROL------------------------
 #ef.ef_model = "efambipolar"
 ef.phiV_lo_bc = Interior Neumann
 ef.phiV_hi_bc = Interior Neumann
+#ef.phiV_lo_bc = Interior Dirichlet
+#ef.phiV_hi_bc = Interior Dirichlet
 ef.phiV_polarity_lo = Neutral Neutral
 ef.phiV_polarity_hi = Neutral Neutral
-ef.GMRES_rel_tol  = 1.0e-6
+ef.GMRES_rel_tol  = 1.0e-8
 ef.GMRES_abs_tol  = 1.0e-13
-ef.JFNK_lambda = 1.0e-7
+ef.JFNK_lambda = 2.0e-7
 #ef.JFNK_diffType = 1 
 #ef.JFNK_maxNewton = 10
 ef.PC_approx = 2 

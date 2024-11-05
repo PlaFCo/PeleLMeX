@@ -21,7 +21,7 @@ amr.regrid_int      = 5                # how often to regrid
 amr.n_error_buf     = 1 1 2 2          # number of buffer cells in error est
 amr.grid_eff        = 0.7              # what constitutes an efficient grid
 amr.blocking_factor = 16               # block factor in grid generation (min box size)
-amr.max_grid_size   = 128               # max box size
+amr.max_grid_size   = 512               # max box size
 
 
 #--------------------------- Problem -------------------------------
@@ -41,19 +41,20 @@ peleLM.use_wbar = 1
 peleLM.sdc_iterMax = 2
 peleLM.floor_species = 0
 peleLM.num_init_iter = 0
+peleLM.gravity = 0.0 0.0 0.0
 
 #amr.restart = chk00200
-amr.check_int = 2000
+amr.check_int = 500
 amr.plot_int = 50
-amr.plot_overwrite = true
 #amr.plot_file = "plt_NoDrift_"
-amr.max_step = 200
-amr.dt_shrink = 0.1
-amr.fixed_dt = 5.0e-10
-amr.stop_time = 0.001
+amr.plot_overwrite = true
+amr.max_step = 10000000
+amr.dt_shrink = 1.0
+amr.fixed_dt = 1.0e-8
+amr.stop_time = 1e-5
 #amr.stop_time = 1.00
 amr.cfl = 0.2
-amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib diffcoeff y_velocity
+amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib diffcoeff y_velocity efieldx efieldy
 
 #---------------------- Reactor CONTROL --------------------------
 #peleLM.chem_integrator = "ReactorCvode"
@@ -62,8 +63,8 @@ amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib diffco
 
 #--------------------PLASMA CONTROL------------------------
 ef.ef_model = "eflocal"
-ef.phiV_lo_bc = Interior Dirichlet
-ef.phiV_hi_bc = Interior Dirichlet
+ef.phiV_lo_bc = Interior Neumann
+ef.phiV_hi_bc = Interior Neumann
 ef.phiV_polarity_lo = Neutral Neutral
 ef.phiV_polarity_hi = Neutral Neutral
 ef.GMRES_rel_tol  = 1.0e-6
@@ -103,8 +104,8 @@ nodal_proj.atol = 1e-10
 #amr.magVort.field_name    = mag_vort
 
 amr.refinement_indicators = yE
-amr.yE.max_level     = 3
-amr.yE.value_greater = 1.0e-17
+amr.yE.max_level     = 2
+amr.yE.value_greater = 5.0e-17
 amr.yE.field_name    = Y(E)
 
 #amrex.fpe_trap_invalid = 1
