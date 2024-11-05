@@ -4,6 +4,7 @@
 #include <PeleLMeX_BPatch.H>
 #include "PelePhysics.H"
 #include <AMReX_buildInfo.H>
+#include <PeleLMeX_ProblemSpecificFunctions.H>
 #ifdef PELE_USE_PLASMA
 #include "PeleLMeX_EOS_Extension.H"
 #endif
@@ -15,6 +16,7 @@
 #ifdef PELE_USE_SOOT
 #include "SootModel.H"
 #endif
+
 using namespace amrex;
 
 static Box
@@ -720,6 +722,13 @@ PeleLM::readParameters()
     Print() << "Simulation performed with radiation modeling \n";
   }
 #endif
+
+  // -----------------------------------------
+  // External Sources
+  // -----------------------------------------
+  m_user_defined_ext_sources = false;
+  m_ext_sources_SDC = false; // TODO: add capability to update ext_srcs in SDC
+  pp.query("user_defined_ext_sources", m_user_defined_ext_sources);
 }
 
 void
@@ -824,6 +833,13 @@ PeleLM::variablesSetup()
       stateComponents.emplace_back(FIRSTSOOT + mom, sootname);
     }
     setSootIndx();
+#endif
+#if NUM_ODE > 0
+    Print() << " First ODE: " << FIRSTODE << "\n";
+    set_ode_names(m_ode_names);
+    for (int n = 0; n < NUM_ODE; n++) {
+      stateComponents.emplace_back(FIRSTODE + n, m_ode_names[n]);
+    }
 #endif
   }
 
