@@ -143,7 +143,7 @@ PeleLM::calcDivU(
             if (flag(i, j, k).isCovered()) {
               divu(i, j, k) = 0.0;
             } else {
-              compute_divu(
+              compute_divu<pele::physics::PhysicsType::eos_type>(
                 i, j, k, rhoY, T, SpecD, Fourier, DiffDiff, r, extRhoY, extRhoH,
                 divu, use_react, leosparm);
             }
@@ -155,7 +155,7 @@ PeleLM::calcDivU(
           bx,
           [rhoY, T, SpecD, Fourier, DiffDiff, r, extRhoY, extRhoH, divu,
            use_react, leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            compute_divu(
+            compute_divu<pele::physics::PhysicsType::eos_type>(
               i, j, k, rhoY, T, SpecD, Fourier, DiffDiff, r, extRhoY, extRhoH,
               divu, use_react, leosparm);
           });

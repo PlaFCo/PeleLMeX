@@ -21,6 +21,7 @@
 #include <PMFData.H>
 #include <turbinflow.H>
 #include <ReactorBase.H>
+#include <Utilities.H>
 
 // AMReX-Hydro lib
 #include <hydro_MacProjector.H>
@@ -557,6 +558,14 @@ public:
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
       a_soretfluxes);
 
+  void correctIsothermalBoundary(
+    const TimeStamp& a_time,
+    const amrex::Vector<amrex::MultiFab*>& a_spec_boundary,
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_wbarfluxes,
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_soretfluxes);
+
   /**
    * \brief Compute the explicit cell-centered diffusion term on all levels
    * by computing the divergence of the diffusion fluxes at Old or New time,
@@ -586,7 +595,8 @@ public:
       a_spwbarfluxes,
     amrex::Vector<amrex::MultiFab const*> const& a_spec,
     amrex::Vector<amrex::MultiFab const*> const& a_rho,
-    amrex::Vector<amrex::MultiFab const*> const& a_beta);
+    amrex::Vector<amrex::MultiFab const*> const& a_beta,
+    amrex::Vector<amrex::MultiFab const*> const& a_boundary);
 
   /**
    * \brief Add the Soret contribution to the face-centered species diffusion
@@ -602,7 +612,6 @@ public:
       a_spfluxes,
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
       a_spsoretfluxes,
-    amrex::Vector<amrex::MultiFab const*> const& a_spec,
     amrex::Vector<amrex::MultiFab const*> const& a_temp,
     amrex::Vector<amrex::MultiFab const*> const& a_beta);
 
@@ -611,6 +620,7 @@ public:
    * velocity, ensuring they sum up to zero. \param a_fluxes diffusion fluxes to
    * be updated \param a_spec species rhoYs state data on all levels
    */
+  template <typename EOSType>
   void adjustSpeciesFluxes(
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
       a_spfluxes,
@@ -1896,7 +1906,7 @@ public:
 
   int m_use_wbar = 1;
   int m_use_soret = 0;
-
+  int m_soret_boundary_override = 0;
   // LES Model
   bool m_do_les = false;
   bool m_plot_les = false;
