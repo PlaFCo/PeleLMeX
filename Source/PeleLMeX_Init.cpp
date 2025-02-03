@@ -218,6 +218,13 @@ PeleLM::initData()
     averageDownState(AmrNewTime);
     fillPatchState(AmrNewTime);
 
+#ifdef PELE_USE_PLASMA
+    if(m_ef_model == EFModel::EFneutral) {
+      // Update electron variables
+      computeYeNeFromIons();
+    }
+#endif
+
     //----------------------------------------------------------------
     // If performing UnitTest, let's stop here
     if (runMode() != "normal") {

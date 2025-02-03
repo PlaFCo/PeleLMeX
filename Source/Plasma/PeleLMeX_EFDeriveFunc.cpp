@@ -41,6 +41,39 @@ pelelmex_derchargedist(
 }
 
 void
+pelelmex_derchargedistneut(
+  PeleLM* /*a_pelelm*/,
+  const Box& bx,
+  FArrayBox& derfab,
+  int dcomp,
+  int ncomp,
+  const FArrayBox& statefab,
+  const FArrayBox& /*reactfab*/,
+  const FArrayBox& /*pressfab*/,
+  const Geometry& /*geomdata*/,
+  Real /*time*/,
+  const Vector<BCRec>& /*bcrec*/,
+  int /*level*/)
+{
+  AMREX_ASSERT(derfab.box().contains(bx));
+  AMREX_ASSERT(statefab.box().contains(bx));
+  auto const& rhoY = statefab.const_array(FIRSTSPEC);
+  auto const& nE = statefab.const_array(NE);
+  auto der = derfab.array(dcomp);
+
+  amrex::GpuArray<amrex::Real, NUM_SPECIES> zk;
+  pele::physics::eos::charge_mass(zk.arr);
+
+  amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+    der(i, j, k) = 0.0;
+    for (int n = 0; n < NUM_SPECIES; ++n) {
+      der(i, j, k) +=
+        zk[n] * 1000.0 * rhoY(i, j, k, n); // CGS->MKS conversion of zk
+    }
+  });
+}
+
+void
 pelelmex_derefx(
   PeleLM* /*a_pelelm*/,
   const Box& bx,

@@ -671,35 +671,38 @@ PeleLM::readParameters()
   }
 
 #ifdef PELE_USE_PLASMA
-  // -----------------------------------------
-  // PLASMA
-  // -----------------------------------------
-  ppef.query("JFNK_newtonTol", m_ef_newtonTol);
-  ppef.query("JFNK_maxNewton", m_ef_maxNewtonIter);
-  ppef.query("JFNK_lambda", m_ef_lambda_jfnk);
-  ppef.query("JFNK_diffType", m_ef_diffT_jfnk);
-  AMREX_ASSERT(m_ef_diffT_jfnk == 1 || m_ef_diffT_jfnk == 2);
-  ppef.query("GMRES_rel_tol", m_ef_GMRES_reltol);
-  ppef.query("GMRES_abs_tol", m_ef_GMRES_abstol);
-  ppef.query("PC_approx", m_ef_PC_approx);
-  ppef.query("PC_damping", m_ABecCecOmega);
-  ppef.query("advection_scheme_order", m_nEAdvOrder);
-  AMREX_ASSERT(m_nEAdvOrder == 1 || m_nEAdvOrder == 2);
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+  
+    // -----------------------------------------
+    // PLASMA
+    // -----------------------------------------
+    ppef.query("JFNK_newtonTol", m_ef_newtonTol);
+    ppef.query("JFNK_maxNewton", m_ef_maxNewtonIter);
+    ppef.query("JFNK_lambda", m_ef_lambda_jfnk);
+    ppef.query("JFNK_diffType", m_ef_diffT_jfnk);
+    AMREX_ASSERT(m_ef_diffT_jfnk == 1 || m_ef_diffT_jfnk == 2);
+    ppef.query("GMRES_rel_tol", m_ef_GMRES_reltol);
+    ppef.query("GMRES_abs_tol", m_ef_GMRES_abstol);
+    ppef.query("PC_approx", m_ef_PC_approx);
+    ppef.query("PC_damping", m_ABecCecOmega);
+    ppef.query("advection_scheme_order", m_nEAdvOrder);
+    AMREX_ASSERT(m_nEAdvOrder == 1 || m_nEAdvOrder == 2);
 
-  ppef.query("tabulated_Ke", m_electronKappaTab);
-  ppef.query("fixed_Ke", m_fixedKappaE);
+    ppef.query("tabulated_Ke", m_electronKappaTab);
+    ppef.query("fixed_Ke", m_fixedKappaE);
 
-  ppef.query("restart_nonEF", m_restart_nonEF);
-  ppef.query("restart_electroneutral", m_restart_electroneutral);
-  ppef.query("restart_resetTime", m_restart_resetTime);
-  ppef.query("plot_extras", m_do_extraEFdiags);
+    ppef.query("restart_nonEF", m_restart_nonEF);
+    ppef.query("restart_electroneutral", m_restart_electroneutral);
+    ppef.query("restart_resetTime", m_restart_resetTime);
+    ppef.query("plot_extras", m_do_extraEFdiags);
 
-  // Getting the ions fluxes on the domain boundaries
-  // Species balance data is needed, so override if not activated
-  if (m_do_temporals) {
-    ppef.query("do_ionsBalance", m_do_ionsBalance);
-    if (m_do_ionsBalance) {
-      m_do_speciesBalance = 1;
+    // Getting the ions fluxes on the domain boundaries
+    // Species balance data is needed, so override if not activated
+    if (m_do_temporals) {
+      ppef.query("do_ionsBalance", m_do_ionsBalance);
+      if (m_do_ionsBalance) {
+        m_do_speciesBalance = 1;
+      }
     }
   }
 #endif
@@ -1123,9 +1126,16 @@ PeleLM::derivedSetup()
 #ifdef PELE_USE_PLASMA
   // PLASMA TODO
   // Charge distribution
-  derive_lst.add(
-    "chargedistrib", IndexType::TheCellType(), 1, pelelmex_derchargedist,
-    the_same_box);
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal){
+    derive_lst.add(
+      "chargedistrib", IndexType::TheCellType(), 1, pelelmex_derchargedist,
+      the_same_box);
+  }
+  else{
+    derive_lst.add(
+      "chargedistrib", IndexType::TheCellType(), 1, pelelmex_derchargedistneut,
+      the_same_box);
+  }
 
   // Electric field
   derive_lst.add(
@@ -1396,7 +1406,9 @@ PeleLM::resizeArray()
   if (m_ef_model == EFModel::EFglobal) {
     m_leveldatanlsolve.resize(max_level + 1);
   }
-  m_ionsFluxes.resize(max_level + 1);
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal){
+    m_ionsFluxes.resize(max_level + 1);
+  }
 #endif
 
   // External sources

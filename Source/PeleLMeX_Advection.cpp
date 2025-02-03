@@ -344,7 +344,9 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
     //----------------------------------------------------------------
     // Assemble drift and mac velocities
     // PLASMA TODO change
-    ionDriftAddUmac(lev, advData);
+    if( m_ef_model == 0 || m_ef_model == 1 ) {
+      ionDriftAddUmac(lev, advData);
+    }
 #endif
 
     //----------------------------------------------------------------
@@ -386,59 +388,76 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
       auto const& force_arr = advData->Forcing[lev].const_array(mfi, 0);
 
 #ifdef PELE_USE_PLASMA
-      // Uncharged species all at once
-      bool is_velocity = false;
-      bool fluxes_are_area_weighted = false;
-      bool knownEdgeState = false;
-      HydroUtils::ComputeFluxesOnBoxFromState(
-        bx, NUM_SPECIES - NUM_IONS, mfi, rhoY_arr, AMREX_D_DECL(fx, fy, fz),
-        AMREX_D_DECL(edgex, edgey, edgez), knownEdgeState,
-        AMREX_D_DECL(umac, vmac, wmac), divu_arr, force_arr, geom[lev], m_dt,
-        bcRecSpec, bcRecSpec_d.dataPtr(), AdvTypeSpec_d.dataPtr(),
+      if( m_ef_model == 0 || m_ef_model == 1 ) {
+        // Uncharged species all at once
+        bool is_velocity = false;
+        bool fluxes_are_area_weighted = false;
+        bool knownEdgeState = false;
+        HydroUtils::ComputeFluxesOnBoxFromState(
+          bx, NUM_SPECIES - NUM_IONS, mfi, rhoY_arr, AMREX_D_DECL(fx, fy, fz),
+          AMREX_D_DECL(edgex, edgey, edgez), knownEdgeState,
+          AMREX_D_DECL(umac, vmac, wmac), divu_arr, force_arr, geom[lev], m_dt,
+          bcRecSpec, bcRecSpec_d.dataPtr(), AdvTypeSpec_d.dataPtr(),
+  #ifdef AMREX_USE_EB
+          ebfact,
+  #endif
+          m_Godunov_ppm, m_Godunov_ForceInTrans, is_velocity,
+          fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
+
+        // Ions one by one
+        for (int n = 0; n < NUM_IONS; n++) {
+          auto bcRecIons =
+            fetchBCRecArray(FIRSTSPEC + NUM_SPECIES - NUM_IONS + n, 1);
+          auto bcRecIons_d = convertToDeviceVector(bcRecIons);
+          auto AdvTypeIons =
+            fetchAdvTypeArray(FIRSTSPEC + NUM_SPECIES - NUM_IONS + n, 1);
+          auto AdvTypeIons_d = convertToDeviceVector(AdvTypeIons);
+          AMREX_D_TERM(
+            auto const& udrift = advData->uDrift[lev][0].const_array(mfi, n);
+            , auto const& vdrift = advData->uDrift[lev][1].const_array(mfi, n);
+            , auto const& wdrift = advData->uDrift[lev][2].const_array(mfi, n);)
+          AMREX_D_TERM(auto const& fx_ions =
+                        fluxes[lev][0].array(mfi, NUM_SPECIES - NUM_IONS + n);
+                      , auto const& fy_ions =
+                          fluxes[lev][1].array(mfi, NUM_SPECIES - NUM_IONS + n);
+                      , auto const& fz_ions =
+                          fluxes[lev][2].array(mfi, NUM_SPECIES - NUM_IONS + n);)
+          AMREX_D_TERM(auto const& edgex_ions =
+                        edgeState[0].array(mfi, 1 + NUM_SPECIES - NUM_IONS + n);
+                      , auto const& edgey_ions = edgeState[1].array(
+                          mfi, 1 + NUM_SPECIES - NUM_IONS + n);
+                      , auto const& edgez_ions = edgeState[2].array(
+                          mfi, 1 + NUM_SPECIES - NUM_IONS + n);)
+          auto const& rhoYions_arr = ldata_p->state.const_array(
+            mfi, FIRSTSPEC + NUM_SPECIES - NUM_IONS + n);
+          auto const& forceions_arr =
+            advData->Forcing[lev].const_array(mfi, NUM_SPECIES - NUM_IONS + n);
+          HydroUtils::ComputeFluxesOnBoxFromState(
+            bx, 1, mfi, rhoYions_arr, AMREX_D_DECL(fx_ions, fy_ions, fz_ions),
+            AMREX_D_DECL(edgex_ions, edgey_ions, edgez_ions), knownEdgeState,
+            AMREX_D_DECL(udrift, vdrift, wdrift), divu_arr, forceions_arr,
+            geom[lev], m_dt, bcRecIons, bcRecIons_d.dataPtr(),
+            AdvTypeIons_d.dataPtr(),
+  #ifdef AMREX_USE_EB
+            ebfact,
+  #endif
+            m_Godunov_ppm, m_Godunov_ForceInTrans, is_velocity,
+            fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
+        }
+      }
+      else{
+        bool is_velocity = false;
+        bool fluxes_are_area_weighted = false;
+        bool knownEdgeState = false;
+        HydroUtils::ComputeFluxesOnBoxFromState(
+          bx, NUM_SPECIES, mfi, rhoY_arr, AMREX_D_DECL(fx, fy, fz),
+          AMREX_D_DECL(edgex, edgey, edgez), knownEdgeState,
+          AMREX_D_DECL(umac, vmac, wmac), divu_arr, force_arr, geom[lev], m_dt,
+          bcRecSpec, bcRecSpec_d.dataPtr(), AdvTypeSpec_d.dataPtr(),
 #ifdef AMREX_USE_EB
         ebfact,
 #endif
-        m_Godunov_ppm, m_Godunov_ForceInTrans, is_velocity,
-        fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
-
-      // Ions one by one
-      for (int n = 0; n < NUM_IONS; n++) {
-        auto bcRecIons =
-          fetchBCRecArray(FIRSTSPEC + NUM_SPECIES - NUM_IONS + n, 1);
-        auto bcRecIons_d = convertToDeviceVector(bcRecIons);
-        auto AdvTypeIons =
-          fetchAdvTypeArray(FIRSTSPEC + NUM_SPECIES - NUM_IONS + n, 1);
-        auto AdvTypeIons_d = convertToDeviceVector(AdvTypeIons);
-        AMREX_D_TERM(
-          auto const& udrift = advData->uDrift[lev][0].const_array(mfi, n);
-          , auto const& vdrift = advData->uDrift[lev][1].const_array(mfi, n);
-          , auto const& wdrift = advData->uDrift[lev][2].const_array(mfi, n);)
-        AMREX_D_TERM(auto const& fx_ions =
-                       fluxes[lev][0].array(mfi, NUM_SPECIES - NUM_IONS + n);
-                     , auto const& fy_ions =
-                         fluxes[lev][1].array(mfi, NUM_SPECIES - NUM_IONS + n);
-                     , auto const& fz_ions =
-                         fluxes[lev][2].array(mfi, NUM_SPECIES - NUM_IONS + n);)
-        AMREX_D_TERM(auto const& edgex_ions =
-                       edgeState[0].array(mfi, 1 + NUM_SPECIES - NUM_IONS + n);
-                     , auto const& edgey_ions = edgeState[1].array(
-                         mfi, 1 + NUM_SPECIES - NUM_IONS + n);
-                     , auto const& edgez_ions = edgeState[2].array(
-                         mfi, 1 + NUM_SPECIES - NUM_IONS + n);)
-        auto const& rhoYions_arr = ldata_p->state.const_array(
-          mfi, FIRSTSPEC + NUM_SPECIES - NUM_IONS + n);
-        auto const& forceions_arr =
-          advData->Forcing[lev].const_array(mfi, NUM_SPECIES - NUM_IONS + n);
-        HydroUtils::ComputeFluxesOnBoxFromState(
-          bx, 1, mfi, rhoYions_arr, AMREX_D_DECL(fx_ions, fy_ions, fz_ions),
-          AMREX_D_DECL(edgex_ions, edgey_ions, edgez_ions), knownEdgeState,
-          AMREX_D_DECL(udrift, vdrift, wdrift), divu_arr, forceions_arr,
-          geom[lev], m_dt, bcRecIons, bcRecIons_d.dataPtr(),
-          AdvTypeIons_d.dataPtr(),
-#ifdef AMREX_USE_EB
-          ebfact,
-#endif
-          m_Godunov_ppm, m_Godunov_ForceInTrans, is_velocity,
+          m_Godunov_ppm != 0, m_Godunov_ForceInTrans != 0, is_velocity,
           fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
       }
 #else

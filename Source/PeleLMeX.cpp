@@ -358,11 +358,21 @@ PeleLM::averageDownReaction()
     auto* ldataRFine_p = getLevelDataReactPtr(lev);
     auto* ldataRCrse_p = getLevelDataReactPtr(lev - 1);
 #ifdef AMREX_USE_EB
+#ifdef PELE_USE_PLASMA
+    EB_average_down(
+      ldataRFine_p->I_R, ldataRCrse_p->I_R, 0, nCompIR(m_ef_model), refRatio(lev - 1));
+#else
     EB_average_down(
       ldataRFine_p->I_R, ldataRCrse_p->I_R, 0, nCompIR(), refRatio(lev - 1));
+#endif
+#else
+#ifdef PELE_USE_PLASMA
+    average_down(
+      ldataRFine_p->I_R, ldataRCrse_p->I_R, 0, nCompIR(m_ef_model), refRatio(lev - 1));
 #else
     average_down(
       ldataRFine_p->I_R, ldataRCrse_p->I_R, 0, nCompIR(), refRatio(lev - 1));
+#endif
 #endif
   }
 }

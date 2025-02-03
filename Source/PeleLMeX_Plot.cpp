@@ -118,8 +118,13 @@ PeleLM::WritePlotFile()
 
   // Reactions
   if ((m_do_react != 0) && (m_skipInstantRR == 0) && (m_plot_react != 0)) {
+#ifdef PELE_USE_PLASMA
+    // Cons Rate
+    ncomp += nCompIR(m_ef_model);
+#else
     // Cons Rate
     ncomp += nCompIR();
+#endif
     // FunctCall
     ncomp += 1;
     // Extras:
@@ -224,7 +229,9 @@ PeleLM::WritePlotFile()
       plt_VarsName.push_back("I_R(" + names[n] + ")");
     }
 #ifdef PELE_USE_PLASMA
+if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     plt_VarsName.push_back("I_R(nE)");
+}
 #endif
     plt_VarsName.push_back("FunctCall");
     // Extras:
@@ -342,9 +349,15 @@ PeleLM::WritePlotFile()
     }
 
     if ((m_do_react != 0) && (m_skipInstantRR == 0) && (m_plot_react != 0)) {
+#ifdef PELE_USE_PLASMA
+      MultiFab::Copy(
+        mf_plt[lev], m_leveldatareact[lev]->I_R, 0, cnt, nCompIR(m_ef_model), 0);
+      cnt += nCompIR(m_ef_model);
+#else
       MultiFab::Copy(
         mf_plt[lev], m_leveldatareact[lev]->I_R, 0, cnt, nCompIR(), 0);
       cnt += nCompIR();
+#endif
 
       MultiFab::Copy(mf_plt[lev], m_leveldatareact[lev]->functC, 0, cnt, 1, 0);
       cnt += 1;
@@ -787,7 +800,8 @@ PeleLM::ReadCheckPointFile()
       } else {
         // I_R for non-EF simulation is one component shorted, need to account
         // for that.
-        if (m_do_react) {
+        if (m_do_react && (m_ef_model == EFModel::EFlocal ||
+                           m_ef_model == EFModel::EFglobal)) {
           MultiFab I_Rtemp(grids[lev], dmap[lev], NUM_SPECIES, 0);
           VisMF::Read(
             I_Rtemp, amrex::MultiFabFileFullPrefix(

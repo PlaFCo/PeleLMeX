@@ -30,7 +30,11 @@ PeleLM::computeDt(int is_init, const TimeStamp& a_time)
         estdt = std::min(estdt, dtdivU);
       }
 #ifdef PELE_USE_PLASMA
-      Real dtions = estEFIonsDt(a_time);
+        Real dtions = estdt;
+      if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+        dtions = estEFIonsDt(a_time);
+      }
+      // Real dtions = estEFIonsDt(a_time);
       estdt = std::min(estdt, dtions);
 #endif
 #ifdef PELE_USE_SPRAY

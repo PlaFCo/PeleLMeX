@@ -1464,6 +1464,7 @@ public:
 
   void initializeElectronNeutral();
   void initializeElectronFromMassFraction();
+  void computeYeNeFromIons();
 
   void implicitNonLinearSolve(
     int sdcIter,
@@ -1506,6 +1507,8 @@ public:
   void ionDriftAddUmac(int lev, std::unique_ptr<AdvanceAdvData>& advData);
 
   void computeInstantaneousReactionRateEF(
+    int lev, const PeleLM::TimeStamp& a_time, amrex::MultiFab* a_I_R);
+  void computeInstantaneousReactionRateEFneutral(
     int lev, const PeleLM::TimeStamp& a_time, amrex::MultiFab* a_I_R);
 
   amrex::BCRec
@@ -1574,13 +1577,14 @@ public:
   // Accessors
   std::string runMode() const { return m_run_mode; }
 
-  static int nCompIR()
+  static int nCompIR(int m_ef_model = -1)
   {
-#ifdef PELE_USE_PLASMA
-    return NUM_SPECIES + 1;
-#else
-    return NUM_SPECIES;
-#endif
+    if (m_ef_model == 0 || m_ef_model == 1) {
+      return NUM_SPECIES + 1;
+    }
+    else{
+      return NUM_SPECIES;
+    }
   }
 
   static int nCompForcing()

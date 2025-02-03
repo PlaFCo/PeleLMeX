@@ -200,7 +200,9 @@ PeleLM::advanceChemistryBAChem(
   MultiFab chemForcing(*m_baChem[lev], *m_dmapChem[lev], nCompForcing(), 0);
   MultiFab functC(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
 #ifdef PELE_USE_PLASMA
-  MultiFab chemnE(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
+  // if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+    MultiFab chemnE(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
+  // }
 #endif
 
   // Setup EB covered cells mask
@@ -215,7 +217,9 @@ PeleLM::advanceChemistryBAChem(
   chemState.ParallelCopy(ldataOld_p->state, FIRSTSPEC, 0, NUM_SPECIES + 3);
   chemForcing.ParallelCopy(a_extForcing, 0, 0, nCompForcing());
 #ifdef PELE_USE_PLASMA
+if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
   chemnE.ParallelCopy(ldataOld_p->state, NE, 0, 1);
+}
 #endif
 
   MFItInfo mfi_info;
@@ -326,8 +330,10 @@ PeleLM::advanceChemistryBAChem(
   StateTemp.ParallelCopy(chemState, 0, 0, NUM_SPECIES + 3);
   ldataR_p->functC.ParallelCopy(functC, 0, 0, 1);
 #ifdef PELE_USE_PLASMA
+// if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
   MultiFab nETemp(grids[lev], dmap[lev], 1, 0);
   nETemp.ParallelCopy(chemnE, 0, 0, 1);
+// }
 #endif
 
   // Pass from temp state MF to leveldata and set reaction term
@@ -391,7 +397,11 @@ PeleLM::computeInstantaneousReactionRate(
 #ifdef PELE_USE_PLASMA
     if (m_ef_model == EFModel::EFglobal) {
       computeInstantaneousReactionRateEF(lev, a_time, I_R[lev]);
-    } else {
+    } 
+    else if(m_ef_model == EFModel::EFneutral) {
+      computeInstantaneousReactionRateEFneutral(lev, a_time, I_R[lev]);
+    }
+    else {
       computeInstantaneousReactionRate(lev, a_time, I_R[lev]);
     }
 #else
