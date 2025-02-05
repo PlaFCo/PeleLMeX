@@ -10,6 +10,12 @@
 #include <AMReX_EBFArrayBox.H>
 #endif
 
+#ifdef PELE_USE_PLASMA
+#include <PeleLMeX_EOS_Extension.H>
+#endif
+
+#define PELE_USE_PLASMA_NO 1
+
 using namespace amrex;
 
 DiffusionOp*
@@ -93,19 +99,38 @@ PeleLM::computeDifferentialDiffusionTerms(
     ((is_init != 0) || (m_use_wbar == 0))
       ? Vector<std::array<MultiFab*, AMREX_SPACEDIM>>{}
       : GetVecOfArrOfPtrs(diffData->wbar_fluxes);
+#ifdef PELE_USE_PLASMA
+  Vector<std::array<MultiFab*, AMREX_SPACEDIM>> ambdriftFluxVec =
+  ((is_init != 0) || (m_ef_model != EFModel::EFneutral))
+    ? Vector<std::array<MultiFab*, AMREX_SPACEDIM>>{}
+    : GetVecOfArrOfPtrs(diffData->ambdrift_fluxes);
+#endif
   Vector<std::array<MultiFab*, AMREX_SPACEDIM>> soretFluxVec =
     (m_use_soret) != 0 ? GetVecOfArrOfPtrs(diffData->soret_fluxes)
                        : Vector<std::array<MultiFab*, AMREX_SPACEDIM>>{};
+//TODO
 #ifdef AMREX_USE_EB
   if (m_isothermalEB != 0) {
     computeDifferentialDiffusionFluxes(
       a_time, GetVecOfArrOfPtrs(fluxes), GetVecOfPtrs(EBfluxes), wbarFluxVec,
-      soretFluxVec);
+      soretFluxVec
+#ifdef PELE_USE_PLASMA
+      ,
+      ambdriftFluxVec);
+#else
+      );
+#endif
   } else
 #endif
   {
     computeDifferentialDiffusionFluxes(
-      a_time, GetVecOfArrOfPtrs(fluxes), {}, wbarFluxVec, soretFluxVec);
+      a_time, GetVecOfArrOfPtrs(fluxes), {}, wbarFluxVec, soretFluxVec
+#ifdef PELE_USE_PLASMA
+      ,
+      ambdriftFluxVec);
+#else
+      );
+#endif
   }
 
   // If doing species balances, compute face domain integrals
@@ -171,6 +196,22 @@ PeleLM::computeDifferentialDiffusionTerms(
 #endif
   }
 
+#ifdef PELE_USE_PLASMA
+  // Get the ambdrift term if appropriate (intensiveflux ?)
+  if ((is_init == 0) && (m_ef_model == EFModel::EFneutral)) {
+#ifdef AMREX_USE_EB
+    fluxDivergenceRD(
+      GetVecOfConstPtrs(getSpeciesVect(a_time)), 0, GetVecOfPtrs(diffData->Deamb),
+      0, GetVecOfArrOfPtrs(diffData->ambdrift_fluxes), 0, {}, 0, NUM_SPECIES, intensiveFluxes,
+      bcRecSpec_d.dataPtr(), -1.0, m_dt);
+#else
+    fluxDivergence(
+      GetVecOfPtrs(diffData->Deamb), 0, GetVecOfArrOfPtrs(diffData->ambdrift_fluxes),
+      0, NUM_SPECIES, intensiveFluxes, -1.0);
+#endif
+  }
+#endif
+
   // Get the Soret term if appropriate
   if ((is_init == 0) && (m_use_soret != 0)) {
 #ifdef AMREX_USE_EB
@@ -200,6 +241,11 @@ PeleLM::computeDifferentialDiffusionTerms(
     if ((is_init == 0) && (m_use_soret != 0)) {
       EB_set_covered(diffData->DT[lev], 0.0);
     }
+#ifdef PELE_USE_PLASMA
+    if ((is_init == 0) && (m_ef_model == EFModel::EFneutral)) {
+      EB_set_covered(diffData->Deamb[lev], 0.0);
+    }
+#endif
   }
 #endif
 }
@@ -216,7 +262,13 @@ PeleLM::computeDifferentialDiffusionFluxes(
 #endif
   ,
   const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_wbarfluxes,
-  const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_soretfluxes)
+  const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_soretfluxes
+#ifdef PELE_USE_PLASMA
+  ,
+  const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_ambdriftfluxes)
+#else
+  )
+#endif
 {
   BL_PROFILE("PeleLMeX::computeDifferentialDiffusionFluxes()");
 
@@ -282,6 +334,25 @@ PeleLM::computeDifferentialDiffusionFluxes(
         GetVecOfConstPtrs(getDiffusivityVect(a_time)));
     }
   }
+
+#ifdef PELE_USE_PLASMA
+  //Add Ambipolar drift term
+ if (m_ef_model == EFModel::EFneutral) {
+  int need_ambdrift_fluxes = (a_ambdriftfluxes.empty()) ? 0 : 1;
+  if (need_ambdrift_fluxes == 0) {
+    computeYeNeFromIons();
+    addAmbDriftTerm(
+      a_fluxes, {}, GetVecOfConstPtrs(getSpeciesVect(a_time)),
+      GetVecOfConstPtrs(getMobilityVect(a_time)));
+  } else {
+    computeYeNeFromIons();
+    addAmbDriftTerm(
+      a_fluxes, a_ambdriftfluxes, GetVecOfConstPtrs(getSpeciesVect(a_time)),
+      GetVecOfConstPtrs(getMobilityVect(a_time)));
+  }
+ }
+//else don't add to a_fluxes
+#endif
 
   // Add the Soret term
   if (m_use_soret != 0) {
@@ -649,6 +720,154 @@ PeleLM::addSoretTerm(
   }
 }
 
+
+#ifdef PELE_USE_PLASMA
+void
+PeleLM::addAmbDriftTerm(
+  const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_spfluxes,
+  const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_spambdrift,
+  Vector<MultiFab const*> const& a_spec,
+  Vector<MultiFab const*> const& a_mob_cc)
+{
+  //------------------------------------------------------------------------
+  // if a container for ambipolar drift fluxes is provided, fill it
+  int need_ambdrift_fluxes = (a_spambdrift.empty()) ? 0 : 1;
+
+  auto const* leosparm = eos_parms.device_parm();
+ 
+  //TODO REDO using NUM_IONS instead of NUM_SPECIES, include electron
+  //TODO check mobility units should be m2 s-1 V-1
+
+  int zkk[NUM_SPECIES];
+  //auto eos = pele::physics::PhysicsType::eos(leosparm);
+  pele::physics::eos::charge(zkk);
+
+  // across levels Get the species BCRec
+  int do_avgDown = 1;
+  int ion_start_idx = NUM_SPECIES - NUM_IONS;
+  auto bcRecSpec = fetchBCRecArray(FIRSTSPEC, NUM_SPECIES);
+  auto bcRecIons = fetchBCRecArray(FIRSTSPEC + ion_start_idx, NUM_IONS);
+
+  int nGrow = 0; // No need for ghost face on fluxes
+  for (int lev = 0; lev <= finest_level; ++lev) {
+
+    // Get the edge centered mobility
+    int doZeroVisc = 0;
+    Array<MultiFab, AMREX_SPACEDIM> mob_ec =
+      getDiffusivity(lev, 0, NUM_IONS, doZeroVisc, bcRecIons, *a_mob_cc[lev]);
+
+    const Box& domain = geom[lev].Domain();
+    bool use_harmonic_avg = m_harm_avg_cen2edge != 0;
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    {
+      FArrayBox rhoY_ed;
+      for (MFIter mfi(*a_spec[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+// Get edge centered rhoYs
+          const Box ebx = mfi.nodaltilebox(idim);
+          rhoY_ed.resize(ebx, NUM_SPECIES);
+
+          const Box& edomain = amrex::surroundingNodes(domain, idim);
+          auto const& rhoY_arr = a_spec[lev]->const_array(mfi);
+          const auto& rhoYed_arr = rhoY_ed.array(0);
+          const auto bc_lo = bcRecSpec[0].lo(idim);
+          const auto bc_hi = bcRecSpec[0].hi(idim);
+          amrex::ParallelFor(
+            ebx, [idim, bc_lo, bc_hi, use_harmonic_avg, rhoY_arr, rhoYed_arr,
+                  edomain] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+              int idx[3] = {i, j, k};
+              bool on_lo =
+                ((bc_lo == amrex::BCType::ext_dir) &&
+                 (idx[idim] <= edomain.smallEnd(idim)));
+              bool on_hi =
+                ((bc_hi == amrex::BCType::ext_dir) &&
+                 (idx[idim] >= edomain.bigEnd(idim)));
+              cen2edg_cpp(
+                i, j, k, idim, NUM_SPECIES, use_harmonic_avg, on_lo, on_hi,
+                rhoY_arr, rhoYed_arr);
+            });
+
+          auto const& rhoY = rhoY_ed.const_array(0);
+          auto const& spFlux_ar = a_spfluxes[lev][idim]->array(mfi);
+          auto const& spambdrift_ar =
+            (need_ambdrift_fluxes) != 0
+              ? a_spambdrift[lev][idim]->array(mfi)
+              : a_spfluxes[lev][idim]->array(mfi); // Dummy unused Array4
+
+          auto const& mob_arr = mob_ec[idim].const_array(mfi);
+          auto const& z = zkk;
+          amrex::ParallelFor(
+            ebx, [need_ambdrift_fluxes, mob_arr, z, rhoY, spFlux_ar,
+                  spambdrift_ar,
+                  eosparm =
+                    leosparm, i_s_idx = ion_start_idx] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+              auto eos = pele::physics::PhysicsType::eos(eosparm);
+              // Get molar frac from rhoYs
+              amrex::Real rho = 0.0;
+              for (int n = 0; n < NUM_SPECIES; n++) {
+                rho += rhoY(i, j, k, n);
+                spambdrift_ar(i, j, k, n) = 0.0;
+              }
+              amrex::Real rho_inv = 1.0 / rho;
+              amrex::Real y[NUM_SPECIES] = {0.0};
+              for (int n = 0; n < NUM_SPECIES; n++) {
+                y[n] = rhoY(i, j, k, n) * rho_inv;
+              }
+              amrex::Real x[NUM_SPECIES] = {0.0};
+              eos.Y2X(y, x);
+              amrex::Real mobixi = 0.0;
+              amrex::Real ch_diff = 0.0;
+              // ch_diff = q/|q| Di grad(ni) \approx q/|q| difffluxes
+              int nidx = 0;
+              for (int n = i_s_idx; n < NUM_SPECIES; n++) {
+                mobixi += mob_arr(i,j,k,nidx) * x[n];
+                ch_diff += z[n] * spFlux_ar(i, j, k, n);
+                nidx++;
+              }
+              if (mobixi != 0.0 ){
+              amrex::Real invmobixi = 1.0 / mobixi;
+              // Eamb = ch_diff * invmobixi
+              // drift(n) = rho * y[n] * z(n) * mob_arr(n) * Eamb
+              // fluxes are divided by rho
+              // spamdrift = y[n] * z[n] * mob_arr(n) * Eamb
+              // not sure y[n] ?
+              nidx = 0;
+              if( need_ambdrift_fluxes != 0){
+                for (int n = i_s_idx; n < NUM_SPECIES; n++) {
+                  spambdrift_ar(i, j, k, n) = 
+                    y[n] * z[n] * mob_arr(i,j,k,nidx)
+                     * invmobixi * ch_diff;
+                  if(n == E_ID){
+                    spambdrift_ar(i, j, k, n) = 0.0;
+                  }
+                  spFlux_ar(i, j, k, n) += spambdrift_ar(i, j, k, n);
+                  nidx++;
+                }
+                
+              }
+              else{
+                for (int n = i_s_idx; n < NUM_SPECIES; n++) {
+                  spFlux_ar(i, j, k, n) += 
+                     y[n] * z[n] * mob_arr(i,j,k,nidx)
+                     * invmobixi * ch_diff;                  
+                  if(n == E_ID){
+                    spFlux_ar(i, j, k, n) += 0.0;
+                  }
+                  nidx++;
+                }
+              }}
+            });
+        }
+      }
+    }
+  }
+}
+#endif 
+
+
 void
 PeleLM::adjustSpeciesFluxes(
   const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_spfluxes,
@@ -1003,6 +1222,35 @@ PeleLM::differentialDiffusionUpdate(
       }
     }
   }
+
+#ifdef PELE_USE_PLASMA
+// add lagged ambipolar term
+  if(m_ef_model == EFModel::EFneutral){
+      for (int lev = 0; lev <= finest_level; ++lev) {
+
+        auto* ldata_p = getLevelDataPtr(lev, AmrNewTime);
+
+  #ifdef AMREX_USE_OMP
+  #pragma omp parallel if (Gpu::notInLaunchRegion())
+  #endif
+        for (MFIter mfi(ldata_p->state, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+          for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+            const Box& ebx = mfi.nodaltilebox(idim);
+            auto const& flux_spec = fluxes[lev][idim].array(mfi);
+            auto const& flux_eamb =
+              diffData->ambdrift_fluxes[lev][idim].const_array(mfi);
+            amrex::ParallelFor(
+              ebx, NUM_SPECIES,
+              [flux_spec,
+              flux_eamb] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+                flux_spec(i, j, k, n) += flux_eamb(i, j, k, n);
+              });
+          }
+        }
+      }
+  }
+#endif
+
   if (m_use_soret != 0) {
     for (int lev = 0; lev <= finest_level; ++lev) {
       auto* ldata_p = getLevelDataPtr(lev, AmrNewTime);
@@ -1064,12 +1312,21 @@ PeleLM::differentialDiffusionUpdate(
       auto const& dT = (m_use_soret) != 0
                          ? diffData->DT[lev].const_array(mfi)
                          : diffData->Dhat[lev].const_array(mfi);
-
+#ifdef PELE_USE_PLASMA
+      auto const& deamb =
+        (m_ef_model == EFModel::EFneutral) != 0
+          ? diffData->Deamb[lev].const_array(mfi)
+          : diffData->Dhat[lev].const_array(mfi); // Dummy unused Array4
+#endif
       amrex::ParallelFor(
         bx, NUM_SPECIES,
         [rhoY, dhat, force, dwbar, dT, dt = m_dt, use_wbar = m_use_wbar,
          use_soret =
-           m_use_soret] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+           m_use_soret
+#ifdef PELE_USE_PLASMA
+           , deamb, use_eamb = m_ef_model
+#endif
+           ] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
           rhoY(i, j, k, n) = force(i, j, k, n) + dt * dhat(i, j, k, n);
           if (use_wbar != 0) {
             rhoY(i, j, k, n) -= dt * dwbar(i, j, k, n);
@@ -1077,6 +1334,11 @@ PeleLM::differentialDiffusionUpdate(
           if (use_soret != 0) {
             rhoY(i, j, k, n) -= dt * dT(i, j, k, n);
           }
+#ifdef PELE_USE_PLASMA
+          if (use_eamb != 0){
+            rhoY(i, j, k, n) -=  dt * deamb(i, j, k, n);
+          }
+#endif
         });
     }
   }
@@ -1448,11 +1710,20 @@ PeleLM::getScalarDiffForce(
       auto const& dT = (m_use_soret) != 0
                          ? diffData->DT[lev].const_array(mfi, 0)
                          : diffData->Dn[lev].const_array(mfi, 0);
-
+#ifdef PELE_USE_PLASMA
+      auto const& deamb =
+        (m_ef_model == EFModel::EFneutral) != 0
+          ? diffData->Deamb[lev].const_array(mfi, 0)
+          : diffData->Dn[lev].const_array(mfi, 0); // Dummy unused Array4
+#endif
       amrex::ParallelFor(
         bx,
         [dn, ddn, dnp1k, ddnp1k, dwbar, dT, use_wbar = m_use_wbar,
-         use_soret = m_use_soret, do_react = m_do_react, r, a, extRhoY, extRhoH,
+         use_soret = m_use_soret,
+#ifdef PELE_USE_PLASMA
+         deamb, use_eamb = m_ef_model,
+#endif
+         do_react = m_do_react, r, a, extRhoY, extRhoH,
          fY, fT, dp0dt = m_dp0dt,
          is_closed_ch =
            m_closed_chamber] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
@@ -1469,6 +1740,13 @@ PeleLM::getScalarDiffForce(
               fY(i, j, k, n) += dT(i, j, k, n);
             }
           }
+#ifdef PELE_USE_PLASMA
+          if (use_eamb != 0) {
+            for (int n = 0; n < NUM_SPECIES; n++) {
+              fY(i, j, k, n) += deamb(i, j, k, n);
+            }
+          }
+#endif
           for (int n = 0; n < NUM_SPECIES; n++) {
             fY(i, j, k, n) += extRhoY(i, j, k, n);
           }

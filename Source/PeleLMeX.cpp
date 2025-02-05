@@ -248,6 +248,25 @@ PeleLM::getDiffusivityVect(const TimeStamp& a_time)
 }
 
 Vector<MultiFab*>
+PeleLM::getMobilityVect(const TimeStamp& a_time)
+{
+  AMREX_ASSERT(!m_incompressible);
+  Vector<MultiFab*> r;
+  r.reserve(finest_level + 1);
+  if (a_time == AmrOldTime) {
+    for (int lev = 0; lev <= finest_level; ++lev) {
+      r.push_back(&(m_leveldata_old[lev]->mob_cc));
+    }
+  } else {
+    for (int lev = 0; lev <= finest_level; ++lev) {
+      r.push_back(&(m_leveldata_new[lev]->mob_cc));
+    }
+  }
+  return r;
+}
+
+
+Vector<MultiFab*>
 PeleLM::getViscosityVect(const TimeStamp& a_time)
 {
   Vector<MultiFab*> r;

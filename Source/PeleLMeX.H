@@ -240,6 +240,10 @@ public:
     amrex::Vector<amrex::MultiFab> DT; // Diffusion term of T (soret flux)
     amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>
       soret_fluxes; // Soret flux correction
+    amrex::Vector<amrex::MultiFab> Deamb; // Diffusion term of Eamb 
+    //(ambipolar flux)
+    amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>
+      ambdrift_fluxes; // ambipolar flux correction
   };
   /**
    * \brief Advance function data container for advection term
@@ -555,7 +559,14 @@ public:
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
       a_wbarfluxes,
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
-      a_soretfluxes);
+      a_soretfluxes
+#ifdef PELE_USE_PLASMA
+      ,
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_ambdriftfluxes);
+#else
+      );
+#endif
 
   /**
    * \brief Compute the explicit cell-centered diffusion term on all levels
@@ -605,6 +616,24 @@ public:
     amrex::Vector<amrex::MultiFab const*> const& a_spec,
     amrex::Vector<amrex::MultiFab const*> const& a_temp,
     amrex::Vector<amrex::MultiFab const*> const& a_beta);
+
+#ifdef PELE_USE_PLASMA
+  /**
+   * \brief Add the Ambipolar drift contribution to the face-centered species 
+   * diffusion fluxes on all levels optionally returning that contribution in
+   * a separate container \param a_fluxes diffusion fluxes to be updated \param
+   * a_ambdriftfluxes optional container to return the Ambipolar drift contribution
+   * \param a_spec species rhoYs state data on all levels \param a_rho density state
+   * data on all levels \param a_kappa cell-centered species mobility on all levels
+   */
+  void addAmbDriftTerm(
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_spfluxes,
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_spambdriftfluxes,
+    amrex::Vector<amrex::MultiFab const*> const& a_spec,
+    amrex::Vector<amrex::MultiFab const*> const& a_mob);
+#endif
 
   /**
    * \brief Modify the species diffusion fluxes by computing a correction
@@ -1633,6 +1662,8 @@ public:
   amrex::Vector<amrex::MultiFab*> getDivUVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<amrex::MultiFab*>
   getDiffusivityVect(const PeleLM::TimeStamp& a_time);
+  amrex::Vector<amrex::MultiFab*>
+  getMobilityVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<amrex::MultiFab*>
   getViscosityVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<amrex::MultiFab*> getIRVect();
