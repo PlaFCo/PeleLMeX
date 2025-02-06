@@ -14,8 +14,6 @@
 #include <PeleLMeX_EOS_Extension.H>
 #endif
 
-#define PELE_USE_PLASMA_NO 1
-
 using namespace amrex;
 
 DiffusionOp*
@@ -838,9 +836,9 @@ PeleLM::addAmbDriftTerm(
               if( need_ambdrift_fluxes != 0){
                 for (int n = i_s_idx; n < NUM_SPECIES; n++) {
                   spambdrift_ar(i, j, k, n) = 
-                    y[n] * z[n] * mob_arr(i,j,k,nidx)
+                    rho * y[n] * z[n] * mob_arr(i,j,k,nidx)
                      * invmobixi * ch_diff;
-                  if(n == E_ID){
+                  if(n == E_ID){//only for EFneutral model
                     spambdrift_ar(i, j, k, n) = 0.0;
                   }
                   spFlux_ar(i, j, k, n) += spambdrift_ar(i, j, k, n);
@@ -851,9 +849,9 @@ PeleLM::addAmbDriftTerm(
               else{
                 for (int n = i_s_idx; n < NUM_SPECIES; n++) {
                   spFlux_ar(i, j, k, n) += 
-                     y[n] * z[n] * mob_arr(i,j,k,nidx)
+                     rho * y[n] * z[n] * mob_arr(i,j,k,nidx)
                      * invmobixi * ch_diff;                  
-                  if(n == E_ID){
+                  if(n == E_ID){ //only for EFneutral model
                     spFlux_ar(i, j, k, n) += 0.0;
                   }
                   nidx++;
