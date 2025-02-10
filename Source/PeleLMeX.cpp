@@ -247,6 +247,7 @@ PeleLM::getDiffusivityVect(const TimeStamp& a_time)
   return r;
 }
 
+#ifdef PELE_USE_PLASMA
 Vector<MultiFab*>
 PeleLM::getMobilityVect(const TimeStamp& a_time)
 {
@@ -264,7 +265,7 @@ PeleLM::getMobilityVect(const TimeStamp& a_time)
   }
   return r;
 }
-
+#endif
 
 Vector<MultiFab*>
 PeleLM::getViscosityVect(const TimeStamp& a_time)

@@ -632,7 +632,8 @@ public:
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
       a_spambdriftfluxes,
     amrex::Vector<amrex::MultiFab const*> const& a_spec,
-    amrex::Vector<amrex::MultiFab const*> const& a_mob);
+    amrex::Vector<amrex::MultiFab const*> const& a_mob,
+    int rm_electron_drift);
 #endif
 
   /**
@@ -1606,6 +1607,7 @@ public:
   // Accessors
   std::string runMode() const { return m_run_mode; }
 
+  // TODO is this OK?
   static int nCompIR(int m_ef_model = -1)
   {
     if (m_ef_model == 0 || m_ef_model == 1) {

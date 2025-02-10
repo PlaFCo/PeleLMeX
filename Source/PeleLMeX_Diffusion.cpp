@@ -99,9 +99,9 @@ PeleLM::computeDifferentialDiffusionTerms(
       : GetVecOfArrOfPtrs(diffData->wbar_fluxes);
 #ifdef PELE_USE_PLASMA
   Vector<std::array<MultiFab*, AMREX_SPACEDIM>> ambdriftFluxVec =
-  ((is_init != 0) || (m_ef_model != EFModel::EFneutral))
-    ? Vector<std::array<MultiFab*, AMREX_SPACEDIM>>{}
-    : GetVecOfArrOfPtrs(diffData->ambdrift_fluxes);
+  ((m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar))
+    ? GetVecOfArrOfPtrs(diffData->ambdrift_fluxes)
+    : Vector<std::array<MultiFab*, AMREX_SPACEDIM>>{};
 #endif
   Vector<std::array<MultiFab*, AMREX_SPACEDIM>> soretFluxVec =
     (m_use_soret) != 0 ? GetVecOfArrOfPtrs(diffData->soret_fluxes)
@@ -196,7 +196,7 @@ PeleLM::computeDifferentialDiffusionTerms(
 
 #ifdef PELE_USE_PLASMA
   // Get the ambdrift term if appropriate (intensiveflux ?)
-  if ((is_init == 0) && (m_ef_model == EFModel::EFneutral)) {
+  if ((is_init == 0) && (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar)) {
 #ifdef AMREX_USE_EB
     fluxDivergenceRD(
       GetVecOfConstPtrs(getSpeciesVect(a_time)), 0, GetVecOfPtrs(diffData->Deamb),
@@ -240,7 +240,7 @@ PeleLM::computeDifferentialDiffusionTerms(
       EB_set_covered(diffData->DT[lev], 0.0);
     }
 #ifdef PELE_USE_PLASMA
-    if ((is_init == 0) && (m_ef_model == EFModel::EFneutral)) {
+    if ((is_init == 0) && (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar)) {
       EB_set_covered(diffData->Deamb[lev], 0.0);
     }
 #endif
@@ -277,7 +277,7 @@ PeleLM::computeDifferentialDiffusionFluxes(
 
 #ifdef PELE_USE_PLASMA
   int do_avgDown = 0;
-  if (m_ef_model == EFModel::EFglobal) {
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFambipolar) {
     // Get the species diffusion fluxes from the DiffusionOp
     // Don't average down just yet
     getMCDiffusionOp(NUM_SPECIES - NUM_IONS)
@@ -335,18 +335,20 @@ PeleLM::computeDifferentialDiffusionFluxes(
 
 #ifdef PELE_USE_PLASMA
   //Add Ambipolar drift term
- if (m_ef_model == EFModel::EFneutral) {
+ if (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar) {
   int need_ambdrift_fluxes = (a_ambdriftfluxes.empty()) ? 0 : 1;
+  // if EFneutral, remove ambipolar drift from electron mass equation
+  int rm_electron_drift = (m_ef_model == EFModel::EFneutral) ? 1 : 0; 
   if (need_ambdrift_fluxes == 0) {
-    computeYeNeFromIons();
+    if(m_ef_model == EFModel::EFneutral) computeYeNeFromIons();
     addAmbDriftTerm(
       a_fluxes, {}, GetVecOfConstPtrs(getSpeciesVect(a_time)),
-      GetVecOfConstPtrs(getMobilityVect(a_time)));
+      GetVecOfConstPtrs(getMobilityVect(a_time)), rm_electron_drift);
   } else {
-    computeYeNeFromIons();
+    if(m_ef_model == EFModel::EFneutral) computeYeNeFromIons();
     addAmbDriftTerm(
       a_fluxes, a_ambdriftfluxes, GetVecOfConstPtrs(getSpeciesVect(a_time)),
-      GetVecOfConstPtrs(getMobilityVect(a_time)));
+      GetVecOfConstPtrs(getMobilityVect(a_time)), rm_electron_drift);
   }
  }
 //else don't add to a_fluxes
@@ -719,13 +721,16 @@ PeleLM::addSoretTerm(
 }
 
 
+// Implementation using Sum_i 1/(mu_i n_i) * [z_i D_i grad(n_i) ] \approx
+// Sum_i 1/(mu_i x_i) * [z_i Diff_velocity ]
 #ifdef PELE_USE_PLASMA
 void
 PeleLM::addAmbDriftTerm(
   const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_spfluxes,
   const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_spambdrift,
   Vector<MultiFab const*> const& a_spec,
-  Vector<MultiFab const*> const& a_mob_cc)
+  Vector<MultiFab const*> const& a_mob_cc,
+  int rm_e_drift)
 {
   //------------------------------------------------------------------------
   // if a container for ambipolar drift fluxes is provided, fill it
@@ -755,7 +760,7 @@ PeleLM::addAmbDriftTerm(
       getDiffusivity(lev, 0, NUM_IONS, doZeroVisc, bcRecIons, *a_mob_cc[lev]);
 
     const Box& domain = geom[lev].Domain();
-    bool use_harmonic_avg = m_harm_avg_cen2edge != 0;
+    bool use_harmonic_avg = false; // m_harm_avg_cen2edge != 0;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -801,7 +806,8 @@ PeleLM::addAmbDriftTerm(
             ebx, [need_ambdrift_fluxes, mob_arr, z, rhoY, spFlux_ar,
                   spambdrift_ar,
                   eosparm =
-                    leosparm, i_s_idx = ion_start_idx] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    leosparm, i_s_idx = ion_start_idx,
+                  rm_el_drift = rm_e_drift] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
               auto eos = pele::physics::PhysicsType::eos(eosparm);
               // Get molar frac from rhoYs
               amrex::Real rho = 0.0;
@@ -818,42 +824,37 @@ PeleLM::addAmbDriftTerm(
               eos.Y2X(y, x);
               amrex::Real mobixi = 0.0;
               amrex::Real ch_diff = 0.0;
-              // ch_diff = q/|q| Di grad(ni) \approx q/|q| difffluxes
+              // ch_diff = q/|q| Di grad(ni) \approx q/|q| diffFluxes / rho inc. wbar (exc. Soret)
               int nidx = 0;
               for (int n = i_s_idx; n < NUM_SPECIES; n++) {
-                mobixi += mob_arr(i,j,k,nidx) * x[n];
-                ch_diff += z[n] * spFlux_ar(i, j, k, n);
+                if (rhoY(i, j, k, n)>0.0){
+                  mobixi += std::abs(mob_arr(i,j,k,nidx)) * x[n];
+                  ch_diff += z[n] * spFlux_ar(i, j, k, n) / rho; 
+                }
                 nidx++;
               }
-              if (mobixi != 0.0 ){
+              if (ch_diff != 0.0 ){
               amrex::Real invmobixi = 1.0 / mobixi;
               // Eamb = ch_diff * invmobixi
               // drift(n) = rho * y[n] * z(n) * mob_arr(n) * Eamb
-              // fluxes are divided by rho
+              // fluxes are divided by rho ?
+              // y[n] ?
               // spamdrift = y[n] * z[n] * mob_arr(n) * Eamb
-              // not sure y[n] ?
               nidx = 0;
               if( need_ambdrift_fluxes != 0){
                 for (int n = i_s_idx; n < NUM_SPECIES; n++) {
                   spambdrift_ar(i, j, k, n) = 
-                    rho * y[n] * z[n] * mob_arr(i,j,k,nidx)
-                     * invmobixi * ch_diff;
-                  if(n == E_ID){//only for EFneutral model
-                    spambdrift_ar(i, j, k, n) = 0.0;
-                  }
+                    rhoY(i, j, k, n) * z[n] * std::abs(mob_arr(i,j,k,nidx))
+                     * invmobixi * ch_diff ;
                   spFlux_ar(i, j, k, n) += spambdrift_ar(i, j, k, n);
                   nidx++;
                 }
-                
               }
               else{
                 for (int n = i_s_idx; n < NUM_SPECIES; n++) {
                   spFlux_ar(i, j, k, n) += 
-                     rho * y[n] * z[n] * mob_arr(i,j,k,nidx)
-                     * invmobixi * ch_diff;                  
-                  if(n == E_ID){ //only for EFneutral model
-                    spFlux_ar(i, j, k, n) += 0.0;
-                  }
+                     rhoY(i, j, k, n) * z[n] * std::abs(mob_arr(i,j,k,nidx))
+                     * invmobixi * ch_diff ;                  
                   nidx++;
                 }
               }}
@@ -1223,7 +1224,7 @@ PeleLM::differentialDiffusionUpdate(
 
 #ifdef PELE_USE_PLASMA
 // add lagged ambipolar term
-  if(m_ef_model == EFModel::EFneutral){
+  if(m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar){
       for (int lev = 0; lev <= finest_level; ++lev) {
 
         auto* ldata_p = getLevelDataPtr(lev, AmrNewTime);
@@ -1312,7 +1313,7 @@ PeleLM::differentialDiffusionUpdate(
                          : diffData->Dhat[lev].const_array(mfi);
 #ifdef PELE_USE_PLASMA
       auto const& deamb =
-        (m_ef_model == EFModel::EFneutral) != 0
+        (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar)
           ? diffData->Deamb[lev].const_array(mfi)
           : diffData->Dhat[lev].const_array(mfi); // Dummy unused Array4
 #endif
@@ -1710,7 +1711,7 @@ PeleLM::getScalarDiffForce(
                          : diffData->Dn[lev].const_array(mfi, 0);
 #ifdef PELE_USE_PLASMA
       auto const& deamb =
-        (m_ef_model == EFModel::EFneutral) != 0
+        (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar)
           ? diffData->Deamb[lev].const_array(mfi, 0)
           : diffData->Dn[lev].const_array(mfi, 0); // Dummy unused Array4
 #endif
