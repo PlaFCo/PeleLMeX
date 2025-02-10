@@ -323,6 +323,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
       , fixedKe = m_fixedKappaE
 #endif
       ] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
+#ifndef PELE_USE_PLASMA
         getTransportCoeff(
           i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
           Array4<Real const>(sma[box_no], FIRSTSPEC),
@@ -330,8 +331,15 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
           Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
           Array4<Real>(dma[box_no], NUM_SPECIES),
           Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
-#ifdef PELE_USE_PLASMA
+#else 
         if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal){
+          getTransportCoeff(
+            i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
+            Array4<Real const>(sma[box_no], FIRSTSPEC),
+            Array4<Real const>(sma[box_no], TEMP), Array4<Real>(dma[box_no], 0),
+            Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
+            Array4<Real>(dma[box_no], NUM_SPECIES),
+            Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
           getKappaSp(
             i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
             Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
@@ -343,11 +351,31 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
                   Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
                   Array4<Real>(dma[box_no], E_ID)); 
         }
-        else{
+        else if (m_ef_model == EFModel::EFOskam || m_ef_model == EFModel::EFneutral){
+          getTransportCoeff(
+            i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
+            Array4<Real const>(sma[box_no], FIRSTSPEC),
+            Array4<Real const>(sma[box_no], TEMP), Array4<Real>(dma[box_no], 0),
+            Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
+            Array4<Real>(dma[box_no], NUM_SPECIES),
+            Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
           getKappa(
           i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
           Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
           Array4<Real>(kma[box_no], 0));
+        }
+        else if(m_ef_model == EFModel::EFambipolar ){
+          getTransportCoeff(
+            i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
+            Array4<Real const>(sma[box_no], FIRSTSPEC),
+            Array4<Real const>(sma[box_no], TEMP), Array4<Real>(dma[box_no], 0),
+            Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
+            Array4<Real>(dma[box_no], NUM_SPECIES),
+            Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
+          getAmbipolarCorrection(
+              i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
+              Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
+              Array4<Real>(kma[box_no], 0));
         }
 #endif
       });

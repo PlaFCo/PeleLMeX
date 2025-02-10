@@ -149,6 +149,69 @@ getKappa(
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
+getAmbipolarCorrection(
+  int i,
+  int j,
+  int k,
+  amrex::Real const mwt[NUM_SPECIES],
+  amrex::GpuArray<amrex::Real, NUM_SPECIES> a_zk,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<amrex::Real> const& rhoD,
+  amrex::Array4<const amrex::Real> const& T,
+  amrex::Array4<amrex::Real> const& Ksp) noexcept
+{
+  using namespace amrex::literals;
+  amrex::Real rho = 0.0;
+  // calculate rhoys
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rho += rhoY(i, j, k, n);
+  }
+  // calculate ys
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    y[n] = rhoY(i, j, k, n)/rho;
+  }
+  // calcular xi
+  eos.Y2X(y,x);
+
+  
+  int ionCnt = 0;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    if (a_zk[n] != 0.0) {
+      Ksp(i, j, k, ionCnt) = rhoD(i, j, k, n) * mwt[n] * 0.001 * std::abs(a_zk[n]) /
+                             (rho * PP_RU_MKS * T(i, j, k));
+      // PLASMA TODO : do not put this to 0 for Eamb
+      // if (n == E_ID)
+      //   Ksp(i, j, k, ionCnt) = 0.0; // Set the E species mobility to zero.
+                                    // Electron are treated separately.
+      ionCnt += 1;
+    }
+  }
+  // electron characteristic energy
+  // uk = e De/ mue
+  // uk_e = e De/ mue / e
+  if (x[E_ID] > 0.0){
+    amrex::Real uk_e = rhoD(i, j, k, E_ID)/rho/Ksp(i, j, k, E_ID);
+    rhoDi(i, j, k, E_ID) = 0.0
+    int sign = 1;
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      if (a_zk[n] != 0.0) {
+        if (n != E_ID){
+          sign = (a_zk[n] > 0) ? 1 : ((a_zk[n] < 0) ? -1 : 0);
+          rhoDi(i, j, k, ionCnt) = - sign * Ksp(i, j, k, ionCnt) * x[n]/x[E_ID] * uk_e ;
+          rhoDi(i, j, k, E_ID)  += - Ksp(i, j, k, ionCnt) * x[n]/x[E_ID] * uk_e;
+        }
+        ionCnt += 1;
+      }
+    }
+  }
+
+
+}
+
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
 getDiffE(
   int i,
   int j,

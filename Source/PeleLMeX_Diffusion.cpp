@@ -99,7 +99,7 @@ PeleLM::computeDifferentialDiffusionTerms(
       : GetVecOfArrOfPtrs(diffData->wbar_fluxes);
 #ifdef PELE_USE_PLASMA
   Vector<std::array<MultiFab*, AMREX_SPACEDIM>> ambdriftFluxVec =
-  ((m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar))
+  ((m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFOskam))
     ? GetVecOfArrOfPtrs(diffData->ambdrift_fluxes)
     : Vector<std::array<MultiFab*, AMREX_SPACEDIM>>{};
 #endif
@@ -196,7 +196,7 @@ PeleLM::computeDifferentialDiffusionTerms(
 
 #ifdef PELE_USE_PLASMA
   // Get the ambdrift term if appropriate (intensiveflux ?)
-  if ((is_init == 0) && (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar)) {
+  if ((is_init == 0) && (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFOskam)) {
 #ifdef AMREX_USE_EB
     fluxDivergenceRD(
       GetVecOfConstPtrs(getSpeciesVect(a_time)), 0, GetVecOfPtrs(diffData->Deamb),
@@ -240,7 +240,7 @@ PeleLM::computeDifferentialDiffusionTerms(
       EB_set_covered(diffData->DT[lev], 0.0);
     }
 #ifdef PELE_USE_PLASMA
-    if ((is_init == 0) && (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar)) {
+    if ((is_init == 0) && (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFOskam)) {
       EB_set_covered(diffData->Deamb[lev], 0.0);
     }
 #endif
@@ -277,7 +277,7 @@ PeleLM::computeDifferentialDiffusionFluxes(
 
 #ifdef PELE_USE_PLASMA
   int do_avgDown = 0;
-  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFambipolar) {
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     // Get the species diffusion fluxes from the DiffusionOp
     // Don't average down just yet
     getMCDiffusionOp(NUM_SPECIES - NUM_IONS)
@@ -297,7 +297,15 @@ PeleLM::computeDifferentialDiffusionFluxes(
         GetVecOfConstPtrs(getDiffusivityVect(a_time)),
         NUM_SPECIES - NUM_IONS + n, bcRecIons, 1, do_avgDown);
     }
-  } else {
+  } else if (m_ef_model == EFModel::EFambipolar){
+    getMCDiffusionOp(NUM_SPECIES)
+      ->computeDiffFluxesAmbipolar(
+        a_fluxes, 0, GetVecOfConstPtrs(getSpeciesVect(a_time)), 0,
+        GetVecOfConstPtrs(getDensityVect(a_time)),
+        GetVecOfConstPtrs(getDiffusivityVect(a_time)), 0, bcRecSpec,
+        NUM_SPECIES, do_avgDown);
+  }
+  else {
     getMCDiffusionOp(NUM_SPECIES)
       ->computeDiffFluxes(
         a_fluxes, 0, GetVecOfConstPtrs(getSpeciesVect(a_time)), 0,
@@ -335,7 +343,7 @@ PeleLM::computeDifferentialDiffusionFluxes(
 
 #ifdef PELE_USE_PLASMA
   //Add Ambipolar drift term
- if (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar) {
+ if (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFOskam) {
   int need_ambdrift_fluxes = (a_ambdriftfluxes.empty()) ? 0 : 1;
   // if EFneutral, remove ambipolar drift from electron mass equation
   int rm_electron_drift = (m_ef_model == EFModel::EFneutral) ? 1 : 0; 
@@ -1224,7 +1232,7 @@ PeleLM::differentialDiffusionUpdate(
 
 #ifdef PELE_USE_PLASMA
 // add lagged ambipolar term
-  if(m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar){
+  if(m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFOskam){
       for (int lev = 0; lev <= finest_level; ++lev) {
 
         auto* ldata_p = getLevelDataPtr(lev, AmrNewTime);
@@ -1313,7 +1321,7 @@ PeleLM::differentialDiffusionUpdate(
                          : diffData->Dhat[lev].const_array(mfi);
 #ifdef PELE_USE_PLASMA
       auto const& deamb =
-        (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar)
+        (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFOskam)
           ? diffData->Deamb[lev].const_array(mfi)
           : diffData->Dhat[lev].const_array(mfi); // Dummy unused Array4
 #endif
@@ -1711,7 +1719,7 @@ PeleLM::getScalarDiffForce(
                          : diffData->Dn[lev].const_array(mfi, 0);
 #ifdef PELE_USE_PLASMA
       auto const& deamb =
-        (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFambipolar)
+        (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFOskam)
           ? diffData->Deamb[lev].const_array(mfi, 0)
           : diffData->Dn[lev].const_array(mfi, 0); // Dummy unused Array4
 #endif
