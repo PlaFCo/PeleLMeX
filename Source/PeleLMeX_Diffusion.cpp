@@ -298,6 +298,10 @@ PeleLM::computeDifferentialDiffusionFluxes(
         NUM_SPECIES - NUM_IONS + n, bcRecIons, 1, do_avgDown);
     }
   } else if (m_ef_model == EFModel::EFambipolar){
+    int zkk[NUM_SPECIES];
+    //auto eos = pele::physics::PhysicsType::eos(leosparm);
+    pele::physics::eos::charge(zkk);
+    // Print() << "Ambipolarfluxes\n";
     getMCDiffusionOp(NUM_SPECIES)
       ->computeDiffFluxesAmbipolar(
         a_fluxes, 0, GetVecOfConstPtrs(getSpeciesVect(a_time)), 0,

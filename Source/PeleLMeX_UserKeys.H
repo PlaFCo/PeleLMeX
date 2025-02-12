@@ -172,7 +172,7 @@ struct EFModel
   const std::map<const std::string, int> str2int = {
     {"efglobal", EFglobal},
     {"eflocal", EFlocal},
-    {"efambipolar", EFOskam},
+    {"efoskam", EFOskam},
     {"efambipolar", EFambipolar},
     {"efneutral", EFneutral},
     {"default", EFglobal}};

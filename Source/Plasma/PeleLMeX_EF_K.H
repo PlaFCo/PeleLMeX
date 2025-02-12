@@ -167,45 +167,51 @@ getAmbipolarCorrection(
     rho += rhoY(i, j, k, n);
   }
   // calculate ys
+  amrex::Real y[NUM_SPECIES] = {0.0};
+  amrex::Real x[NUM_SPECIES] = {0.0};
   for (int n = 0; n < NUM_SPECIES; n++) {
     y[n] = rhoY(i, j, k, n)/rho;
   }
   // calcular xi
+  auto eos = pele::physics::PhysicsType::eos();
   eos.Y2X(y,x);
 
-  
+  // Ksp \equiv mu_i
+  // Ksp = |q| Di * 1/ kB * 1/T
+  // Ksp = |q| mwi_MKS/mwi_MKS rho Di / (rho) * Na/Ru * 1/T    
+  // Ksp = |q| Na/mwi_MKS mwi_MKS rho Di/ (rho * Ru * T)
+  // Ksp = abs(zk) mwi_MKS rho Di / (rho * Ru * T)
+  // Ksp = abs(zk) mwi_CGS * 0.001 * rho Di / ( rho * Ru * T) //
   int ionCnt = 0;
+  int iE_ID = 0;
+  amrex::Real uk_e = 0.0;
   for (int n = 0; n < NUM_SPECIES; n++) {
     if (a_zk[n] != 0.0) {
       Ksp(i, j, k, ionCnt) = rhoD(i, j, k, n) * mwt[n] * 0.001 * std::abs(a_zk[n]) /
                              (rho * PP_RU_MKS * T(i, j, k));
-      // PLASMA TODO : do not put this to 0 for Eamb
-      // if (n == E_ID)
-      //   Ksp(i, j, k, ionCnt) = 0.0; // Set the E species mobility to zero.
-                                    // Electron are treated separately.
+      if (n == E_ID){
+        iE_ID = ionCnt;
+      }
       ionCnt += 1;
     }
   }
-  // electron characteristic energy
-  // uk = e De/ mue
-  // uk_e = e De/ mue / e
+  // Ambipolar model where diffusion of charged species is computed from an ambipolar diffusion coefficient
+  ionCnt = 0;
+  amrex::Real rhoDe = rhoD(i, j, k, E_ID);
+  int sign = 1;
   if (x[E_ID] > 0.0){
-    amrex::Real uk_e = rhoD(i, j, k, E_ID)/rho/Ksp(i, j, k, E_ID);
-    rhoDi(i, j, k, E_ID) = 0.0
-    int sign = 1;
+    rhoD(i, j, k, E_ID) = 0.0;
     for (int n = 0; n < NUM_SPECIES; n++) {
       if (a_zk[n] != 0.0) {
         if (n != E_ID){
           sign = (a_zk[n] > 0) ? 1 : ((a_zk[n] < 0) ? -1 : 0);
-          rhoDi(i, j, k, ionCnt) = - sign * Ksp(i, j, k, ionCnt) * x[n]/x[E_ID] * uk_e ;
-          rhoDi(i, j, k, E_ID)  += - Ksp(i, j, k, ionCnt) * x[n]/x[E_ID] * uk_e;
+          rhoD(i, j, k, n) = sign *   Ksp(i, j, k, ionCnt) * x[n]/x[E_ID] * rhoDe / Ksp(i, j, k, iE_ID);
+          rhoD(i, j, k, E_ID)    +=   Ksp(i, j, k, ionCnt) * x[n]/x[E_ID] * rhoDe / Ksp(i, j, k, iE_ID);
         }
         ionCnt += 1;
       }
     }
   }
-
-
 }
 
 
