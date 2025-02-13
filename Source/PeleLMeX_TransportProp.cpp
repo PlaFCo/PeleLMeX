@@ -305,7 +305,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
       auto eos = pele::physics::PhysicsType::eos(leosparm);
       eos.molecular_weight(mwt.arr);
     }
-    Real factor = PP_RU_MKS / (Na * elemCharge);
+    Real factor = PP_RU_MKS / (Na * elemCharge); // PLASMA TODO ??
 #endif
 
     const amrex::Real Pr_inv = m_Prandtl_inv;
