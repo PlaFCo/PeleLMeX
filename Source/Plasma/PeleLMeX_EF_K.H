@@ -64,6 +64,22 @@ getKappaE(
   }
 }
 
+/* Could be merged with getKappaE in future. Creating double now to avoid
+having to fill our phiV and other tabulation variables we do not have.
+*/
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+getKappaE_EFlocal(
+  int i,
+  int j,
+  int k,
+  const amrex::Real& cstKe,
+  amrex::Array4<amrex::Real> const& Ke) noexcept
+{
+  Ke(i, j, k) = cstKe;
+}
+
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
@@ -113,6 +129,29 @@ getDiffE(
 
   De(i, j, k) = Ke(i, j, k) * T(i, j, k) * factor;
 }
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+getDiffE(
+  int i,
+  int j,
+  int k,
+  const amrex::Real& factor,
+  amrex::Array4<const amrex::Real> const& T,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<const amrex::Real> const& Ke,
+  amrex::Array4<amrex::Real> const& De) noexcept
+{
+  using namespace amrex::literals;
+  amrex::Real rho = 0.0;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rho += rhoY(i, j, k, n);
+  }
+
+  De(i, j, k) = rho * Ke(i, j, k) * T(i, j, k) * factor;
+}
+
 
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE

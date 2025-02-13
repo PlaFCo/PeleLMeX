@@ -215,6 +215,7 @@ PeleLM::implicitNonLinearSolve(
   }
 
   // VisMF::Write(advData->Forcing[0],"ForcingNE");
+  //WriteDebugPlotFile(GetVecOfConstPtrs(advData->Forcing),"plt_UpdateNe"+std::to_string(sdcIter));
 }
 
 int
@@ -449,9 +450,9 @@ PeleLM::nonLinearResidual(
   getDiffusionOp()->computeDiffLap(
     GetVecOfPtrs(diffnE), 0, GetVecOfConstPtrs(nE), 0,
     GetVecOfConstPtrs(getnEDiffusivityVect(AmrNewTime)), 0, bcRecnE, 1);
-  // WriteDebugPlotFile(GetVecOfConstPtrs(diffnE),"diffnE");
+  //WriteDebugPlotFile(GetVecOfConstPtrs(diffnE),"diffnE");
   // VisMF::Write(nE[0],"nEForDiffnlResid");
-  // VisMF::Write(diffnE[0],"diffnEnlResid");
+  //VisMF::Write(diffnE[0],"diffnEnlResid");
 
   // Get nE advection term
   Vector<MultiFab> advnE(finest_level + 1);
@@ -461,7 +462,7 @@ PeleLM::nonLinearResidual(
   getAdvectionTerm(
     GetVecOfConstPtrs(nE), GetVecOfPtrs(advnE),
     GetVecOfArrOfConstPtrs(gradPhiVCur));
-  // WriteDebugPlotFile(GetVecOfConstPtrs(advnE),"advnE");
+  //WriteDebugPlotFile(GetVecOfConstPtrs(advnE),"advnE");
 
   // Assemble non-linear residual
   // res(ne(:)) = dt * ( diff(:) + conv(:) + I_R(:) ) - ( ne(:) - ne_old(:) )

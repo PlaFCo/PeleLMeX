@@ -72,11 +72,13 @@ pelelmex_initdata(
   }
   amrex::Real yc = 0.5 * (prob_hi[1] + prob_lo[1]) + pert;
   amrex::Real n_e = 5e12 + 0.95e14 * std::exp(-(y - yc) * (y - yc) / (Ly * Ly / 500.0));
+  state(i, j, k, NE) = n_e;
 
   molefrac[E_ID] = n_e / (prob_parm.P_mean / kB / prob_parm.T_mean);
   molefrac[N2p_ID] = molefrac[E_ID];
-  molefrac[O2_ID] = (1.0 - 2 * molefrac[E_ID]) * 0.21;
-  molefrac[N2_ID] = (1.0 - 2 * molefrac[E_ID]) * 0.79;
+  molefrac[O2_ID] = (1.0 - molefrac[E_ID]) * 0.21;
+  molefrac[N2_ID] = (1.0 - molefrac[E_ID]) * 0.79;
+  molefrac[E_ID] = 0.0;
   eos.X2Y(molefrac, massfrac);
 
   AMREX_D_TERM(state(i, j, k, VELX) = 0.0;
