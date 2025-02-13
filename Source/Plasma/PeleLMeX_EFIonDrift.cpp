@@ -42,19 +42,19 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
     auto bcRecPhiV = fetchBCRecArray(PHIV, 1);
     getDiffusionOp()->computeGradient(
       GetVecOfArrOfPtrs(EOld), {}, // don't need the laplacian out
-      GetVecOfConstPtrs(getPhiVVect(AmrOldTime)), bcRecPhiV[0], do_avgDown);
+      GetVecOfConstPtrs(getPhiVVect(AmrOldTime)), {}, bcRecPhiV[0], do_avgDown);
     getDiffusionOp()->computeGradient(
       GetVecOfArrOfPtrs(ENew), {}, // don't need the laplacian out
-      GetVecOfConstPtrs(getPhiVVect(AmrNewTime)), bcRecPhiV[0], do_avgDown);
+      GetVecOfConstPtrs(getPhiVVect(AmrNewTime)), {}, bcRecPhiV[0], do_avgDown);
   } else if (m_ef_model == EFModel::EFlocal) { // Eamb
     int do_avgDown = 0;                  // TODO or should I ?
     auto bcRecPhiV = fetchBCRecArray(PHIV, 1);
     getDiffusionOp()->computeGradient(
       GetVecOfArrOfPtrs(EOld), {}, // don't need the laplacian out
-      GetVecOfConstPtrs(getPhiVVect(AmrOldTime)), bcRecPhiV[0], do_avgDown);
+      GetVecOfConstPtrs(getPhiVVect(AmrOldTime)), {}, bcRecPhiV[0], do_avgDown);
     getDiffusionOp()->computeGradient(
       GetVecOfArrOfPtrs(ENew), {}, // don't need the laplacian out
-      GetVecOfConstPtrs(getPhiVVect(AmrNewTime)), bcRecPhiV[0], do_avgDown);
+      GetVecOfConstPtrs(getPhiVVect(AmrNewTime)), {}, bcRecPhiV[0], do_avgDown);
     
 //    for (int lev = 0; lev <= finest_level; ++lev) {
 //      //---------------------------------------------------------------
