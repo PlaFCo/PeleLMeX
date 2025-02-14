@@ -299,9 +299,7 @@ PeleLM::computeDifferentialDiffusionFluxes(
     }
   } else if (m_ef_model == EFModel::EFambipolar){
     int zkk[NUM_SPECIES];
-    //auto eos = pele::physics::PhysicsType::eos(leosparm);
     pele::physics::eos::charge(zkk);
-    // Print() << "Ambipolarfluxes\n";
     getMCDiffusionOp(NUM_SPECIES)
       ->computeDiffFluxesAmbipolar(
         a_fluxes, 0, GetVecOfConstPtrs(getSpeciesVect(a_time)), 0,
@@ -750,11 +748,7 @@ PeleLM::addAmbDriftTerm(
 
   auto const* leosparm = eos_parms.device_parm();
  
-  //TODO REDO using NUM_IONS instead of NUM_SPECIES, include electron
-  //TODO check mobility units should be m2 s-1 V-1
-
   int zkk[NUM_SPECIES];
-  //auto eos = pele::physics::PhysicsType::eos(leosparm);
   pele::physics::eos::charge(zkk);
 
   // across levels Get the species BCRec
@@ -841,7 +835,7 @@ PeleLM::addAmbDriftTerm(
               for (int n = i_s_idx; n < NUM_SPECIES; n++) {
                 if (rhoY(i, j, k, n)>0.0){
                   mobixi += std::abs(mob_arr(i,j,k,nidx)) * x[n];
-                  ch_diff += z[n] * spFlux_ar(i, j, k, n) / rho; 
+                  ch_diff += z[n] * spFlux_ar(i, j, k, n) / rhoY(i, j, k, n); 
                 }
                 nidx++;
               }
