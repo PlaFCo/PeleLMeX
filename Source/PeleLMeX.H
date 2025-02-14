@@ -1610,7 +1610,7 @@ public:
   // TODO is this OK?
   static int nCompIR(int m_ef_model = -1)
   {
-    if (m_ef_model == 0 || m_ef_model == 1) {
+    if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
       return NUM_SPECIES + 1;
     }
     else{

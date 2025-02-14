@@ -344,7 +344,7 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
     //----------------------------------------------------------------
     // Assemble drift and mac velocities
     // PLASMA TODO change
-    if( m_ef_model == 0 || m_ef_model == 1 ) {
+    if( m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal ) {
       ionDriftAddUmac(lev, advData);
     }
 #endif
@@ -388,7 +388,7 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
       auto const& force_arr = advData->Forcing[lev].const_array(mfi, 0);
 
 #ifdef PELE_USE_PLASMA
-      if( m_ef_model == 0 || m_ef_model == 1 ) {
+      if( m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal ) {
         // Uncharged species all at once
         bool is_velocity = false;
         bool fluxes_are_area_weighted = false;
