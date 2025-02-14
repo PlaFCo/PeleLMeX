@@ -830,7 +830,7 @@ DiffusionOp::computeDiffFluxes(
 
 
 #ifdef PELE_USE_PLASMA
-
+// Copy of computeDiffFluxes() but ion species follow electron mass fraction gradient
 void
 DiffusionOp::computeDiffFluxesAmbipolar(
   Vector<Array<MultiFab*, AMREX_SPACEDIM>> const& a_flux,
