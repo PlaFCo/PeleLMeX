@@ -1374,7 +1374,7 @@ pelelmex_derdiffc(
 #ifdef PELE_USE_PLASMA
   FArrayBox plasma_dummies(bx, 1, The_Async_Arena());
   auto kappa_E = plasma_dummies.array();
-  auto rhoD_E = derfab.array(dcomp+E_ID);
+  auto rhoD_E = derfab.array(dcomp + E_ID);
   Real factor = PP_RU_MKS / (Na * elemCharge);
   amrex::Real fixedKe = a_pelelm->m_fixedKappaE;
 #endif
@@ -1400,8 +1400,7 @@ pelelmex_derdiffc(
         i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, LeInv, PrInv, rhoY, T,
         rhoD, rhotheta, lambda, mu, ltransparm, leosparm);
 #ifdef PELE_USE_PLASMA
-      getKappaE_EFlocal(
-        i, j, k, fixedKe, kappa_E);
+      getKappaE_EFlocal(i, j, k, fixedKe, kappa_E);
       getDiffE(i, j, k, factor, T, kappa_E, rhoD_E);
 #endif
     });

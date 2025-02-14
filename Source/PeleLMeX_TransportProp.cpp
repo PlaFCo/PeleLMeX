@@ -319,7 +319,8 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
                : 0; // pass soret array, or pass mu as dummy (won't do anything)
     amrex::ParallelFor(
       ldata_p->diff_cc, ldata_p->diff_cc.nGrowVect(),
-      [=, fixedKe = m_fixedKappaE] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
+      [=, fixedKe = m_fixedKappaE] AMREX_GPU_DEVICE(
+        int box_no, int i, int j, int k) noexcept {
         getTransportCoeff<pele::physics::PhysicsType::eos_type>(
           i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
           Array4<Real const>(sma[box_no], FIRSTSPEC),
@@ -334,11 +335,13 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
           Array4<Real>(kma[box_no], 0));
         if (do_Etransport) {
           getKappaE_EFlocal(
-            i, j, k, fixedKe , Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS)); 
-          getDiffE(i, j, k, factor, Array4<Real const>(sma[box_no], TEMP),
-                   Array4<Real const>(sma[box_no], FIRSTSPEC),
-                   Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
-                   Array4<Real>(dma[box_no], E_ID)); 
+            i, j, k, fixedKe,
+            Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS));
+          getDiffE(
+            i, j, k, factor, Array4<Real const>(sma[box_no], TEMP),
+            Array4<Real const>(sma[box_no], FIRSTSPEC),
+            Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
+            Array4<Real>(dma[box_no], E_ID));
         }
 #endif
       });

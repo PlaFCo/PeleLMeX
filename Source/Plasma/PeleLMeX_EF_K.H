@@ -152,7 +152,6 @@ getDiffE(
   De(i, j, k) = rho * Ke(i, j, k) * T(i, j, k) * factor;
 }
 
-
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real

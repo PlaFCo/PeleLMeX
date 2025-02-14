@@ -85,8 +85,8 @@ PeleLM::MakeNewLevelFromScratch(
 
 #ifdef PELE_USE_PLASMA
   if (m_ef_model == EFModel::EFglobal) {
-    m_leveldatanlsolve[lev].reset(
-	  new LevelDataNLSolve(grids[lev], dmap[lev], *m_factory[lev], m_nGrowState));
+    m_leveldatanlsolve[lev].reset(new LevelDataNLSolve(
+      grids[lev], dmap[lev], *m_factory[lev], m_nGrowState));
   }
   if (m_do_extraEFdiags) {
     m_ionsFluxes[lev].reset(
@@ -379,8 +379,7 @@ PeleLM::projectInitSolution()
   const int is_init = 1;
 
 #ifdef PELE_USE_PLASMA
-  if (m_ef_model == EFModel::EFglobal ||
-      m_ef_model == EFModel::EFlocal) {
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     poissonSolveEF(AmrNewTime);
     fillPatchPhiV(AmrNewTime);
   }

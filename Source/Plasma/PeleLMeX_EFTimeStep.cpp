@@ -8,17 +8,17 @@ PeleLM::estEFIonsDt(const TimeStamp& a_time)
 {
   Real estdt = 1.0e200;
 
-  if (m_ef_model == EFModel::EFglobal) { 
+  if (m_ef_model == EFModel::EFglobal) {
     estdt = estEFglobIonsDt(a_time);
   } else if (m_ef_model == EFModel::EFlocal) {
-    //estdt = estEFlocIonsDt(a_time);
+    // estdt = estEFlocIonsDt(a_time);
     estdt = estEFglobIonsDt(a_time);
   }
 
   return estdt;
 }
 
-Real 
+Real
 PeleLM::estEFlocIonsDt(const TimeStamp& a_time)
 {
   Real estdt = 1.0e200;
@@ -34,13 +34,13 @@ PeleLM::estEFlocIonsDt(const TimeStamp& a_time)
     // Compute CC charge distribution
     //---------------------------------------------------------------
     int nGhost = 1;
-    MultiFab Charge_CC = MultiFab(grids[lev], dmap[lev],
-                            1, nGhost, MFInfo(), *m_factory[lev]);
-    MultiFab E_CC = MultiFab(grids[lev], dmap[lev],
-                         AMREX_SPACEDIM, 0, MFInfo(), *m_factory[lev]);
+    MultiFab Charge_CC =
+      MultiFab(grids[lev], dmap[lev], 1, nGhost, MFInfo(), *m_factory[lev]);
+    MultiFab E_CC = MultiFab(
+      grids[lev], dmap[lev], AMREX_SPACEDIM, 0, MFInfo(), *m_factory[lev]);
 
-    MultiFab driftVelMax_cc(grids[lev], dmap[lev], 1, 0,
-                        MFInfo(), *m_factory[lev]);
+    MultiFab driftVelMax_cc(
+      grids[lev], dmap[lev], 1, 0, MFInfo(), *m_factory[lev]);
 
     // Get level data
     auto ldata_p = getLevelDataPtr(lev, a_time);
@@ -51,11 +51,11 @@ PeleLM::estEFlocIonsDt(const TimeStamp& a_time)
 #endif
     for (MFIter mfi(Charge_CC, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
       const Box& bx = mfi.growntilebox();
-      auto const& rhoY =  ldata_p->state.const_array(mfi, FIRSTSPEC);
+      auto const& rhoY = ldata_p->state.const_array(mfi, FIRSTSPEC);
       auto const& ChO = Charge_CC.array(mfi);
       amrex::ParallelFor(
-        bx, [ChO, rhoY,
-             zk = zk] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+        bx,
+        [ChO, rhoY, zk = zk] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
           ChO(i, j, k) = 0.0;
           for (int n = 0; n < NUM_SPECIES; n++) {
             ChO(i, j, k) += zk[n] * rhoY(i, j, k, n);

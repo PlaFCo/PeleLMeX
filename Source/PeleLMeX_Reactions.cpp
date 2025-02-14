@@ -124,9 +124,11 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
 #ifdef PELE_USE_PLASMA
     // rhoY_e -> nE and set rhoY_e to zero
     if (m_ef_model == EFModel::EFglobal) {
-      auto eos = pele::physics::PhysicsType::eos(); // PLASMA TODO do you need this
+      auto eos =
+        pele::physics::PhysicsType::eos(); // PLASMA TODO do you need this
       auto const& nE_n = ldataNew_p->state.array(mfi, NE);
-      auto const& rhoYe_n = ldataNew_p->state.array(mfi, FIRSTSPEC + E_ID); // PLASMA TODO do you need this
+      auto const& rhoYe_n = ldataNew_p->state.array(
+        mfi, FIRSTSPEC + E_ID); // PLASMA TODO do you need this
       Real invmwt[NUM_SPECIES] = {0.0};
       eos.inv_molecular_weight(invmwt);
       ParallelFor(
@@ -301,9 +303,11 @@ PeleLM::advanceChemistryBAChem(
 #ifdef PELE_USE_PLASMA
     // rhoY_e -> nE and set rhoY_e to zero
     if (m_ef_model == EFModel::EFglobal) {
-      auto eos = pele::physics::PhysicsType::eos();  // PLASMA TODO do you need this
+      auto eos =
+        pele::physics::PhysicsType::eos();  // PLASMA TODO do you need this
       auto const& nE_o = chemnE.array(mfi);          // PLASMA TODO do you need this
-      auto const& rhoYe_o = chemState.array(mfi, E_ID);  // PLASMA TODO do you need this
+      auto const& rhoYe_o =
+        chemState.array(mfi, E_ID);  // PLASMA TODO do you need this
       Real invmwt[NUM_SPECIES] = {0.0}; 
       eos.inv_molecular_weight(invmwt);
       ParallelFor(
