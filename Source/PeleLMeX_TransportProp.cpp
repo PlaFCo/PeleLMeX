@@ -306,6 +306,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
       eos.molecular_weight(mwt.arr);
     }
     Real factor = PP_RU_MKS / (Na * elemCharge); // PLASMA TODO ??
+    const bool do_Etransport = (m_ef_model != EFModel::EFglobal);
 #endif
 
     const amrex::Real Pr_inv = m_Prandtl_inv;
@@ -331,12 +332,14 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
           i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
           Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
           Array4<Real>(kma[box_no], 0));
-        getKappaE_EFlocal(
-          i, j, k, fixedKe , Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS)); 
-        getDiffE(i, j, k, factor, Array4<Real const>(sma[box_no], TEMP),
-                 Array4<Real const>(sma[box_no], FIRSTSPEC),
-                 Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
-                 Array4<Real>(dma[box_no], E_ID)); 
+        if (do_Etransport) {
+          getKappaE_EFlocal(
+            i, j, k, fixedKe , Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS)); 
+          getDiffE(i, j, k, factor, Array4<Real const>(sma[box_no], TEMP),
+                   Array4<Real const>(sma[box_no], FIRSTSPEC),
+                   Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
+                   Array4<Real>(dma[box_no], E_ID)); 
+        }
 #endif
       });
   }
