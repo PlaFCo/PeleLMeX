@@ -860,9 +860,9 @@ DiffusionOp::computeDiffFluxesAmbipolar(
 
   amrex::GpuArray<amrex::Real, NUM_SPECIES> zk;
   pele::physics::eos::charge_mass(zk.arr);
-  // pele::physics::eos::charge_mass(zk.arr);
   // Duplicate phi since it is modified by the LinOp
   // and if have_density -> divide by density
+  // Initially phi=rho Y[n] an y[n] after division
   Vector<MultiFab> phi(finest_level + 1);
   for (int lev = 0; lev <= finest_level; ++lev) {
     phi[lev].define(
@@ -971,6 +971,7 @@ DiffusionOp::computeDiffFluxesAmbipolar(
 }
 
 #ifdef AMREX_USE_EB
+// Copy of computeDiffFluxes() but ion species follow electron mass fraction gradient
 void
 DiffusionOp::computeDiffFluxesAmbipolar(
   Vector<Array<MultiFab*, AMREX_SPACEDIM>> const& a_flux,
@@ -1003,6 +1004,8 @@ DiffusionOp::computeDiffFluxesAmbipolar(
   int have_density = (a_density.empty()) ? 0 : 1;
 
   
+  amrex::GpuArray<amrex::Real, NUM_SPECIES> zk;
+  pele::physics::eos::charge_mass(zk.arr);
 
   // Duplicate phi since it is modified by the LinOp
   // and if have_density -> divide by density
@@ -1026,13 +1029,13 @@ DiffusionOp::computeDiffFluxesAmbipolar(
       amrex::ParallelFor(
         gbx, ncomp,
         [a_phi_arr, a_rho_arr, phi_arr,
-         have_density] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
-          if(zk[n] == 0){
-          if (have_density != 0) {
-            phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n) / a_rho_arr(i, j, k);
-          } else {
-            phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n);
-          }
+         have_density, zkk=zk] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+          if(zkk[n] == 0){
+            if (have_density != 0) {
+              phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n) / a_rho_arr(i, j, k);
+            } else {
+              phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n);
+            }
           }
           else{
             if (have_density != 0) {
@@ -1041,7 +1044,6 @@ DiffusionOp::computeDiffFluxesAmbipolar(
               phi_arr(i, j, k, n) = a_phi_arr(i, j, k, E_ID);
             }
           }
-
         });
     }
   }
