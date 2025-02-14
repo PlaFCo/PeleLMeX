@@ -307,6 +307,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
     }
     Real factor = PP_RU_MKS / (Na * elemCharge); // PLASMA TODO ??
     const bool do_Etransport = (m_ef_model != EFModel::EFglobal);
+    const amrex::Real fixedKe = m_fixedKappaE;
 #endif
 
     const amrex::Real Pr_inv = m_Prandtl_inv;
@@ -319,7 +320,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
                : 0; // pass soret array, or pass mu as dummy (won't do anything)
     amrex::ParallelFor(
       ldata_p->diff_cc, ldata_p->diff_cc.nGrowVect(),
-      [=, fixedKe = m_fixedKappaE] AMREX_GPU_DEVICE(
+      [=] AMREX_GPU_DEVICE(
         int box_no, int i, int j, int k) noexcept {
         getTransportCoeff<pele::physics::PhysicsType::eos_type>(
           i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
