@@ -10,10 +10,6 @@
 #include <AMReX_EBFArrayBox.H>
 #endif
 
-#ifdef PELE_USE_PLASMA
-#include <PeleLMeX_EOS_Extension.H>
-#endif
-
 using namespace amrex;
 
 DiffusionOp*
