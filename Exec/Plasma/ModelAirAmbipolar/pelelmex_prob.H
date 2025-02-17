@@ -74,8 +74,8 @@ pelelmex_initdata(
   amrex::Real n_e = 5e12 + 0.95e14 * std::exp(-(y - yc) * (y - yc) / (Ly * Ly / 500.0));
 
   molefrac[E_ID] = n_e / (prob_parm.P_mean / kB / prob_parm.T_mean);
-  molefrac[N2p_ID] = 1.5*molefrac[E_ID];
-  molefrac[On_ID] = 0.5*molefrac[E_ID];
+  molefrac[N2p_ID] = molefrac[E_ID];
+//  molefrac[On_ID]  = molefrac[E_ID];
   molefrac[O2_ID] = (1.0 - 2 * molefrac[E_ID]) * 0.21;
   molefrac[N2_ID] = (1.0 - 2 * molefrac[E_ID]) * 0.79;
   eos.X2Y(molefrac, massfrac);
