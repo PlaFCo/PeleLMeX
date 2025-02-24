@@ -897,7 +897,6 @@ DiffusionOp::computeDiffFluxesAmbipolar(
     }
   }
 
-  amrex::Print() << "passed here \n";
   // LinOp is \alpha A \phi - \beta \nabla \cdot B \nabla \phi
   // => \alpha = 0, A doesn't matter
   // => \beta = -1.0, B face centered diffusivity a_bcoeff

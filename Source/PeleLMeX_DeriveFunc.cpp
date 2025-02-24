@@ -10,6 +10,10 @@
 #include <AMReX_EBFArrayBox.H>
 #endif
 
+#ifdef PELE_USE_PLASMA
+#include <PeleLMeX_EF_K.H>
+#endif
+
 using namespace amrex;
 
 //
