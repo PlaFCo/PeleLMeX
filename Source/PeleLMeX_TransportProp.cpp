@@ -308,6 +308,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
     Real factor = PP_RU_MKS / (Na * elemCharge); // PLASMA TODO ??
     const bool do_Etransport = (m_ef_model != EFModel::EFglobal);
     const amrex::Real fixedKe = m_fixedKappaE;
+    const amrex::Real fixedNDe = m_fixedNDe;
 #endif
 
     const amrex::Real Pr_inv = m_Prandtl_inv;
@@ -323,6 +324,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
       [=
 #ifdef PELE_USE_PLASMA
       , fixedKe = m_fixedKappaE
+      , fixedNDe = m_fixedNDe
 #endif
       ] AMREX_GPU_DEVICE(
         int box_no, int i, int j, int k) noexcept {
@@ -364,6 +366,11 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
             Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
             Array4<Real>(dma[box_no], NUM_SPECIES),
             Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
+          get_fixedRhoDe(i, j, k, fixedNDe,
+            Array4<Real const>(sma[box_no], FIRSTSPEC),
+            Array4<Real const>(sma[box_no], TEMP),
+            Array4<Real const>(sma[box_no], RHORT),
+            Array4<Real>(dma[box_no], 0));
           getKappa(
           i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
           Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
@@ -377,6 +384,11 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
             Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
             Array4<Real>(dma[box_no], NUM_SPECIES),
             Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
+          get_fixedRhoDe(i, j, k, fixedNDe,
+            Array4<Real const>(sma[box_no], FIRSTSPEC),
+            Array4<Real const>(sma[box_no], TEMP),
+            Array4<Real const>(sma[box_no], RHORT),
+            Array4<Real>(dma[box_no], 0));
           getAmbipolarCorrection(
               i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
               Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),

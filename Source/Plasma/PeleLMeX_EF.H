@@ -30,6 +30,7 @@ int m_nEAdvOrder = 2;
 // Electron transport
 int m_electronKappaTab = 0;
 amrex::Real m_fixedKappaE = 0.4;
+amrex::Real m_fixedNDe = 1e24;
 
 // Scaling of non-linear system
 amrex::Real nE_scale;          // nE state scale

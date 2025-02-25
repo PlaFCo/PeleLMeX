@@ -700,7 +700,8 @@ PeleLM::readParameters()
     }
   }
 
-#ifdef PELE_USE_PLASMA
+  #ifdef PELE_USE_PLASMA
+  ppef.query("fixed_NDe", m_fixedNDe);
   if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
   
     // -----------------------------------------

@@ -116,6 +116,29 @@ getKappaSp(
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
+get_fixedRhoDe(
+  int i,
+  int j,
+  int k,
+  const amrex::Real& cstNDe,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<const amrex::Real> const& T,
+  amrex::Array4<const amrex::Real> const& P0,
+  amrex::Array4<amrex::Real> const& rhoDi) noexcept
+  {
+    using namespace amrex::literals;
+    amrex::Real rho = 0.0;
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      rho += rhoY(i, j, k, n);
+    }
+    amrex::Real N = P0(i, j, k)/T(i, j, k)/(PP_RU_MKS/Na);
+    amrex::Real De = cstNDe / N;
+    rhoDi(i, j, k, E_ID) = rho*De;
+  }
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
 getKappa(
   int i,
   int j,
