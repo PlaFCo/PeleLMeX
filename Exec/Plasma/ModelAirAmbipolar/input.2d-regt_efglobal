@@ -45,13 +45,13 @@ peleLM.gravity = 0.0 0.0 0.0
 
 #amr.restart = chk00200
 amr.check_int = 500
-amr.plot_int = 50
-amr.plot_file = "plt_Eamb_"
+amr.plot_int = 500
+amr.plot_file = "plt_efglobal_"
 amr.plot_overwrite = true
 amr.max_step = 10000000
 amr.dt_shrink = 1.0
 amr.fixed_dt = 1.0e-8
-amr.stop_time = 1e-4
+amr.stop_time = 5e-5
 #amr.stop_time = 1.00
 amr.cfl = 0.2
 amr.derive_plot_vars = avg_pressure mag_vort mole_fractions mass_fractions chargedistrib diffcoeff y_velocity efieldx efieldy
@@ -62,7 +62,7 @@ amr.derive_plot_vars = avg_pressure mag_vort mole_fractions mass_fractions charg
 #cvode.solve_type = dense_direct         # CVODE Linear solve type (for Newton direction)
 
 #--------------------PLASMA CONTROL------------------------
-ef.ef_model = "efambipolar"
+ef.ef_model = "efglobal"
 ef.phiV_lo_bc = Interior Neumann
 ef.phiV_hi_bc = Interior Neumann
 ef.phiV_polarity_lo = Neutral Neutral
@@ -83,6 +83,11 @@ ef.precond.fixedIter = 10
 #ef.precond.num_post_smooth = 4
 ef.tabulated_Ke = 0
 ef.fixed_Ke = 0.4
+# From LoKI-B - https://github.com/IST-Lisbon/LoKI
+# Reduced electron diffusion coefficient N2 at 300 K and null applied
+# electric field
+ef.fixed_NDe = 9.868790542879645e23 # ((ms)^-1)
+##
 gmres.krylovBasis_size = 20
 gmres.verbose  = 0
 gmres.max_restart = 3 
