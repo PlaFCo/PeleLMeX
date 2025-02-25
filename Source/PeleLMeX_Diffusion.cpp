@@ -1086,7 +1086,7 @@ PeleLM::addAmbDriftTerm(
               for (int n = i_s_idx; n < NUM_SPECIES; n++) {
                 if (rhoY(i, j, k, n)>0.0){
                   mobixi += std::abs(mob_arr(i,j,k,nidx)) * x[n];
-                  ch_diff += z[n] * spFlux_ar(i, j, k, n) / rhoY(i, j, k, n); 
+                  ch_diff += z[n] * spFlux_ar(i, j, k, n)/rho; 
                 }
                 nidx++;
               }
