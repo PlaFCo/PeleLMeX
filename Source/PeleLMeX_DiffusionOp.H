@@ -40,7 +40,8 @@ public:
     amrex::Vector<amrex::BCRec> a_bcrec,
     int ncomp,
     int isPoissonSolve,
-    amrex::Real dt);
+    amrex::Real dt,
+    amrex::Vector<amrex::MultiFab const*> const& a_boundary);
 
 #ifdef AMREX_USE_EB
   void diffuse_scalar(
@@ -62,7 +63,8 @@ public:
     amrex::Vector<amrex::BCRec> a_bcrec,
     int ncomp,
     int isPoissonSolve,
-    amrex::Real dt);
+    amrex::Real dt,
+    amrex::Vector<amrex::MultiFab const*> const& a_boundary);
 #endif
 
   void computeDiffLap(
@@ -86,7 +88,8 @@ public:
     int bcoeff_comp,
     amrex::Vector<amrex::BCRec> a_bcrec,
     int ncomp,
-    int do_avgDown);
+    int do_avgDown,
+    amrex::Vector<amrex::MultiFab const*> const& a_boundary);
 
 #ifdef AMREX_USE_EB
   void computeDiffFluxes(
@@ -104,7 +107,8 @@ public:
     amrex::Vector<amrex::MultiFab const*> const& a_EBbcoeff,
     amrex::Vector<amrex::BCRec> a_bcrec,
     int ncomp,
-    int do_avgDown);
+    int do_avgDown,
+    amrex::Vector<amrex::MultiFab const*> const& a_boundary);
 #endif
 
 #ifdef PELE_USE_PLASMA
@@ -144,6 +148,7 @@ public:
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>& a_grad,
     const amrex::Vector<amrex::MultiFab*>& a_laps,
     const amrex::Vector<amrex::MultiFab const*>& a_phi,
+    const amrex::Vector<amrex::MultiFab const*>& a_boundary,
     const amrex::BCRec& a_bcrec,
     int do_avgDown) const;
 

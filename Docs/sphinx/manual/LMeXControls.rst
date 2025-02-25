@@ -120,6 +120,7 @@ IO parameters
     amr.file_stepDigits  = 6               # [OPT, DEF=5] Number of digits when adding nsteps to plt and chk names
     amr.derive_plot_vars = avg_pressure ...# [OPT, DEF=""] List of derived variable included in the plot files
     amr.plot_speciesState = 0              # [OPT, DEF=0] Force adding state rhoYs to the plot files
+    peleLM.plot_extSource = false          # [OPT, DEF=false] Force adding state external sources to the plot files
 
     amr.restart          = chk00100        # [OPT, DEF=""] Checkpoint from which to restart the simulation
     amr.initDataPlt      = plt01000        # [OPT, DEF=""] Provide a plotfile from which to extract initial data
@@ -229,8 +230,9 @@ The following list of derived variables are available in PeleLMeX:
 
 Note that `mixture_fraction` and `progress_variable` requires additional inputs from the users as described below.
 The `derUserDefined` allow the user to define its own derived variable which can comprise several components. To do
-so, the user need to copy the Source/DeriveUserDefined.cpp file into his run folder and update the file. The number of
-components is defined based on the size of the vector returned by pelelmex_setuserderives().
+so, the user need to copy the Source/DeriveUserDefined.cpp file into their run folder and update the file. The number of
+components is defined based on the size of the vector returned by `pelelmex_setuserderives()`.  Be sure to add the 
+user derived variables to the input file via `amr.derive_plot_vars`.  
 
 PeleLMeX algorithm
 ------------------
@@ -271,8 +273,8 @@ PeleLMeX algorithm
     peleLM.spark1.time = 1e-2              # [OPT] Time when spark starts [s]
 
     peleLM.user_defined_ext_sources = 0    # [OPT, DEF=0] Enable user defined source terms. Requires local ProblemSpecificFunctions.cpp.
-    
-    
+
+
 Transport coefficients and LES
 ------------------------------
 
@@ -291,6 +293,13 @@ Transport coefficients and LES
     peleLM.les_cs_sigma = 1.35             # [OPT, DEF=1.35] If using Sigma LES model, provides model coefficient
     peleLM.les_v = 0                       # [OPT, DEF=0] Verbosity level for LES model
     peleLM.plot_les = 0                    # [OPT, DEF=0] If doing LES, whether to plot the turbulent viscosity
+    transport.use_soret = 0                # [OPT, DEF=0] Compute diffusion including the Soret effect (note, this option is inherited from PelePhysics)
+
+.. note::
+   When using the Soret effect, boundary condition corrections are needed at isothermal boundaries,
+   which are not fully supported. Currently a correction for all terms except the wbar term
+   is applied at isothermal domain boundaries (this is likely sufficient), while no corrections are applied
+   at isothermal embedded boundaries (so use caution for isothermal EBs with Soret diffusion active).
 
 Chemistry integrator
 --------------------

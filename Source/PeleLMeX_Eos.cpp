@@ -159,7 +159,7 @@ PeleLM::calcDivU(
             if (flag(i, j, k).isCovered()) {
               divu(i, j, k) = 0.0;
             } else {
-              compute_divu(
+              compute_divu<pele::physics::PhysicsType::eos_type>(
                 i, j, k, rhoY, T, SpecD, Fourier, DiffDiff, r, extRhoY, extRhoH,
                 divu, use_react, leosparm);
             }
@@ -171,7 +171,7 @@ PeleLM::calcDivU(
           bx,
           [rhoY, T, SpecD, Fourier, DiffDiff, r, extRhoY, extRhoH, divu,
            use_react, leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            compute_divu(
+            compute_divu<pele::physics::PhysicsType::eos_type>(
               i, j, k, rhoY, T, SpecD, Fourier, DiffDiff, r, extRhoY, extRhoH,
               divu, use_react, leosparm);
           });
@@ -214,10 +214,9 @@ PeleLM::setRhoToSumRhoY(int lev, const TimeStamp& a_time)
   amrex::ParallelFor(
     ldata_p->state,
     [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
-      sma[box_no](i, j, k, DENSITY) = 0.0;
-      for (int n = 0; n < NUM_SPECIES; n++) {
-        sma[box_no](i, j, k, DENSITY) += sma[box_no](i, j, k, FIRSTSPEC + n);
-      }
+      pele::physics::PhysicsType::eos_type::RY2R(
+        sma[box_no].cellData(i, j, k), sma[box_no](i, j, k, DENSITY),
+        FIRSTSPEC);
     });
   Gpu::streamSynchronize();
 }

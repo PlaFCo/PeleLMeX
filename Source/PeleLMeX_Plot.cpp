@@ -170,6 +170,11 @@ PeleLM::WritePlotFile()
     ncomp += 1;
   }
 
+  if (m_plot_extSource) {
+    // Plot state
+    ncomp += NVAR;
+  }
+
   //----------------------------------------------------------------
   // Plot MultiFabs
   Vector<MultiFab> mf_plt(finest_level + 1);
@@ -180,7 +185,8 @@ PeleLM::WritePlotFile()
   //----------------------------------------------------------------
   // Components names
   Vector<std::string> names;
-  pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(names);
+  pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(
+    names, &(eos_parms.host_parm()));
 
   Vector<std::string> plt_VarsName;
   AMREX_D_TERM(plt_VarsName.push_back("x_velocity");
@@ -293,6 +299,13 @@ if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     plt_VarsName.push_back(m_ode_names[n]);
   }
 #endif
+
+  // External source terms
+  if (m_plot_extSource) {
+    for (int ivar = 0; ivar < NVAR; ++ivar) {
+      plt_VarsName.push_back("extsource_" + stateVariableName(ivar));
+    }
+  }
 
   //----------------------------------------------------------------
   // Fill the plot MultiFabs
@@ -420,11 +433,6 @@ if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
       cnt += m_ionsFluxes[lev]->nComp();
     }
 #endif
-#if NUM_ODE > 0
-    MultiFab::Copy(
-      mf_plt[lev], m_leveldata_new[lev]->state, FIRSTODE, cnt, NUM_ODE, 0);
-    cnt += NUM_ODE;
-#endif
 
     if (m_do_les && m_plot_les) {
       constexpr amrex::Real fact = 0.5 / AMREX_SPACEDIM;
@@ -448,6 +456,17 @@ if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
               +mut_arr_z[box_no](i, j, k) + mut_arr_z[box_no](i, j, k + 1)));
         });
       Gpu::streamSynchronize();
+      cnt += 1;
+    }
+
+#if NUM_ODE > 0
+    MultiFab::Copy(
+      mf_plt[lev], m_leveldata_new[lev]->state, FIRSTODE, cnt, NUM_ODE, 0);
+    cnt += NUM_ODE;
+#endif
+
+    if (m_plot_extSource) {
+      MultiFab::Copy(mf_plt[lev], *m_extSource[lev], 0, cnt, NVAR, 0);
     }
 
 #ifdef AMREX_USE_EB
@@ -855,7 +874,7 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
   // Find required data in pltfile
   Vector<std::string> spec_names;
   pele::physics::eos::speciesNames<pele::physics::PhysicsType::eos_type>(
-    spec_names);
+    spec_names, &(eos_parms.host_parm()));
   int idT = -1, idV = -1, idY = -1, nSpecPlt = 0;
 #ifdef PELE_USE_PLASMA
   int inE = -1, iPhiV = -1;
@@ -1066,9 +1085,6 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
 void
 PeleLM::WriteJobInfo(const std::string& path) const
 {
-  std::string OtherLine = std::string(78, '-') + "\n";
-  std::string SkipSpace = std::string(8, ' ');
-
   if (ParallelDescriptor::IOProcessor()) {
     // job_info file with details about the run
     std::ofstream jobInfoFile;

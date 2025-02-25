@@ -386,8 +386,7 @@ PeleLM::projectInitSolution()
   const int is_init = 1;
 
 #ifdef PELE_USE_PLASMA
-  if (m_ef_model == EFModel::EFglobal ||
-      m_ef_model == EFModel::EFlocal) {
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     poissonSolveEF(AmrNewTime);
     fillPatchPhiV(AmrNewTime);
   }

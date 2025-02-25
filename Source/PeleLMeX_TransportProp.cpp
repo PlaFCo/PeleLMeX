@@ -305,7 +305,9 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
       auto eos = pele::physics::PhysicsType::eos(leosparm);
       eos.molecular_weight(mwt.arr);
     }
-    Real factor = PP_RU_MKS / (Na * elemCharge);
+    Real factor = PP_RU_MKS / (Na * elemCharge); // PLASMA TODO ??
+    const bool do_Etransport = (m_ef_model != EFModel::EFglobal);
+    const amrex::Real fixedKe = m_fixedKappaE;
 #endif
 
     const amrex::Real Pr_inv = m_Prandtl_inv;
@@ -322,9 +324,10 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
 #ifdef PELE_USE_PLASMA
       , fixedKe = m_fixedKappaE
 #endif
-      ] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
+      ] AMREX_GPU_DEVICE(
+        int box_no, int i, int j, int k) noexcept {
 #ifndef PELE_USE_PLASMA
-        getTransportCoeff(
+        getTransportCoeff<pele::physics::PhysicsType::eos_type>(
           i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
           Array4<Real const>(sma[box_no], FIRSTSPEC),
           Array4<Real const>(sma[box_no], TEMP), Array4<Real>(dma[box_no], 0),
@@ -333,7 +336,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
           Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
 #else 
         if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal){
-          getTransportCoeff(
+          getTransportCoeff<pele::physics::PhysicsType::eos_type>(
             i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
             Array4<Real const>(sma[box_no], FIRSTSPEC),
             Array4<Real const>(sma[box_no], TEMP), Array4<Real>(dma[box_no], 0),
@@ -344,15 +347,17 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
             i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
             Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
             Array4<Real>(kma[box_no], 0));
-          getKappaE_EFlocal(
-            i, j, k, fixedKe , Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS)); 
-          getDiffE(i, j, k, factor, Array4<Real const>(sma[box_no], TEMP),
-                  Array4<Real const>(sma[box_no], FIRSTSPEC),
-                  Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
-                  Array4<Real>(dma[box_no], E_ID)); 
+          if (do_Etransport) {
+            getKappaE_EFlocal(
+              i, j, k, fixedKe , Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS)); 
+            getDiffE(i, j, k, factor, Array4<Real const>(sma[box_no], TEMP),
+                    Array4<Real const>(sma[box_no], FIRSTSPEC),
+                    Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
+                    Array4<Real>(dma[box_no], E_ID)); 
+          }
         }
         else if (m_ef_model == EFModel::EFOskam || m_ef_model == EFModel::EFneutral){
-          getTransportCoeff(
+          getTransportCoeff<pele::physics::PhysicsType::eos_type>(
             i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
             Array4<Real const>(sma[box_no], FIRSTSPEC),
             Array4<Real const>(sma[box_no], TEMP), Array4<Real>(dma[box_no], 0),
@@ -365,7 +370,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
           Array4<Real>(kma[box_no], 0));
         }
         else if(m_ef_model == EFModel::EFambipolar ){
-          getTransportCoeff(
+          getTransportCoeff<pele::physics::PhysicsType::eos_type>(
             i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
             Array4<Real const>(sma[box_no], FIRSTSPEC),
             Array4<Real const>(sma[box_no], TEMP), Array4<Real>(dma[box_no], 0),

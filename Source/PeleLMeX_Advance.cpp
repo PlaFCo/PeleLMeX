@@ -107,8 +107,7 @@ PeleLM::Advance(int is_initIter)
   if (m_incompressible == 0) {
     calcDiffusivity(AmrOldTime);
 #ifdef PELE_USE_PLASMA
-    if (m_ef_model == EFModel::EFglobal ||
-        m_ef_model == EFModel::EFlocal) {
+    if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
       poissonSolveEF(AmrOldTime);
     }
 #endif
