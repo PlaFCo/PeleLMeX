@@ -344,7 +344,7 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
     //----------------------------------------------------------------
     // Assemble drift and mac velocities
     // PLASMA TODO change
-    if( m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal ) {
+    if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
       ionDriftAddUmac(lev, advData);
     }
 #endif
@@ -388,7 +388,7 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
       auto const& force_arr = advData->Forcing[lev].const_array(mfi, 0);
 
 #ifdef PELE_USE_PLASMA
-      if( m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal ) {
+      if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
         // Uncharged species all at once
         bool is_velocity = false;
         bool fluxes_are_area_weighted = false;
@@ -398,9 +398,9 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
           AMREX_D_DECL(edgex, edgey, edgez), knownEdgeState,
           AMREX_D_DECL(umac, vmac, wmac), divu_arr, force_arr, geom[lev], m_dt,
           bcRecSpec, bcRecSpec_d.dataPtr(), AdvTypeSpec_d.dataPtr(),
-  #ifdef AMREX_USE_EB
+#ifdef AMREX_USE_EB
           ebfact,
-  #endif
+#endif
           m_Godunov_ppm, m_Godunov_ForceInTrans, is_velocity,
           fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
 
@@ -417,17 +417,18 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
             , auto const& vdrift = advData->uDrift[lev][1].const_array(mfi, n);
             , auto const& wdrift = advData->uDrift[lev][2].const_array(mfi, n);)
           AMREX_D_TERM(auto const& fx_ions =
-                        fluxes[lev][0].array(mfi, NUM_SPECIES - NUM_IONS + n);
-                      , auto const& fy_ions =
-                          fluxes[lev][1].array(mfi, NUM_SPECIES - NUM_IONS + n);
-                      , auto const& fz_ions =
-                          fluxes[lev][2].array(mfi, NUM_SPECIES - NUM_IONS + n);)
-          AMREX_D_TERM(auto const& edgex_ions =
-                        edgeState[0].array(mfi, 1 + NUM_SPECIES - NUM_IONS + n);
-                      , auto const& edgey_ions = edgeState[1].array(
-                          mfi, 1 + NUM_SPECIES - NUM_IONS + n);
-                      , auto const& edgez_ions = edgeState[2].array(
-                          mfi, 1 + NUM_SPECIES - NUM_IONS + n);)
+                         fluxes[lev][0].array(mfi, NUM_SPECIES - NUM_IONS + n);
+                       , auto const& fy_ions = fluxes[lev][1].array(
+                           mfi, NUM_SPECIES - NUM_IONS + n);
+                       , auto const& fz_ions = fluxes[lev][2].array(
+                           mfi, NUM_SPECIES - NUM_IONS + n);)
+          AMREX_D_TERM(
+            auto const& edgex_ions =
+              edgeState[0].array(mfi, 1 + NUM_SPECIES - NUM_IONS + n);
+            , auto const& edgey_ions =
+                edgeState[1].array(mfi, 1 + NUM_SPECIES - NUM_IONS + n);
+            , auto const& edgez_ions =
+                edgeState[2].array(mfi, 1 + NUM_SPECIES - NUM_IONS + n);)
           auto const& rhoYions_arr = ldata_p->state.const_array(
             mfi, FIRSTSPEC + NUM_SPECIES - NUM_IONS + n);
           auto const& forceions_arr =
@@ -438,14 +439,13 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
             AMREX_D_DECL(udrift, vdrift, wdrift), divu_arr, forceions_arr,
             geom[lev], m_dt, bcRecIons, bcRecIons_d.dataPtr(),
             AdvTypeIons_d.dataPtr(),
-  #ifdef AMREX_USE_EB
+#ifdef AMREX_USE_EB
             ebfact,
-  #endif
+#endif
             m_Godunov_ppm, m_Godunov_ForceInTrans, is_velocity,
             fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
         }
-      }
-      else{
+      } else {
         bool is_velocity = false;
         bool fluxes_are_area_weighted = false;
         bool knownEdgeState = false;
@@ -455,7 +455,7 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
           AMREX_D_DECL(umac, vmac, wmac), divu_arr, force_arr, geom[lev], m_dt,
           bcRecSpec, bcRecSpec_d.dataPtr(), AdvTypeSpec_d.dataPtr(),
 #ifdef AMREX_USE_EB
-        ebfact,
+          ebfact,
 #endif
           m_Godunov_ppm != 0, m_Godunov_ForceInTrans != 0, is_velocity,
           fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);

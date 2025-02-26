@@ -323,11 +323,10 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
       ldata_p->diff_cc, ldata_p->diff_cc.nGrowVect(),
       [=
 #ifdef PELE_USE_PLASMA
-      , fixedKe = m_fixedKappaE
-      , fixedNDe = m_fixedNDe
+         ,
+       fixedKe = m_fixedKappaE, fixedNDe = m_fixedNDe
 #endif
-      ] AMREX_GPU_DEVICE(
-        int box_no, int i, int j, int k) noexcept {
+    ] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
 #ifndef PELE_USE_PLASMA
         getTransportCoeff<pele::physics::PhysicsType::eos_type>(
           i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
@@ -336,8 +335,8 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
           Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
           Array4<Real>(dma[box_no], NUM_SPECIES),
           Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
-#else 
-        if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal){
+#else
+        if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
           getTransportCoeff<pele::physics::PhysicsType::eos_type>(
             i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
             Array4<Real const>(sma[box_no], FIRSTSPEC),
@@ -351,14 +350,16 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
             Array4<Real>(kma[box_no], 0));
           if (do_Etransport) {
             getKappaE_EFlocal(
-              i, j, k, fixedKe , Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS)); 
-            getDiffE(i, j, k, factor, Array4<Real const>(sma[box_no], TEMP),
-                    Array4<Real const>(sma[box_no], FIRSTSPEC),
-                    Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
-                    Array4<Real>(dma[box_no], E_ID)); 
+              i, j, k, fixedKe,
+              Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS));
+            getDiffE(
+              i, j, k, factor, Array4<Real const>(sma[box_no], TEMP),
+              Array4<Real const>(sma[box_no], FIRSTSPEC),
+              Array4<Real>(kma[box_no], E_ID - NUM_SPECIES + NUM_IONS),
+              Array4<Real>(dma[box_no], E_ID));
           }
-        }
-        else if (m_ef_model == EFModel::EFOskam || m_ef_model == EFModel::EFneutral){
+        } else if (
+          m_ef_model == EFModel::EFOskam || m_ef_model == EFModel::EFneutral) {
           getTransportCoeff<pele::physics::PhysicsType::eos_type>(
             i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
             Array4<Real const>(sma[box_no], FIRSTSPEC),
@@ -366,17 +367,16 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
             Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
             Array4<Real>(dma[box_no], NUM_SPECIES),
             Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
-          get_fixedRhoDe(i, j, k, fixedNDe,
-            Array4<Real const>(sma[box_no], FIRSTSPEC),
+          get_fixedRhoDe(
+            i, j, k, fixedNDe, Array4<Real const>(sma[box_no], FIRSTSPEC),
             Array4<Real const>(sma[box_no], TEMP),
             Array4<Real const>(sma[box_no], RHORT),
             Array4<Real>(dma[box_no], 0));
           getKappa(
-          i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
-          Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
-          Array4<Real>(kma[box_no], 0));
-        }
-        else if(m_ef_model == EFModel::EFambipolar ){
+            i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
+            Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
+            Array4<Real>(kma[box_no], 0));
+        } else if (m_ef_model == EFModel::EFambipolar) {
           getTransportCoeff<pele::physics::PhysicsType::eos_type>(
             i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
             Array4<Real const>(sma[box_no], FIRSTSPEC),
@@ -384,15 +384,15 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
             Array4<Real>(dma[box_no], NUM_SPECIES + 1 + soret_idx),
             Array4<Real>(dma[box_no], NUM_SPECIES),
             Array4<Real>(dma[box_no], NUM_SPECIES + 1), ltransparm, leosparm);
-          get_fixedRhoDe(i, j, k, fixedNDe,
-            Array4<Real const>(sma[box_no], FIRSTSPEC),
+          get_fixedRhoDe(
+            i, j, k, fixedNDe, Array4<Real const>(sma[box_no], FIRSTSPEC),
             Array4<Real const>(sma[box_no], TEMP),
             Array4<Real const>(sma[box_no], RHORT),
             Array4<Real>(dma[box_no], 0));
           getAmbipolarCorrection(
-              i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
-              Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
-              Array4<Real>(kma[box_no], 0));
+            i, j, k, mwt.arr, zk, Array4<Real const>(sma[box_no], FIRSTSPEC),
+            Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
+            Array4<Real>(kma[box_no], 0));
         }
 #endif
       });

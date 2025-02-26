@@ -203,7 +203,7 @@ PeleLM::advanceChemistryBAChem(
   MultiFab functC(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
 #ifdef PELE_USE_PLASMA
   // if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
-    MultiFab chemnE(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
+  MultiFab chemnE(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
   // }
 #endif
 
@@ -219,9 +219,9 @@ PeleLM::advanceChemistryBAChem(
   chemState.ParallelCopy(ldataOld_p->state, FIRSTSPEC, 0, NUM_SPECIES + 3);
   chemForcing.ParallelCopy(a_extForcing, 0, 0, nCompForcing());
 #ifdef PELE_USE_PLASMA
-if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
-  chemnE.ParallelCopy(ldataOld_p->state, NE, 0, 1);
-}
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+    chemnE.ParallelCopy(ldataOld_p->state, NE, 0, 1);
+  }
 #endif
 
   MFItInfo mfi_info;
@@ -309,10 +309,10 @@ if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     if (m_ef_model == EFModel::EFglobal) {
       auto eos =
         pele::physics::PhysicsType::eos();  // PLASMA TODO do you need this
-      auto const& nE_o = chemnE.array(mfi);          // PLASMA TODO do you need this
+      auto const& nE_o = chemnE.array(mfi); // PLASMA TODO do you need this
       auto const& rhoYe_o =
-        chemState.array(mfi, E_ID);  // PLASMA TODO do you need this
-      Real invmwt[NUM_SPECIES] = {0.0}; 
+        chemState.array(mfi, E_ID); // PLASMA TODO do you need this
+      Real invmwt[NUM_SPECIES] = {0.0};
       eos.inv_molecular_weight(invmwt);
       ParallelFor(
         bx,
@@ -334,7 +334,7 @@ if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
   StateTemp.ParallelCopy(chemState, 0, 0, NUM_SPECIES + 3);
   ldataR_p->functC.ParallelCopy(functC, 0, 0, 1);
 #ifdef PELE_USE_PLASMA
-// if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+  // if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
   MultiFab nETemp(grids[lev], dmap[lev], 1, 0);
   nETemp.ParallelCopy(chemnE, 0, 0, 1);
 // }
@@ -401,11 +401,9 @@ PeleLM::computeInstantaneousReactionRate(
 #ifdef PELE_USE_PLASMA
     if (m_ef_model == EFModel::EFglobal) {
       computeInstantaneousReactionRateEF(lev, a_time, I_R[lev]);
-    } 
-    else if(m_ef_model == EFModel::EFneutral) {
+    } else if (m_ef_model == EFModel::EFneutral) {
       computeInstantaneousReactionRateEFneutral(lev, a_time, I_R[lev]);
-    }
-    else {
+    } else {
       computeInstantaneousReactionRate(lev, a_time, I_R[lev]);
     }
 #else

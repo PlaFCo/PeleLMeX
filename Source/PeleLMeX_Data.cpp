@@ -121,10 +121,10 @@ PeleLM::AdvanceDiffData::AdvanceDiffData(
       DT.resize(a_finestLevel + 1);
       soret_fluxes.resize(a_finestLevel + 1);
     }
-    
+
 #ifdef PELE_USE_PLASMA
     Deamb.resize(a_finestLevel + 1);
-    ambdrift_fluxes.resize(a_finestLevel + 1);  
+    ambdrift_fluxes.resize(a_finestLevel + 1);
 #endif
 
     // Define MFs
@@ -146,14 +146,14 @@ PeleLM::AdvanceDiffData::AdvanceDiffData(
         }
       }
 #ifdef PELE_USE_PLASMA
-        Deamb[lev].define(
-          ba[lev], dm[lev], NUM_SPECIES, nGrowAdv, MFInfo(), *factory[lev]);
-        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-          const BoxArray& faceba =
-            amrex::convert(ba[lev], IntVect::TheDimensionVector(idim));
-          ambdrift_fluxes[lev][idim].define(
-            faceba, dm[lev], NUM_SPECIES, 0, MFInfo(), *factory[lev]);
-        }
+      Deamb[lev].define(
+        ba[lev], dm[lev], NUM_SPECIES, nGrowAdv, MFInfo(), *factory[lev]);
+      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+        const BoxArray& faceba =
+          amrex::convert(ba[lev], IntVect::TheDimensionVector(idim));
+        ambdrift_fluxes[lev][idim].define(
+          faceba, dm[lev], NUM_SPECIES, 0, MFInfo(), *factory[lev]);
+      }
 #endif
       if (a_use_soret != 0) {
         DT[lev].define(

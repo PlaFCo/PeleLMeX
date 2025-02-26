@@ -78,17 +78,15 @@ PeleLM::calcDivU(
       } else { // Regular    -> use instantaneous RR
         RhoYdot.define(grids[lev], dmap[lev], nCompIR(m_ef_model), 0);
 
-        if (m_ef_model == EFModel::EFglobal) { //no EFlocal?
+        if (m_ef_model == EFModel::EFglobal) { // no EFlocal?
           computeInstantaneousReactionRateEF(lev, a_time, &RhoYdot);
-        }
-        else if(m_ef_model == EFModel::EFneutral) {
+        } else if (m_ef_model == EFModel::EFneutral) {
           computeInstantaneousReactionRateEFneutral(lev, a_time, &RhoYdot);
-        } 
-        else {
+        } else {
           computeInstantaneousReactionRate(lev, a_time, &RhoYdot);
         }
 #else
-     if (is_init != 0) { // Either pre-divU, divU or press initial iterations
+      if (is_init != 0) { // Either pre-divU, divU or press initial iterations
         if (m_dt > 0.0) { // divU ite   -> use I_R
           auto* ldataR_p = getLevelDataReactPtr(lev);
           RhoYdot.define(grids[lev], dmap[lev], nCompIR(), 0);

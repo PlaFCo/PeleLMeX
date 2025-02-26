@@ -125,16 +125,16 @@ get_fixedRhoDe(
   amrex::Array4<const amrex::Real> const& T,
   amrex::Array4<const amrex::Real> const& P0,
   amrex::Array4<amrex::Real> const& rhoDi) noexcept
-  {
-    using namespace amrex::literals;
-    amrex::Real rho = 0.0;
-    for (int n = 0; n < NUM_SPECIES; n++) {
-      rho += rhoY(i, j, k, n);
-    }
-    amrex::Real N = P0(i, j, k)/T(i, j, k)/(PP_RU_MKS/Na);
-    amrex::Real De = cstNDe / N;
-    rhoDi(i, j, k, E_ID) = rho*De;
+{
+  using namespace amrex::literals;
+  amrex::Real rho = 0.0;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rho += rhoY(i, j, k, n);
   }
+  amrex::Real N = P0(i, j, k) / T(i, j, k) / (PP_RU_MKS / Na);
+  amrex::Real De = cstNDe / N;
+  rhoDi(i, j, k, E_ID) = rho * De;
+}
 
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
@@ -163,7 +163,7 @@ getKappa(
       // PLASMA TODO : do not put this to 0 for Eamb
       // if (n == E_ID)
       //   Ksp(i, j, k, ionCnt) = 0.0; // Set the E species mobility to zero.
-                                    // Electron are treated separately.
+      // Electron are treated separately.
       ionCnt += 1;
     }
   }
@@ -193,15 +193,15 @@ getAmbipolarCorrection(
   amrex::Real y[NUM_SPECIES] = {0.0};
   amrex::Real x[NUM_SPECIES] = {0.0};
   for (int n = 0; n < NUM_SPECIES; n++) {
-    y[n] = rhoY(i, j, k, n)/rho;
+    y[n] = rhoY(i, j, k, n) / rho;
   }
   // calcular xi
   auto eos = pele::physics::PhysicsType::eos();
-  eos.Y2X(y,x);
+  eos.Y2X(y, x);
 
   // Ksp \equiv mu_i
   // Ksp = |q| Di * 1/ kB * 1/T
-  // Ksp = |q| mwi_MKS/mwi_MKS rho Di / (rho) * Na/Ru * 1/T    
+  // Ksp = |q| mwi_MKS/mwi_MKS rho Di / (rho) * Na/Ru * 1/T
   // Ksp = |q| Na/mwi_MKS mwi_MKS rho Di/ (rho * Ru * T)
   // Ksp = abs(zk) mwi_MKS rho Di / (rho * Ru * T)
   // Ksp = abs(zk) mwi_CGS * 0.001 * rho Di / ( rho * Ru * T) //
@@ -210,33 +210,35 @@ getAmbipolarCorrection(
   amrex::Real uk_e = 0.0;
   for (int n = 0; n < NUM_SPECIES; n++) {
     if (a_zk[n] != 0.0) {
-      Ksp(i, j, k, ionCnt) = rhoD(i, j, k, n) * mwt[n] * 0.001 * std::abs(a_zk[n]) /
-                             (rho * PP_RU_MKS * T(i, j, k));
-      if (n == E_ID){
+      Ksp(i, j, k, ionCnt) = rhoD(i, j, k, n) * mwt[n] * 0.001 *
+                             std::abs(a_zk[n]) / (rho * PP_RU_MKS * T(i, j, k));
+      if (n == E_ID) {
         iE_ID = ionCnt;
       }
       ionCnt += 1;
     }
   }
-  // Ambipolar model where diffusion of charged species is computed from an ambipolar diffusion coefficient
+  // Ambipolar model where diffusion of charged species is computed from an
+  // ambipolar diffusion coefficient
   ionCnt = 0;
   amrex::Real rhoDe = rhoD(i, j, k, E_ID);
   int sign = 1;
-  if (x[E_ID] > 0.0){
+  if (x[E_ID] > 0.0) {
     rhoD(i, j, k, E_ID) = 0.0;
     for (int n = 0; n < NUM_SPECIES; n++) {
       if (a_zk[n] != 0.0) {
-        if (n != E_ID){
+        if (n != E_ID) {
           sign = (a_zk[n] > 0) ? 1 : ((a_zk[n] < 0) ? -1 : 0);
-          rhoD(i, j, k, n) = sign *   Ksp(i, j, k, ionCnt) * x[n]/x[E_ID] * rhoDe / Ksp(i, j, k, iE_ID);
-          rhoD(i, j, k, E_ID)    +=   Ksp(i, j, k, ionCnt) * x[n]/x[E_ID] * rhoDe / Ksp(i, j, k, iE_ID);
+          rhoD(i, j, k, n) = sign * Ksp(i, j, k, ionCnt) * x[n] / x[E_ID] *
+                             rhoDe / Ksp(i, j, k, iE_ID);
+          rhoD(i, j, k, E_ID) +=
+            Ksp(i, j, k, ionCnt) * x[n] / x[E_ID] * rhoDe / Ksp(i, j, k, iE_ID);
         }
         ionCnt += 1;
       }
     }
   }
 }
-
 
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
@@ -511,10 +513,9 @@ reactionRateRhoY_EFneutral(
   amrex::Array4<const amrex::Real> const& T,
   // amrex::Array4<const amrex::Real> const& nE,
   amrex::Array4<amrex::Real> const& rhoYdot) noexcept // ,
-  // amrex::Array4<amrex::Real> const& nEdot) noexcept
+// amrex::Array4<amrex::Real> const& nEdot) noexcept
 {
   using namespace amrex::literals;
-
 
   // Get rho from rhoY. Is there a better way ?
   amrex::Real rho = 0.0_rt;
@@ -544,14 +545,14 @@ reactionRateRhoY_EFneutral(
     chargeDist += y[n] * zk[n];
   }
 
-  if(chargeDist > 0.0){
+  if (chargeDist > 0.0) {
     y[E_ID] = std::max(0.0, -chargeDist / zk[E_ID]);
   }
 
-  for(int n = 0; n < NUM_SPECIES; n++){
+  for (int n = 0; n < NUM_SPECIES; n++) {
     sum += y[n];
   }
-  for(int n = 0; n < NUM_SPECIES; n++){
+  for (int n = 0; n < NUM_SPECIES; n++) {
     y[n] /= sum;
   }
 
@@ -631,7 +632,7 @@ addLorentzForce(
   force(i, j, k, 2) -= ne(i, j, k) * elemCharge * EFz;
 #endif
 }
-//compYeNefromIons
+// compYeNefromIons
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
@@ -673,13 +674,13 @@ compYeNefromIons(
     chargeDist += massfrac[n] * zk[n];
   }
 
-  if(chargeDist > 0.0){
+  if (chargeDist > 0.0) {
     massfrac[E_ID] = std::max(0.0, -chargeDist / zk[E_ID]);
   }
-  for(int n = 0; n < NUM_SPECIES; n++){
+  for (int n = 0; n < NUM_SPECIES; n++) {
     sum += massfrac[n];
   }
-  for(int n = 0; n < NUM_SPECIES; n++){
+  for (int n = 0; n < NUM_SPECIES; n++) {
     massfrac[n] /= sum;
   }
 

@@ -60,7 +60,7 @@ PeleLM::Evolve()
 #endif
 
 #ifdef PELE_USE_PLASMA
-    if(m_ef_model == EFModel::EFneutral) {
+    if (m_ef_model == EFModel::EFneutral) {
       // Update electron mass fraction and density
       computeYeNeFromIons();
     }

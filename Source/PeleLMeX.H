@@ -240,8 +240,8 @@ public:
       wbar_fluxes;                     // Wbar flux correction
     amrex::Vector<amrex::MultiFab> DT; // Diffusion term of T (soret flux)
     amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>
-      soret_fluxes; // Soret flux correction
-    amrex::Vector<amrex::MultiFab> Deamb; // Diffusion term of Eamb 
+      soret_fluxes;                       // Soret flux correction
+    amrex::Vector<amrex::MultiFab> Deamb; // Diffusion term of Eamb
     //(ambipolar flux)
     amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>
       ambdrift_fluxes; // ambipolar flux correction
@@ -563,11 +563,11 @@ public:
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
       a_soretfluxes
 #ifdef PELE_USE_PLASMA
-      ,
+    ,
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
       a_ambdriftfluxes);
 #else
-      );
+  );
 #endif
 
   void correctIsothermalBoundary(
@@ -629,12 +629,13 @@ public:
 
 #ifdef PELE_USE_PLASMA
   /**
-   * \brief Add the Ambipolar drift contribution to the face-centered species 
+   * \brief Add the Ambipolar drift contribution to the face-centered species
    * diffusion fluxes on all levels optionally returning that contribution in
    * a separate container \param a_fluxes diffusion fluxes to be updated \param
-   * a_ambdriftfluxes optional container to return the Ambipolar drift contribution
-   * \param a_spec species rhoYs state data on all levels \param a_rho density state
-   * data on all levels \param a_kappa cell-centered species mobility on all levels
+   * a_ambdriftfluxes optional container to return the Ambipolar drift
+   * contribution \param a_spec species rhoYs state data on all levels \param
+   * a_rho density state data on all levels \param a_kappa cell-centered species
+   * mobility on all levels
    */
   void addAmbDriftTerm(
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
@@ -1624,8 +1625,7 @@ public:
   {
     if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
       return NUM_SPECIES + 1;
-    }
-    else{
+    } else {
       return NUM_SPECIES;
     }
   }

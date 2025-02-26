@@ -228,7 +228,6 @@ PeleLM::computeYeNeFromIons()
           compYeNefromIons(i, j, k, rho, rhoY, rhoH, temp, nE, *lprobparm);
         });
     }
-
   }
 }
 

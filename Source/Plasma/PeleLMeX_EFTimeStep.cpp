@@ -73,28 +73,31 @@ PeleLM::estEFlocIonsDt(const TimeStamp& a_time)
       for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
         const Box bx = mfi.tilebox();
         const auto& ChO = Charge_CC.const_array(mfi);
-        const auto& ef_old = E_CC.array(mfi,idim);
-        Real factor = 1.0 / (eps0*epsr);
+        const auto& ef_old = E_CC.array(mfi, idim);
+        Real factor = 1.0 / (eps0 * epsr);
         if (idim == 0) {
           amrex::ParallelFor(
-            bx, 
-            [ef_old, ChO, dx, factor] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-              ef_old(i, j, k) = 0.5 * factor * ( ( ChO(i  , j, k) - ChO(i-1, j, k) ) +
-                                                 ( ChO(i+1, j, k) - ChO(i  , j, k) ) );///dx[0];
+            bx, [ef_old, ChO, dx,
+                 factor] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+              ef_old(i, j, k) = 0.5 * factor *
+                                ((ChO(i, j, k) - ChO(i - 1, j, k)) +
+                                 (ChO(i + 1, j, k) - ChO(i, j, k))); /// dx[0];
             });
         } else if (idim == 1) {
           amrex::ParallelFor(
-            bx, 
-            [ef_old, ChO, dx, factor] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-              ef_old(i, j, k) = 0.5 * factor * ( ( ChO(i, j  , k) - ChO(i, j-1, k) ) +
-                                                 ( ChO(i, j+1, k) - ChO(i, j  , k) ) );///dx[1];
+            bx, [ef_old, ChO, dx,
+                 factor] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+              ef_old(i, j, k) = 0.5 * factor *
+                                ((ChO(i, j, k) - ChO(i, j - 1, k)) +
+                                 (ChO(i, j + 1, k) - ChO(i, j, k))); /// dx[1];
             });
         } else if (idim == 2) {
           amrex::ParallelFor(
-            bx, 
-            [ef_old, ChO, dx, factor] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-              ef_old(i, j, k) = 0.5 * factor * ( ( ChO(i, j, k  ) - ChO(i, j, k-1) ) +
-                                                 ( ChO(i, j, k+1) - ChO(i, j, k  ) ) );///dx[2];
+            bx, [ef_old, ChO, dx,
+                 factor] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+              ef_old(i, j, k) = 0.5 * factor *
+                                ((ChO(i, j, k) - ChO(i, j, k - 1)) +
+                                 (ChO(i, j, k + 1) - ChO(i, j, k))); /// dx[2];
             });
         }
       }
@@ -159,7 +162,7 @@ PeleLM::estEFlocIonsDt(const TimeStamp& a_time)
   return estdt;
 }
 
-Real 
+Real
 PeleLM::estEFglobIonsDt(const TimeStamp& a_time)
 {
   Real estdt = 1.0e200;

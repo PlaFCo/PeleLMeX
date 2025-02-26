@@ -46,8 +46,8 @@ PeleLM::computeInstantaneousReactionRateEFneutral(
     auto const& rhoYdot = a_I_R->array(mfi);
 
     amrex::ParallelFor(
-      bx, [rhoY, rhoH, T, rhoYdot] 
-      AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+      bx,
+      [rhoY, rhoH, T, rhoYdot] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
         reactionRateRhoY_EFneutral(i, j, k, rhoY, rhoH, T, rhoYdot);
       });
   }

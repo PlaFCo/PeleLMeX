@@ -700,10 +700,10 @@ PeleLM::readParameters()
     }
   }
 
-  #ifdef PELE_USE_PLASMA
+#ifdef PELE_USE_PLASMA
   ppef.query("fixed_NDe", m_fixedNDe);
   if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
-  
+
     // -----------------------------------------
     // PLASMA
     // -----------------------------------------
@@ -1215,12 +1215,11 @@ PeleLM::derivedSetup()
 #ifdef PELE_USE_PLASMA
   // PLASMA TODO
   // Charge distribution
-  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal){
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     derive_lst.add(
       "chargedistrib", IndexType::TheCellType(), 1, pelelmex_derchargedist,
       the_same_box);
-  }
-  else{
+  } else {
     derive_lst.add(
       "chargedistrib", IndexType::TheCellType(), 1, pelelmex_derchargedistneut,
       the_same_box);
@@ -1495,7 +1494,7 @@ PeleLM::resizeArray()
   if (m_ef_model == EFModel::EFglobal) {
     m_leveldatanlsolve.resize(max_level + 1);
   }
-  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal){
+  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     m_ionsFluxes.resize(max_level + 1);
   }
 #endif

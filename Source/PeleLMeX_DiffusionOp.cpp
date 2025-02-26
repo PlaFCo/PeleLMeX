@@ -861,9 +861,9 @@ DiffusionOp::computeDiffFluxes(
 }
 #endif
 
-
 #ifdef PELE_USE_PLASMA
-// Copy of computeDiffFluxes() but ion species follow electron mass fraction gradient
+// Copy of computeDiffFluxes() but ion species follow electron mass fraction
+// gradient
 void
 DiffusionOp::computeDiffFluxesAmbipolar(
   Vector<Array<MultiFab*, AMREX_SPACEDIM>> const& a_flux,
@@ -914,21 +914,21 @@ DiffusionOp::computeDiffFluxesAmbipolar(
       auto const& phi_arr = phi[lev].array(mfi);
       amrex::ParallelFor(
         gbx, ncomp,
-        [a_phi_arr, a_rho_arr, phi_arr,
-         have_density, zkk=zk] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
-          if(zkk[n] == 0 ){
-              if (have_density != 0) {
-                phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n) / a_rho_arr(i, j, k);
-              } else {
-                phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n);
-              }
+        [a_phi_arr, a_rho_arr, phi_arr, have_density,
+         zkk = zk] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+          if (zkk[n] == 0) {
+            if (have_density != 0) {
+              phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n) / a_rho_arr(i, j, k);
+            } else {
+              phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n);
             }
-            else{
-              if (have_density != 0) {
-                phi_arr(i, j, k, n) = a_phi_arr(i, j, k, E_ID) / a_rho_arr(i, j, k);
-              } else {
-                phi_arr(i, j, k, n) = a_phi_arr(i, j, k, E_ID);
-              }
+          } else {
+            if (have_density != 0) {
+              phi_arr(i, j, k, n) =
+                a_phi_arr(i, j, k, E_ID) / a_rho_arr(i, j, k);
+            } else {
+              phi_arr(i, j, k, n) = a_phi_arr(i, j, k, E_ID);
+            }
           }
         });
     }
@@ -1003,7 +1003,8 @@ DiffusionOp::computeDiffFluxesAmbipolar(
 }
 
 #ifdef AMREX_USE_EB
-// Copy of computeDiffFluxes() but ion species follow electron mass fraction gradient
+// Copy of computeDiffFluxes() but ion species follow electron mass fraction
+// gradient
 void
 DiffusionOp::computeDiffFluxesAmbipolar(
   Vector<Array<MultiFab*, AMREX_SPACEDIM>> const& a_flux,
@@ -1035,7 +1036,6 @@ DiffusionOp::computeDiffFluxesAmbipolar(
 
   int have_density = (a_density.empty()) ? 0 : 1;
 
-  
   amrex::GpuArray<amrex::Real, NUM_SPECIES> zk;
   pele::physics::eos::charge_mass(zk.arr);
 
@@ -1060,18 +1060,18 @@ DiffusionOp::computeDiffFluxesAmbipolar(
       auto const& phi_arr = phi[lev].array(mfi);
       amrex::ParallelFor(
         gbx, ncomp,
-        [a_phi_arr, a_rho_arr, phi_arr,
-         have_density, zkk=zk] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
-          if(zkk[n] == 0){
+        [a_phi_arr, a_rho_arr, phi_arr, have_density,
+         zkk = zk] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+          if (zkk[n] == 0) {
             if (have_density != 0) {
               phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n) / a_rho_arr(i, j, k);
             } else {
               phi_arr(i, j, k, n) = a_phi_arr(i, j, k, n);
             }
-          }
-          else{
+          } else {
             if (have_density != 0) {
-              phi_arr(i, j, k, n) = a_phi_arr(i, j, k, E_ID) / a_rho_arr(i, j, k);
+              phi_arr(i, j, k, n) =
+                a_phi_arr(i, j, k, E_ID) / a_rho_arr(i, j, k);
             } else {
               phi_arr(i, j, k, n) = a_phi_arr(i, j, k, E_ID);
             }

@@ -168,14 +168,11 @@ const LoadBalanceMethod lbmethod;
 struct EFModel
 {
   EFModel() = default;
-  enum { EFglobal = 0, EFlocal, EFOskam, EFambipolar, EFneutral};
+  enum { EFglobal = 0, EFlocal, EFOskam, EFambipolar, EFneutral };
   const std::map<const std::string, int> str2int = {
-    {"efglobal", EFglobal},
-    {"eflocal", EFlocal},
-    {"efoskam", EFOskam},
-    {"efambipolar", EFambipolar},
-    {"efneutral", EFneutral},
-    {"default", EFglobal}};
+    {"efglobal", EFglobal},   {"eflocal", EFlocal},
+    {"efoskam", EFOskam},     {"efambipolar", EFambipolar},
+    {"efneutral", EFneutral}, {"default", EFglobal}};
   const amrex::Array<std::string, 1> searchKey{"ef_model"};
 };
 const EFModel efmodel;
