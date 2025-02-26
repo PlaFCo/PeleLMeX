@@ -71,9 +71,9 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
     //      auto ldataOld_p = getLevelDataPtr(lev, AmrOldTime);
     //      auto ldataNew_p = getLevelDataPtr(lev, AmrNewTime);
     //
-    //#ifdef AMREX_USE_OMP
-    //#pragma omp parallel if (Gpu::notInLaunchRegion())
-    //#endif
+    // #ifdef AMREX_USE_OMP
+    // #pragma omp parallel if (Gpu::notInLaunchRegion())
+    // #endif
     //      for (MFIter mfi(ChargeOld_CC, TilingIfNotGPU()); mfi.isValid();
     //      ++mfi) {
     //        const Box& bx = mfi.growntilebox();
@@ -101,9 +101,9 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
     //        EOld[lev][idim].setVal(0.0);
     //        ENew[lev][idim].setVal(0.0);
     //
-    //#ifdef AMREX_USE_OMP
-    //#pragma omp parallel if (Gpu::notInLaunchRegion())
-    //#endif
+    // #ifdef AMREX_USE_OMP
+    // #pragma omp parallel if (Gpu::notInLaunchRegion())
+    // #endif
     //        for (MFIter mfi(EOld[lev][idim], TilingIfNotGPU()); mfi.isValid();
     //             ++mfi) {
     //          const Box bx = mfi.tilebox();
@@ -159,21 +159,21 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
     //    //---------------------------------------------------------------
     //    // Average down the fluxes
     //    for (int lev = finest_level; lev > 0; --lev) {
-    //#ifdef AMREX_USE_EB
+    // #ifdef AMREX_USE_EB
     //      EB_average_down_faces(
     //        GetArrOfConstPtrs(EOld[lev]), GetArrOfPtrs(EOld[lev - 1]),
     //        refRatio(lev - 1), geom[lev - 1]);
     //      EB_average_down_faces(
     //        GetArrOfConstPtrs(ENew[lev]), GetArrOfPtrs(ENew[lev - 1]),
     //        refRatio(lev - 1), geom[lev - 1]);
-    //#else
+    // #else
     //      average_down_faces(
     //        GetArrOfConstPtrs(EOld[lev]), GetArrOfPtrs(EOld[lev - 1]),
     //        refRatio(lev - 1), geom[lev - 1]);
     //      average_down_faces(
     //        GetArrOfConstPtrs(ENew[lev]), GetArrOfPtrs(ENew[lev - 1]),
     //        refRatio(lev - 1), geom[lev - 1]);
-    //#endif
+    // #endif
     //    }
     //
     //    //Vector<std::unique_ptr<MultiFab>> EF_CC(finest_level + 1);
