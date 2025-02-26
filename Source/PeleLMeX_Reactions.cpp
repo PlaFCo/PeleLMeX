@@ -202,9 +202,7 @@ PeleLM::advanceChemistryBAChem(
   MultiFab chemForcing(*m_baChem[lev], *m_dmapChem[lev], nCompForcing(), 0);
   MultiFab functC(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
 #ifdef PELE_USE_PLASMA
-  // if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
   MultiFab chemnE(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
-  // }
 #endif
 
   // Setup EB covered cells mask
@@ -334,10 +332,8 @@ PeleLM::advanceChemistryBAChem(
   StateTemp.ParallelCopy(chemState, 0, 0, NUM_SPECIES + 3);
   ldataR_p->functC.ParallelCopy(functC, 0, 0, 1);
 #ifdef PELE_USE_PLASMA
-  // if(m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
   MultiFab nETemp(grids[lev], dmap[lev], 1, 0);
   nETemp.ParallelCopy(chemnE, 0, 0, 1);
-// }
 #endif
 
   // Pass from temp state MF to leveldata and set reaction term

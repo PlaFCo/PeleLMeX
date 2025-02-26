@@ -1024,7 +1024,7 @@ PeleLM::addAmbDriftTerm(
       getDiffusivity(lev, 0, NUM_IONS, doZeroVisc, bcRecIons, *a_mob_cc[lev]);
 
     const Box& domain = geom[lev].Domain();
-    bool use_harmonic_avg = false; // m_harm_avg_cen2edge != 0;
+    bool use_harmonic_avg = false;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())

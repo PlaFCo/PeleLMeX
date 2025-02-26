@@ -1514,6 +1514,7 @@ public:
     const amrex::Real& a_dt,
     std::unique_ptr<AdvanceDiffData>& diffData,
     std::unique_ptr<AdvanceAdvData>& advData);
+
   void computeBGcharge(
     const amrex::Real& a_time,
     std::unique_ptr<AdvanceDiffData>& diffData,
@@ -1551,6 +1552,7 @@ public:
 
   void computeInstantaneousReactionRateEF(
     int lev, const PeleLM::TimeStamp& a_time, amrex::MultiFab* a_I_R);
+
   void computeInstantaneousReactionRateEFneutral(
     int lev, const PeleLM::TimeStamp& a_time, amrex::MultiFab* a_I_R);
 
@@ -1623,11 +1625,11 @@ public:
   // TODO is this OK?
   static int nCompIR(int m_ef_model = -1)
   {
+    int num_spe = NUM_SPECIES;
     if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
-      return NUM_SPECIES + 1;
-    } else {
-      return NUM_SPECIES;
+      num_spe += 1;
     }
+    return num_spe;
   }
 
   static int nCompForcing()
