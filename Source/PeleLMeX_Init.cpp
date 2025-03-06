@@ -218,6 +218,9 @@ PeleLM::initData()
     averageDownState(AmrNewTime);
     fillPatchState(AmrNewTime);
 
+    if (m_plot_init_state) {
+      WritePlotFile();
+    }
     //----------------------------------------------------------------
     // If performing UnitTest, let's stop here
     if (runMode() != "normal") {
@@ -267,7 +270,7 @@ PeleLM::initData()
     }
 #endif
 #ifdef PELE_USE_PLASMA
-    // If restarting from a non efield simulation
+    // If restarting from a non plasma simulation
     if (m_restart_nonEF) {
       // either pass Y_ne -> nE or initialize nE for electro-neutral
       if (m_restart_electroneutral) {

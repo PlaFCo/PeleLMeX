@@ -21,41 +21,32 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
 
   //----------------------------------------------------------------
   // Get the gradient of Old and New phiV
-  Vector<Array<MultiFab, AMREX_SPACEDIM>> EOld(finest_level + 1);
-  Vector<Array<MultiFab, AMREX_SPACEDIM>> ENew(finest_level + 1);
+  Vector<Array<MultiFab, AMREX_SPACEDIM>> gphiVOld(finest_level + 1);
+  Vector<Array<MultiFab, AMREX_SPACEDIM>> gphiVNew(finest_level + 1);
   int nGrow = 0; // No need for ghost face on gphiV
   for (int lev = 0; lev <= finest_level; ++lev) {
     const auto& ba = grids[lev];
     const auto& factory = Factory(lev);
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      EOld[lev][idim].define(
+      gphiVOld[lev][idim].define(
         amrex::convert(ba, IntVect::TheDimensionVector(idim)), dmap[lev], 1,
         nGrow, MFInfo(), factory);
-      ENew[lev][idim].define(
+      gphiVNew[lev][idim].define(
         amrex::convert(ba, IntVect::TheDimensionVector(idim)), dmap[lev], 1,
         nGrow, MFInfo(), factory);
     }
   }
 
-  if (m_ef_model == EFModel::EFglobal) { // E is grad PhiV
+  if ( (m_ef_model == EFModel::EFglobal) || (m_ef_model == EFModel::EFlocal) ) { // E is grad PhiV
     int do_avgDown = 0;                  // TODO or should I ?
     auto bcRecPhiV = fetchBCRecArray(PHIV, 1);
     getDiffusionOp()->computeGradient(
-      GetVecOfArrOfPtrs(EOld), {}, // don't need the laplacian out
+      GetVecOfArrOfPtrs(gphiVOld), {}, // don't need the laplacian out
       GetVecOfConstPtrs(getPhiVVect(AmrOldTime)), {}, bcRecPhiV[0], do_avgDown);
     getDiffusionOp()->computeGradient(
-      GetVecOfArrOfPtrs(ENew), {}, // don't need the laplacian out
+      GetVecOfArrOfPtrs(gphiVNew), {}, // don't need the laplacian out
       GetVecOfConstPtrs(getPhiVVect(AmrNewTime)), {}, bcRecPhiV[0], do_avgDown);
-  } else if (m_ef_model == EFModel::EFlocal) { // Eamb
-    int do_avgDown = 0;                        // TODO or should I ?
-    auto bcRecPhiV = fetchBCRecArray(PHIV, 1);
-    getDiffusionOp()->computeGradient(
-      GetVecOfArrOfPtrs(EOld), {}, // don't need the laplacian out
-      GetVecOfConstPtrs(getPhiVVect(AmrOldTime)), {}, bcRecPhiV[0], do_avgDown);
-    getDiffusionOp()->computeGradient(
-      GetVecOfArrOfPtrs(ENew), {}, // don't need the laplacian out
-      GetVecOfConstPtrs(getPhiVVect(AmrNewTime)), {}, bcRecPhiV[0], do_avgDown);
-    
+//  } else if (m_ef_model == EFModel::EFlocal) { // Eamb
 //    for (int lev = 0; lev <= finest_level; ++lev) {
 //      //---------------------------------------------------------------
 //      // Compute the old and new charge distribution
@@ -180,8 +171,8 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
   } else {
     for (int lev = 0; lev <= finest_level; ++lev) {
       for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-        EOld[lev][idim].setVal(0.0);
-        ENew[lev][idim].setVal(0.0);
+        gphiVOld[lev][idim].setVal(0.0);
+        gphiVNew[lev][idim].setVal(0.0);
       }
     }
   }
@@ -227,20 +218,15 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
       for (MFIter mfi(mobH_ec[idim], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         const Box bx = mfi.tilebox();
         const auto& mob_h = mobH_ec[idim].const_array(mfi);
-        const auto& gp_o = EOld[lev][idim].const_array(mfi);
-        const auto& gp_n = ENew[lev][idim].const_array(mfi);
+        const auto& gp_o = gphiVOld[lev][idim].const_array(mfi);
+        const auto& gp_n = gphiVNew[lev][idim].const_array(mfi);
         const auto& Ud_Sp = advData->uDrift[lev][idim].array(mfi);
         amrex::ParallelFor(
           bx, NUM_IONS,
-          [mob_h, gp_o, gp_n, idim,
+          [mob_h, gp_o, gp_n,
            Ud_Sp] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
             Ud_Sp(i, j, k, n) =
               mob_h(i, j, k, n) * -0.5 * (gp_o(i, j, k) + gp_n(i, j, k));
-            // if (n == 0 && idim == 1) {
-            //   if (i == 10) {
-            //     amrex::Print() << Ud_Sp(i, j, k, n) << " " << gp_n(i, j, k) << " " << mob_h(i, j, k, n) << "\n";
-            //   }
-            // }
           });
       }
     }
@@ -259,17 +245,6 @@ PeleLM::ionDriftVelocity(std::unique_ptr<AdvanceAdvData>& advData)
       GetArrOfPtrs(advData->uDrift[lev - 1]), refRatio(lev - 1), geom[lev - 1]);
 #endif
   }
-
-  // Vector<std::unique_ptr<MultiFab>> Udr_CC(finest_level + 1);
-  // for (int lev = 0; lev <= finest_level; ++lev) {
-  //   Udr_CC[lev].reset(new MultiFab(
-  //     grids[lev], dmap[lev], AMREX_SPACEDIM, 0, MFInfo(), *m_factory[lev]));
-  //   Udr_CC[lev]->setVal(0.0);
-  //   average_face_to_cellcenter(
-  //     *Udr_CC[lev], 0, GetArrOfConstPtrs(advData->uDrift[lev]));
-  // }
-  // WriteDebugPlotFile(GetVecOfConstPtrs(Udr_CC),"plt_Udr_CCNew_test_"+std::to_string(m_nstep));
-  // if (m_nstep == 10) amrex::Abort();
 
   // FillPatch Udrift on levels > 0
   for (int lev = 0; lev <= finest_level; ++lev) {
