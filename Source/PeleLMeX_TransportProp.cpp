@@ -320,8 +320,7 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
                : 0; // pass soret array, or pass mu as dummy (won't do anything)
     amrex::ParallelFor(
       ldata_p->diff_cc, ldata_p->diff_cc.nGrowVect(),
-      [=] AMREX_GPU_DEVICE(
-        int box_no, int i, int j, int k) noexcept {
+      [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
         getTransportCoeff<pele::physics::PhysicsType::eos_type>(
           i, j, k, do_fixed_Le, do_fixed_Pr, do_soret, Le_inv, Pr_inv,
           Array4<Real const>(sma[box_no], FIRSTSPEC),
