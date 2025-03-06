@@ -305,10 +305,10 @@ PeleLM::advanceChemistryBAChem(
     if (m_ef_model == EFModel::EFglobal) {
       auto eos =
         pele::physics::PhysicsType::eos();  // PLASMA TODO do you need this
-      auto const& nE_o = chemnE.array(mfi);          // PLASMA TODO do you need this
+      auto const& nE_o = chemnE.array(mfi); // PLASMA TODO do you need this
       auto const& rhoYe_o =
-        chemState.array(mfi, E_ID);  // PLASMA TODO do you need this
-      Real invmwt[NUM_SPECIES] = {0.0}; 
+        chemState.array(mfi, E_ID); // PLASMA TODO do you need this
+      Real invmwt[NUM_SPECIES] = {0.0};
       eos.inv_molecular_weight(invmwt);
       ParallelFor(
         bx,
