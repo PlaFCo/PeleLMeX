@@ -71,7 +71,8 @@ pelelmex_initdata(
     molefrac[n] = 0.0;
   }
   amrex::Real yc = 0.5 * (prob_hi[1] + prob_lo[1]) + pert;
-  amrex::Real n_e = 5e12 + 0.95e14 * std::exp(-(y - yc) * (y - yc) / (Ly * Ly / 500.0));
+  amrex::Real n_e =
+    5e12 + 0.95e14 * std::exp(-(y - yc) * (y - yc) / (Ly * Ly / 500.0));
   state(i, j, k, NE) = n_e;
 
   molefrac[E_ID] = n_e / (prob_parm.P_mean / kB / prob_parm.T_mean);
