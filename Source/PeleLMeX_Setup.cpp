@@ -5,6 +5,7 @@
 #include "PelePhysics.H"
 #include <AMReX_buildInfo.H>
 #include <PeleLMeX_ProblemSpecificFunctions.H>
+
 #ifdef PELE_USE_PLASMA
 #include "PeleLMeX_EOS_Extension.H"
 #endif
@@ -78,6 +79,12 @@ PeleLM::Setup()
   if (m_incompressible == 0) {
     amrex::Print() << " Initialization of Eos ... \n";
     eos_parms.initialize();
+    // TODO: this is a bit of a hack so the host eos_parm has access to
+    // the host blackboxfunction data (manfunc_data)
+#ifdef USE_MANIFOLD_EOS
+    eos_parms.host_parm().manf_data =
+      &(eos_parms.host_only_parm().manfunc_par->host_parm());
+#endif
   }
 
   // Setup the state variables
@@ -419,7 +426,7 @@ PeleLM::readParameters()
       m_turb_visc_time.push_back(-1.0E200);
     }
 #ifdef PELE_USE_PLASMA
-    amrex::Abort("LES implementation is not yet compatible with efield/ions");
+    amrex::Abort("LES implementation is not yet compatible with plasma/ions");
 #endif
   }
 
@@ -441,7 +448,7 @@ PeleLM::readParameters()
       m_soret_boundary_override = 1;
       m_use_wbar = 0;
 #if PELE_USE_PLASMA
-      amrex::Abort("Isothermal walls with Soret incompatible with Efield");
+      amrex::Abort("Isothermal walls with Soret incompatible with plasma");
 #endif
     }
   }
@@ -794,7 +801,7 @@ PeleLM::checkSetupParams()
     amrex::Abort("Spray models are not yet supported for Manifold EOS");
 #endif
 #ifdef PELE_USE_PLASMA
-    amrex::Abort("Efield models are not yet supported for Manifold EOS");
+    amrex::Abort("Plasma models are not yet supported for Manifold EOS");
 #endif
 #ifdef USE_MANIFOLD_EOS
     if (
@@ -826,6 +833,7 @@ PeleLM::readIOParameters()
   pp.query("plot_file", m_plot_file);
   pp.query("plot_int", m_plot_int);
   pp.query("plot_overwrite", m_plot_overwrite);
+  pp.query("plot_init_state", m_plot_init_state);
   if (pp.contains("plot_per")) {
     int do_exact = 0;
     pp.query("plot_per_exact", do_exact);
@@ -915,7 +923,15 @@ PeleLM::variablesSetup()
 #if NUM_ODE > 0
     Print() << " First ODE: " << FIRSTODE << "\n";
     set_ode_names(m_ode_names);
-    for (int n = 0; n < NUM_ODE; n++) {
+    if (m_ode_names.size() != NUM_ODE) {
+      Abort("ODEQty names improperly set. Adjust set_ode_names in "
+            "ProblemSpecificFunctions or NUM_ODE in GNUMakefile");
+    }
+    for (int n = 0; n < NUM_ODE; ++n) {
+      if (m_ode_names[n].empty()) {
+        Abort("ODEQty names improperly set. Adjust set_ode_names in "
+              "ProblemSpecificFunctions or NUM_ODE in GNUMakefile");
+      }
       stateComponents.emplace_back(FIRSTODE + n, m_ode_names[n]);
     }
 #endif

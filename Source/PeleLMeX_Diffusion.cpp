@@ -518,6 +518,8 @@ PeleLM::computeDifferentialDiffusionFluxes(
   auto bcRecSpec = fetchBCRecArray(FIRSTSPEC, NUM_SPECIES);
 
 #ifdef PELE_USE_PLASMA
+  // Get the species diffusion fluxes from the DiffusionOp
+  // Don't average down just yet
   int do_avgDown = 0;
   if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     // Get the species diffusion fluxes from the DiffusionOp
