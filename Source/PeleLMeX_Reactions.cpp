@@ -217,7 +217,7 @@ PeleLM::advanceChemistryBAChem(
   chemState.ParallelCopy(ldataOld_p->state, FIRSTSPEC, 0, NUM_SPECIES + 3);
   chemForcing.ParallelCopy(a_extForcing, 0, 0, nCompForcing());
 #ifdef PELE_USE_PLASMA
-  if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+  if (m_ef_model == EFModel::EFglobal) {
     chemnE.ParallelCopy(ldataOld_p->state, NE, 0, 1);
   }
 #endif

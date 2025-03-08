@@ -118,13 +118,8 @@ PeleLM::WritePlotFile()
 
   // Reactions
   if ((m_do_react != 0) && (m_skipInstantRR == 0) && (m_plot_react != 0)) {
-#ifdef PELE_USE_PLASMA
     // Cons Rate
     ncomp += nCompIR();
-#else
-    // Cons Rate
-    ncomp += nCompIR();
-#endif
     // FunctCall
     ncomp += 1;
     // Extras:
@@ -235,7 +230,7 @@ PeleLM::WritePlotFile()
       plt_VarsName.push_back("I_R(" + names[n] + ")");
     }
 #ifdef PELE_USE_PLASMA
-    if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+    if (m_ef_model == EFModel::EFglobal) {
       plt_VarsName.push_back("I_R(nE)");
     }
 #endif
@@ -362,16 +357,9 @@ PeleLM::WritePlotFile()
     }
 
     if ((m_do_react != 0) && (m_skipInstantRR == 0) && (m_plot_react != 0)) {
-#ifdef PELE_USE_PLASMA
-      MultiFab::Copy(
-        mf_plt[lev], m_leveldatareact[lev]->I_R, 0, cnt, nCompIR(),
-        0);
-      cnt += nCompIR();
-#else
       MultiFab::Copy(
         mf_plt[lev], m_leveldatareact[lev]->I_R, 0, cnt, nCompIR(), 0);
       cnt += nCompIR();
-#endif
 
       MultiFab::Copy(mf_plt[lev], m_leveldatareact[lev]->functC, 0, cnt, 1, 0);
       cnt += 1;

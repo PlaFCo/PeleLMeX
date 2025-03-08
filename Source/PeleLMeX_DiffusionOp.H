@@ -15,7 +15,6 @@
 #ifdef PELE_USE_PLASMA
 #include <PeleLMeX_EF_K.H>
 #endif
-
 class PeleLM;
 
 class DiffusionOp

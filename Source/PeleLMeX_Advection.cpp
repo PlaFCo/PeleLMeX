@@ -418,17 +418,16 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
             , auto const& wdrift = advData->uDrift[lev][2].const_array(mfi, n);)
           AMREX_D_TERM(auto const& fx_ions =
                          fluxes[lev][0].array(mfi, NUM_SPECIES - NUM_IONS + n);
-                       , auto const& fy_ions = fluxes[lev][1].array(
-                           mfi, NUM_SPECIES - NUM_IONS + n);
-                       , auto const& fz_ions = fluxes[lev][2].array(
-                           mfi, NUM_SPECIES - NUM_IONS + n);)
-          AMREX_D_TERM(
-            auto const& edgex_ions =
+                       , auto const& fy_ions = 
+					       fluxes[lev][1].array(mfi, NUM_SPECIES - NUM_IONS + n);
+                       , auto const& fz_ions = 
+					       fluxes[lev][2].array(mfi, NUM_SPECIES - NUM_IONS + n);)
+          AMREX_D_TERM(auto const& edgex_ions =
               edgeState[0].array(mfi, 1 + NUM_SPECIES - NUM_IONS + n);
-            , auto const& edgey_ions =
-                edgeState[1].array(mfi, 1 + NUM_SPECIES - NUM_IONS + n);
-            , auto const& edgez_ions =
-                edgeState[2].array(mfi, 1 + NUM_SPECIES - NUM_IONS + n);)
+            , auto const& edgey_ions = edgeState[1].array(
+			    mfi, 1 + NUM_SPECIES - NUM_IONS + n);
+            , auto const& edgez_ions = edgeState[2].array(
+			    mfi, 1 + NUM_SPECIES - NUM_IONS + n);)
           auto const& rhoYions_arr = ldata_p->state.const_array(
             mfi, FIRSTSPEC + NUM_SPECIES - NUM_IONS + n);
           auto const& forceions_arr =

@@ -175,7 +175,7 @@ PeleLM::setBoundaryConditions()
     }
 
 #ifdef PELE_USE_PLASMA
-    if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+    if (m_ef_model == EFModel::EFglobal) {
       // nE
       for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
         m_bcrec_state[NE].setLo(idim, nE_bc[lo_bc[idim]]);
@@ -200,12 +200,20 @@ PeleLM::setBoundaryConditions()
             hackBCChargedParticle(zk[FIRSTIONinSpec + n], bcIonSave);
         }
       }
-    }
-    if (m_ef_model == EFModel::EFglobal) {
+
       // Need to hack nE too actually ...
       for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
         auto const bcnESave = m_bcrec_state[NE];
         m_bcrec_state[NE] = hackBCChargedParticle(-1.0, bcnESave);
+      }
+    }
+    if (m_ef_model == EFModel::EFlocal) {
+      // Get m_phiV_bc
+      const int* lo_phibc = m_phiV_bc.lo();
+      const int* hi_phibc = m_phiV_bc.hi();
+      for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+        m_bcrec_state[PHIV].setLo(idim, phiV_bc[lo_phibc[idim]]);
+        m_bcrec_state[PHIV].setHi(idim, phiV_bc[hi_phibc[idim]]);
       }
     }
 #endif
@@ -691,9 +699,7 @@ PeleLM::fillpatch_reaction(
       geom[lev], {m_bcrec_force}, PeleLMCCFillExtDirDummy{lprobparm, m_nAux});
     FillPatchSingleLevel(
       a_I_R, IntVect(nGhost), a_time, {&(m_leveldatareact[lev]->I_R)}, {a_time},
-      0, 0,
-      nCompIR(),
-      geom[lev], bndry_func, 0);
+      0, 0, nCompIR(), geom[lev], bndry_func, 0);
   } else {
 
     // Interpolator
@@ -706,8 +712,7 @@ PeleLM::fillpatch_reaction(
       geom[lev], {m_bcrec_force}, PeleLMCCFillExtDirDummy{lprobparm, m_nAux});
     FillPatchTwoLevels(
       a_I_R, IntVect(nGhost), a_time, {&(m_leveldatareact[lev - 1]->I_R)},
-      {a_time}, {&(m_leveldatareact[lev]->I_R)}, {a_time}, 0, 0,
-      nCompIR(),
+      {a_time}, {&(m_leveldatareact[lev]->I_R)}, {a_time}, 0, 0, nCompIR(),
       geom[lev - 1], geom[lev], crse_bndry_func, 0, fine_bndry_func, 0,
       refRatio(lev - 1), mapper, {m_bcrec_force}, 0);
   }
@@ -831,8 +836,7 @@ PeleLM::fillcoarsepatch_reaction(
     geom[lev], {m_bcrec_force}, PeleLMCCFillExtDirDummy{lprobparm, m_nAux});
   InterpFromCoarseLevel(
     a_I_R, IntVect(nGhost), a_time, m_leveldatareact[lev - 1]->I_R, 0, 0,
-    nCompIR(),
-    geom[lev - 1], geom[lev], crse_bndry_func, 0, fine_bndry_func, 0,
+    nCompIR(), geom[lev - 1], geom[lev], crse_bndry_func, 0, fine_bndry_func, 0,
     refRatio(lev - 1), mapper, {m_bcrec_force}, 0);
 }
 
