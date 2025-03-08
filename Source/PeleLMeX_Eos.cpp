@@ -69,14 +69,14 @@ PeleLM::calcDivU(
       if (is_init != 0) { // Either pre-divU, divU or press initial iterations
         if (m_dt > 0.0) { // divU ite   -> use I_R
           auto* ldataR_p = getLevelDataReactPtr(lev);
-          RhoYdot.define(grids[lev], dmap[lev], nCompIR(m_ef_model), 0);
-          MultiFab::Copy(RhoYdot, ldataR_p->I_R, 0, 0, nCompIR(m_ef_model), 0);
+          RhoYdot.define(grids[lev], dmap[lev], nCompIR(), 0);
+          MultiFab::Copy(RhoYdot, ldataR_p->I_R, 0, 0, nCompIR(), 0);
         } else { // press ite  -> set to zero
-          RhoYdot.define(grids[lev], dmap[lev], nCompIR(m_ef_model), 0);
+          RhoYdot.define(grids[lev], dmap[lev], nCompIR(), 0);
           RhoYdot.setVal(0.0);
         }
       } else { // Regular    -> use instantaneous RR
-        RhoYdot.define(grids[lev], dmap[lev], nCompIR(m_ef_model), 0);
+        RhoYdot.define(grids[lev], dmap[lev], nCompIR(), 0);
 
         if (m_ef_model == EFModel::EFglobal) { // no EFlocal?
           computeInstantaneousReactionRateEF(lev, a_time, &RhoYdot);

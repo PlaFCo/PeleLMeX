@@ -1623,14 +1623,17 @@ public:
   // Accessors
   std::string runMode() const { return m_run_mode; }
 
-  // TODO is this OK?
-  static int nCompIR(int m_ef_model = -1)
+  int nCompIR()
   {
+#ifdef PELE_USE_PLASMA
     int num_spe = NUM_SPECIES;
     if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
       num_spe += 1;
     }
     return num_spe;
+#else
+    return NUM_SPECIES;
+#endif
   }
 
   static int nCompForcing()

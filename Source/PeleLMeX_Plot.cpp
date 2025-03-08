@@ -120,7 +120,7 @@ PeleLM::WritePlotFile()
   if ((m_do_react != 0) && (m_skipInstantRR == 0) && (m_plot_react != 0)) {
 #ifdef PELE_USE_PLASMA
     // Cons Rate
-    ncomp += nCompIR(m_ef_model);
+    ncomp += nCompIR();
 #else
     // Cons Rate
     ncomp += nCompIR();
@@ -364,9 +364,9 @@ PeleLM::WritePlotFile()
     if ((m_do_react != 0) && (m_skipInstantRR == 0) && (m_plot_react != 0)) {
 #ifdef PELE_USE_PLASMA
       MultiFab::Copy(
-        mf_plt[lev], m_leveldatareact[lev]->I_R, 0, cnt, nCompIR(m_ef_model),
+        mf_plt[lev], m_leveldatareact[lev]->I_R, 0, cnt, nCompIR(),
         0);
-      cnt += nCompIR(m_ef_model);
+      cnt += nCompIR();
 #else
       MultiFab::Copy(
         mf_plt[lev], m_leveldatareact[lev]->I_R, 0, cnt, nCompIR(), 0);
