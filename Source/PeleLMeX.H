@@ -241,11 +241,12 @@ public:
       wbar_fluxes;                     // Wbar flux correction
     amrex::Vector<amrex::MultiFab> DT; // Diffusion term of T (soret flux)
     amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>
-      soret_fluxes;                       // Soret flux correction
+      soret_fluxes; // Soret flux correction
+#ifdef PELE_USE_PLASMA
     amrex::Vector<amrex::MultiFab> Deamb; // Diffusion term of Eamb
-    //(ambipolar flux)
     amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>
       ambdrift_fluxes; // ambipolar flux correction
+#endif
   };
   /**
    * \brief Advance function data container for advection term
@@ -1515,7 +1516,6 @@ public:
     const amrex::Real& a_dt,
     std::unique_ptr<AdvanceDiffData>& diffData,
     std::unique_ptr<AdvanceAdvData>& advData);
-
   void computeBGcharge(
     const amrex::Real& a_time,
     std::unique_ptr<AdvanceDiffData>& diffData,
@@ -1683,11 +1683,11 @@ public:
   amrex::Vector<amrex::MultiFab*>
   getDiffusivityVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<amrex::MultiFab*>
-  getMobilityVect(const PeleLM::TimeStamp& a_time);
-  amrex::Vector<amrex::MultiFab*>
   getViscosityVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<amrex::MultiFab*> getIRVect();
 #ifdef PELE_USE_PLASMA
+  amrex::Vector<amrex::MultiFab*>
+  getMobilityVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<std::unique_ptr<amrex::MultiFab>>
   getPhiVVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<std::unique_ptr<amrex::MultiFab>>
