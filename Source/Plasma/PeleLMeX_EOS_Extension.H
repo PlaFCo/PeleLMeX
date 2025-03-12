@@ -17,6 +17,14 @@ charge_mass(amrex::Real zk[])
   CKCHRGMASS(zk);
 }
 
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+charge(int zk[])
+{
+  CKCHRG(zk);
+}
+
 } // namespace eos
 } // namespace physics
 } // namespace pele

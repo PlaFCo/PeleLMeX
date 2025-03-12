@@ -202,6 +202,36 @@ PeleLM::addLorentzVelForces(
 }
 
 void
+PeleLM::computeYeNeFromIons()
+{
+  // Prob/PMF data
+  ProbParm const* lprobparm = prob_parm_d;
+
+  for (int lev = 0; lev <= finest_level; ++lev) {
+
+    // Get level data new time pointer
+    auto ldata_p = getLevelDataPtr(lev, AmrNewTime);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(ldata_p->state, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+      const Box& bx = mfi.tilebox();
+      auto const& rho = ldata_p->state.array(mfi, DENSITY);
+      auto const& rhoY = ldata_p->state.array(mfi, FIRSTSPEC);
+      auto const& rhoH = ldata_p->state.array(mfi, RHOH);
+      auto const& temp = ldata_p->state.array(mfi, TEMP);
+      auto const& nE = ldata_p->state.array(mfi, NE);
+      amrex::ParallelFor(
+        bx, [rho, rhoY, rhoH, temp, nE,
+             lprobparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          compYeNefromIons(i, j, k, rho, rhoY, rhoH, temp, nE, *lprobparm);
+        });
+    }
+  }
+}
+
+void
 PeleLM::initializeElectronNeutral()
 {
   // Prob/PMF data

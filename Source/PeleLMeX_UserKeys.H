@@ -163,17 +163,16 @@ const LoadBalanceMethod lbmethod;
 
 /**
   * \brief struct holding PeleLMeX EF model options
-           default is
+           default is Global
   */
 struct EFModel
 {
   EFModel() = default;
-  enum { EFglobal = 0, EFambipolar, EFlocal };
+  enum { EFglobal = 0, EFlocal, EFOskam, EFambipolar, EFneutral };
   const std::map<const std::string, int> str2int = {
-    {"efglobal", EFglobal},
-    {"efambipolar", EFambipolar},
-    {"eflocal", EFlocal},
-    {"default", EFglobal}};
+    {"efglobal", EFglobal},   {"eflocal", EFlocal},
+    {"efoskam", EFOskam},     {"efambipolar", EFambipolar},
+    {"efneutral", EFneutral}, {"default", EFglobal}};
   const amrex::Array<std::string, 1> searchKey{"ef_model"};
 };
 const EFModel efmodel;

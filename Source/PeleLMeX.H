@@ -242,6 +242,11 @@ public:
     amrex::Vector<amrex::MultiFab> DT; // Diffusion term of T (soret flux)
     amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>
       soret_fluxes; // Soret flux correction
+#ifdef PELE_USE_PLASMA
+    amrex::Vector<amrex::MultiFab> Deamb; // Diffusion term of Eamb
+    amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>>
+      ambdrift_fluxes; // ambipolar flux correction
+#endif
   };
   /**
    * \brief Advance function data container for advection term
@@ -558,7 +563,14 @@ public:
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
       a_wbarfluxes,
     const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
-      a_soretfluxes);
+      a_soretfluxes
+#ifdef PELE_USE_PLASMA
+    ,
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_ambdriftfluxes);
+#else
+  );
+#endif
 
   void correctIsothermalBoundary(
     const TimeStamp& a_time,
@@ -616,6 +628,26 @@ public:
       a_spsoretfluxes,
     amrex::Vector<amrex::MultiFab const*> const& a_temp,
     amrex::Vector<amrex::MultiFab const*> const& a_beta);
+
+#ifdef PELE_USE_PLASMA
+  /**
+   * \brief Add the Ambipolar drift contribution to the face-centered species
+   * diffusion fluxes on all levels optionally returning that contribution in
+   * a separate container \param a_fluxes diffusion fluxes to be updated \param
+   * a_ambdriftfluxes optional container to return the Ambipolar drift
+   * contribution \param a_spec species rhoYs state data on all levels \param
+   * a_rho density state data on all levels \param a_kappa cell-centered species
+   * mobility on all levels
+   */
+  void addAmbDriftTerm(
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_spfluxes,
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_spambdriftfluxes,
+    amrex::Vector<amrex::MultiFab const*> const& a_spec,
+    amrex::Vector<amrex::MultiFab const*> const& a_mob,
+    int rm_electron_drift);
+#endif
 
   /**
    * \brief Modify the species diffusion fluxes by computing a correction
@@ -1477,6 +1509,7 @@ public:
 
   void initializeElectronNeutral();
   void initializeElectronFromMassFraction();
+  void computeYeNeFromIons();
 
   void implicitNonLinearSolve(
     int sdcIter,
@@ -1519,6 +1552,9 @@ public:
   void ionDriftAddUmac(int lev, std::unique_ptr<AdvanceAdvData>& advData);
 
   void computeInstantaneousReactionRateEF(
+    int lev, const PeleLM::TimeStamp& a_time, amrex::MultiFab* a_I_R);
+
+  void computeInstantaneousReactionRateEFneutral(
     int lev, const PeleLM::TimeStamp& a_time, amrex::MultiFab* a_I_R);
 
   amrex::BCRec
@@ -1587,10 +1623,14 @@ public:
   // Accessors
   std::string runMode() const { return m_run_mode; }
 
-  static int nCompIR()
+  int nCompIR()
   {
 #ifdef PELE_USE_PLASMA
-    return NUM_SPECIES + 1;
+    int num_spe = NUM_SPECIES;
+    if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+      num_spe += 1;
+    }
+    return num_spe;
 #else
     return NUM_SPECIES;
 #endif
@@ -1646,6 +1686,8 @@ public:
   getViscosityVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<amrex::MultiFab*> getIRVect();
 #ifdef PELE_USE_PLASMA
+  amrex::Vector<amrex::MultiFab*>
+  getMobilityVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<std::unique_ptr<amrex::MultiFab>>
   getPhiVVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<std::unique_ptr<amrex::MultiFab>>

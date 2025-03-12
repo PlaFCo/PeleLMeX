@@ -145,7 +145,9 @@ PeleLM::Advance(int is_initIter)
     if (m_ef_model == EFModel::EFlocal) {
       poissonSolveEF(AmrNewTime);
     }
-    ionDriftVelocity(advData);
+    if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+      ionDriftVelocity(advData);
+    }
 #endif
   }
 
@@ -304,7 +306,9 @@ PeleLM::oneSDC(
     if (m_ef_model == EFModel::EFlocal) {
       poissonSolveEF(AmrNewTime);
     }
-    ionDriftVelocity(advData);
+    if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+      ionDriftVelocity(advData);
+    }
 #endif
 
     // Check divU dt based on NewTime

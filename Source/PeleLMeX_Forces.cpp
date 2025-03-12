@@ -83,9 +83,11 @@ PeleLM::getVelForces(
       extmom_arr, extrho_arr);
 
 #ifdef PELE_USE_PLASMA
-    const auto& phiV_arr = ldata_p->state.const_array(mfi, PHIV);
-    const auto& ne_arr = ldata_p->state.const_array(mfi, NE);
-    addLorentzVelForces(lev, bx, time, force_arr, rhoY_arr, phiV_arr, ne_arr);
+    if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
+      const auto& phiV_arr = ldata_p->state.const_array(mfi, PHIV);
+      const auto& ne_arr = ldata_p->state.const_array(mfi, NE);
+      addLorentzVelForces(lev, bx, time, force_arr, rhoY_arr, phiV_arr, ne_arr);
+    }
 #endif
 
     // Add pressure gradient and viscous forces (if req.) and scale by density.

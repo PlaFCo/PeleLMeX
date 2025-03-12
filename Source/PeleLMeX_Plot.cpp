@@ -230,7 +230,9 @@ PeleLM::WritePlotFile()
       plt_VarsName.push_back("I_R(" + names[n] + ")");
     }
 #ifdef PELE_USE_PLASMA
-    plt_VarsName.push_back("I_R(nE)");
+    if (m_ef_model == EFModel::EFglobal) {
+      plt_VarsName.push_back("I_R(nE)");
+    }
 #endif
     plt_VarsName.push_back("FunctCall");
     // Extras:
@@ -806,7 +808,9 @@ PeleLM::ReadCheckPointFile()
       } else {
         // I_R for non-EF simulation is one component shorted, need to account
         // for that.
-        if (m_do_react) {
+        if (
+          m_do_react &&
+          (m_ef_model == EFModel::EFlocal || m_ef_model == EFModel::EFglobal)) {
           MultiFab I_Rtemp(grids[lev], dmap[lev], NUM_SPECIES, 0);
           VisMF::Read(
             I_Rtemp, amrex::MultiFabFileFullPrefix(

@@ -116,6 +116,133 @@ getKappaSp(
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
+get_fixedRhoDe(
+  int i,
+  int j,
+  int k,
+  const amrex::Real& cstNDe,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<const amrex::Real> const& T,
+  amrex::Array4<const amrex::Real> const& P0,
+  amrex::Array4<amrex::Real> const& rhoDi) noexcept
+{
+  using namespace amrex::literals;
+  amrex::Real rho = 0.0;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rho += rhoY(i, j, k, n);
+  }
+  amrex::Real N = P0(i, j, k) / T(i, j, k) / (PP_RU_MKS / Na);
+  amrex::Real De = cstNDe / N;
+  rhoDi(i, j, k, E_ID) = rho * De;
+}
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+getKappa(
+  int i,
+  int j,
+  int k,
+  amrex::Real const mwt[NUM_SPECIES],
+  amrex::GpuArray<amrex::Real, NUM_SPECIES> a_zk,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<amrex::Real> const& rhoD,
+  amrex::Array4<const amrex::Real> const& T,
+  amrex::Array4<amrex::Real> const& Ksp) noexcept
+{
+  using namespace amrex::literals;
+  amrex::Real rho = 0.0;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rho += rhoY(i, j, k, n);
+  }
+  int ionCnt = 0;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    if (a_zk[n] != 0.0) {
+      Ksp(i, j, k, ionCnt) = rhoD(i, j, k, n) * mwt[n] * 0.001 * a_zk[n] /
+                             (rho * PP_RU_MKS * T(i, j, k));
+      // PLASMA TODO : do not put this to 0 for Eamb
+      // if (n == E_ID)
+      //   Ksp(i, j, k, ionCnt) = 0.0; // Set the E species mobility to zero.
+      // Electron are treated separately.
+      ionCnt += 1;
+    }
+  }
+}
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+getAmbipolarCorrection(
+  int i,
+  int j,
+  int k,
+  amrex::Real const mwt[NUM_SPECIES],
+  amrex::GpuArray<amrex::Real, NUM_SPECIES> a_zk,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<amrex::Real> const& rhoD,
+  amrex::Array4<const amrex::Real> const& T,
+  amrex::Array4<amrex::Real> const& Ksp) noexcept
+{
+  using namespace amrex::literals;
+  amrex::Real rho = 0.0;
+  // calculate rhoys
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rho += rhoY(i, j, k, n);
+  }
+  // calculate ys
+  amrex::Real y[NUM_SPECIES] = {0.0};
+  amrex::Real x[NUM_SPECIES] = {0.0};
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    y[n] = rhoY(i, j, k, n) / rho;
+  }
+  // calcular xi
+  auto eos = pele::physics::PhysicsType::eos();
+  eos.Y2X(y, x);
+
+  // Ksp \equiv mu_i
+  // Ksp = |q| Di * 1/ kB * 1/T
+  // Ksp = |q| mwi_MKS/mwi_MKS rho Di / (rho) * Na/Ru * 1/T
+  // Ksp = |q| Na/mwi_MKS mwi_MKS rho Di/ (rho * Ru * T)
+  // Ksp = abs(zk) mwi_MKS rho Di / (rho * Ru * T)
+  // Ksp = abs(zk) mwi_CGS * 0.001 * rho Di / ( rho * Ru * T) //
+  int ionCnt = 0;
+  int iE_ID = 0;
+  amrex::Real uk_e = 0.0;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    if (a_zk[n] != 0.0) {
+      Ksp(i, j, k, ionCnt) = rhoD(i, j, k, n) * mwt[n] * 0.001 *
+                             std::abs(a_zk[n]) / (rho * PP_RU_MKS * T(i, j, k));
+      if (n == E_ID) {
+        iE_ID = ionCnt;
+      }
+      ionCnt += 1;
+    }
+  }
+  // Ambipolar model where diffusion of charged species is computed from an
+  // ambipolar diffusion coefficient
+  ionCnt = 0;
+  amrex::Real rhoDe = rhoD(i, j, k, E_ID);
+  int sign = 1;
+  if (x[E_ID] > 0.0) {
+    rhoD(i, j, k, E_ID) = 0.0;
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      if (a_zk[n] != 0.0) {
+        if (n != E_ID) {
+          sign = (a_zk[n] > 0) ? 1 : ((a_zk[n] < 0) ? -1 : 0);
+          rhoD(i, j, k, n) = sign * Ksp(i, j, k, ionCnt) * x[n] / x[E_ID] *
+                             rhoDe / Ksp(i, j, k, iE_ID);
+          rhoD(i, j, k, E_ID) +=
+            Ksp(i, j, k, ionCnt) * x[n] / x[E_ID] * rhoDe / Ksp(i, j, k, iE_ID);
+        }
+        ionCnt += 1;
+      }
+    }
+  }
+}
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
 getDiffE(
   int i,
   int j,
@@ -377,6 +504,79 @@ reactionRateRhoY_EF(
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
+reactionRateRhoY_EFneutral(
+  int i,
+  int j,
+  int k,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<const amrex::Real> const& rhoH,
+  amrex::Array4<const amrex::Real> const& T,
+  // amrex::Array4<const amrex::Real> const& nE,
+  amrex::Array4<amrex::Real> const& rhoYdot) noexcept // ,
+// amrex::Array4<amrex::Real> const& nEdot) noexcept
+{
+  using namespace amrex::literals;
+
+  // Get rho from rhoY. Is there a better way ?
+  amrex::Real rho = 0.0_rt;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rho += rhoY(i, j, k, n);
+  }
+  amrex::Real rhoinv = 1.0_rt / rho;
+  amrex::Real y[NUM_SPECIES] = {0.0};
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    y[n] = rhoY(i, j, k, n) * rhoinv;
+  }
+
+  // Get species charge/mass
+  amrex::Real zk[NUM_SPECIES] = {0.0};
+  auto eos = pele::physics::PhysicsType::eos();
+  pele::physics::eos::charge_mass(zk);
+
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    zk[n] *= 1000.0; // CGS->MKS
+  }
+
+  y[E_ID] = 0.0;
+  amrex::Real sum = 0.0;
+  // Add Electrons
+  amrex::Real chargeDist = 0.0;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    chargeDist += y[n] * zk[n];
+  }
+
+  if (chargeDist > 0.0) {
+    y[E_ID] = std::max(0.0, -chargeDist / zk[E_ID]);
+  }
+
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    sum += y[n];
+  }
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    y[n] /= sum;
+  }
+
+  // Get T from Y/H. Was done like that before.
+  amrex::Real Tloc = T(i, j, k);
+  amrex::Real H =
+    rhoH(i, j, k) * rhoinv * 1.0e4_rt; // Include MKS -> CGS conversion
+  eos.HY2T(H, y, Tloc);
+
+  // Get wdot. Don't like the temporary wdot there ...
+  rho = rho * 0.001_rt; // rho MKS -> CGS
+  amrex::Real wdot[NUM_SPECIES] = {0.0};
+  eos.RTY2WDOT(rho, Tloc, y, wdot);
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rhoYdot(i, j, k, n) = wdot[n] * 1000.0_rt; // CGS -> MKS conversion
+  }
+  // nEdot(i, j, k) = wdot[E_ID] * Na * 1.0e6;
+  rhoYdot(i, j, k, E_ID) = 0.0;
+  // nEdot(i, j, k) = 0.0;
+}
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
 addLorentzForce(
   int i,
   int j,
@@ -431,6 +631,79 @@ addLorentzForce(
 #if (AMREX_SPACEDIM == 3)
   force(i, j, k, 2) -= ne(i, j, k) * elemCharge * EFz;
 #endif
+}
+// compYeNefromIons
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
+compYeNefromIons(
+  int i,
+  int j,
+  int k,
+  amrex::Array4<amrex::Real> const& rho,
+  amrex::Array4<amrex::Real> const& rhoY,
+  amrex::Array4<amrex::Real> const& rhoH,
+  amrex::Array4<amrex::Real> const& temp,
+  amrex::Array4<amrex::Real> const& nE,
+  ProbParm const& prob_parm)
+{
+  auto eos = pele::physics::PhysicsType::eos();
+
+  // Get species charge/mass
+  amrex::Real zk[NUM_SPECIES] = {0.0};
+  pele::physics::eos::charge_mass(zk);
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    zk[n] *= 1000.0; // CGS->MKS
+  }
+
+  // Get mass fractions
+  amrex::Real massfrac[NUM_SPECIES] = {0.0};
+  amrex::Real rho_inv = 1.0 / rho(i, j, k);
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    massfrac[n] = rhoY(i, j, k, n) * rho_inv;
+  }
+
+  // Set such that mixture is electro-neutral
+  // by adding nE or remove ions if needed
+  // First remove Y_nE
+  massfrac[E_ID] = 0.0;
+  amrex::Real sum = 0.0;
+  // Add Electrons
+  amrex::Real chargeDist = 0.0;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    chargeDist += massfrac[n] * zk[n];
+  }
+
+  if (chargeDist > 0.0) {
+    massfrac[E_ID] = std::max(0.0, -chargeDist / zk[E_ID]);
+  }
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    sum += massfrac[n];
+  }
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    massfrac[n] /= sum;
+  }
+
+  nE(i, j, k) = std::max(1.0e-24, chargeDist / elemCharge);
+
+  // We keep the temperature constant
+  // recompute rho
+  amrex::Real P_cgs = prob_parm.P_mean * 10.0;
+  amrex::Real rho_cgs = 0.0;
+  eos.PYT2R(P_cgs, massfrac, temp(i, j, k), rho_cgs);
+  rho(i, j, k) = rho_cgs * 1.0e3;
+
+  // recompute enthalpy
+  amrex::Real h_cgs = 0.0;
+  eos.TY2H(temp(i, j, k), massfrac, h_cgs);
+  rhoH(i, j, k) = h_cgs * 1.0e-4 * rho(i, j, k);
+
+  // Species mass
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rhoY(i, j, k, n) = massfrac[n] * rho(i, j, k);
+  }
+
+  nE(i, j, k) *= rho(i, j, k);
 }
 
 AMREX_GPU_HOST_DEVICE

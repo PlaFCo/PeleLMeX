@@ -79,6 +79,8 @@ PeleLM::calcDivU(
 #ifdef PELE_USE_PLASMA
         if (m_ef_model == EFModel::EFglobal) {
           computeInstantaneousReactionRateEF(lev, a_time, &RhoYdot);
+        } else if (m_ef_model == EFModel::EFneutral) {
+          computeInstantaneousReactionRateEFneutral(lev, a_time, &RhoYdot);
         } else {
           computeInstantaneousReactionRate(lev, a_time, &RhoYdot);
         }

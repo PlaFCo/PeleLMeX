@@ -217,7 +217,9 @@ PeleLM::advanceChemistryBAChem(
   chemState.ParallelCopy(ldataOld_p->state, FIRSTSPEC, 0, NUM_SPECIES + 3);
   chemForcing.ParallelCopy(a_extForcing, 0, 0, nCompForcing());
 #ifdef PELE_USE_PLASMA
-  chemnE.ParallelCopy(ldataOld_p->state, NE, 0, 1);
+  if (m_ef_model == EFModel::EFglobal) {
+    chemnE.ParallelCopy(ldataOld_p->state, NE, 0, 1);
+  }
 #endif
 
   MFItInfo mfi_info;
@@ -395,6 +397,8 @@ PeleLM::computeInstantaneousReactionRate(
 #ifdef PELE_USE_PLASMA
     if (m_ef_model == EFModel::EFglobal) {
       computeInstantaneousReactionRateEF(lev, a_time, I_R[lev]);
+    } else if (m_ef_model == EFModel::EFneutral) {
+      computeInstantaneousReactionRateEFneutral(lev, a_time, I_R[lev]);
     } else {
       computeInstantaneousReactionRate(lev, a_time, I_R[lev]);
     }

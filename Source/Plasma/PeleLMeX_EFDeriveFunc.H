@@ -19,6 +19,20 @@ void pelelmex_derchargedist(
   const amrex::Vector<amrex::BCRec>& bcrec,
   int level);
 
+void pelelmex_derchargedistneut(
+  PeleLM* a_pelelm,
+  const amrex::Box& bx,
+  amrex::FArrayBox& derfab,
+  int dcomp,
+  int ncomp,
+  const amrex::FArrayBox& statefab,
+  const amrex::FArrayBox& reactfab,
+  const amrex::FArrayBox& pressfab,
+  const amrex::Geometry& geomdata,
+  amrex::Real time,
+  const amrex::Vector<amrex::BCRec>& bcrec,
+  int level);
+
 void pelelmex_derefx(
   PeleLM* a_pelelm,
   const amrex::Box& bx,
