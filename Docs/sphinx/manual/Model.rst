@@ -465,3 +465,40 @@ the diffusion terms is not fully implicit when LES models are active. While the 
 in place to ensure numerical stability, the turbulent transport coefficients are evaluated only at the old timestep, with the
 old turbulent values also used to approximate the values at the new timestep. Additionally, the present implementation cannot
 be used with PLASMA.
+
+Plasma models
+^^^^^^^^^^^^^^^^^^^^^
+
+`PeleLMeX` includes differents charged species transport models. These models
+calculate electric drift to different degrees of fidelity and efficiency:
+1. Global model, ``efmodel = efglobal``: calculates the electrostatic field
+   and electron transport implicitly in time;
+2. Local model, ``efmodel = eflocal``: calculates the electrostatic field
+   explicitly in time;
+3. Oskam's model, ``efmodel = efOskam``: adds a drift contribution to the
+   diffusion flux, based on an intercell electric field. The intercell
+   electric field is a function of the mass diffusion flux and the mobility
+   coefficients;
+4. Neutral model, ``efmodel = efneutral``: electron density computed from
+   enforcing charged neutrality at every cell. Includes Oskam model;
+5. Ambipolar model, ``efmodel = efambipolar``: enforces a charge neutral
+   flux by modifying electron and ion diffusion coefficients into ambipolar
+   diffusion coefficients.   
+
+**Limitations**: Local and Oskam's model are unstable at high ionization degrees and
+electron density gradients, respectively. Neutral model can be problematic
+if negative ions are considered. 
+
+References respective to model number:
+1. *A spectral deferred correction strategy for low Mach number reacting
+   flows subject to electric fields*, L. Esclapez, V. Ricchiuti, J. B. Bell, M. S. Day, *Combust. Theor. and Model.*,
+   **24** (2) 194-220 (2019) 
+2. Unpublished
+3. *Multi-ion ambipolar diffusion*, T. E. Gist, *PhD thesis, Air Force
+   Institute of Technology*, (1992) 
+4. *Charged particle kinetics and gas heating in CO2 microwave plasma
+   contraction: comparisons of simulations and experiments*, L. Vialetto
+   *et al.*, *Plasma Sources Sci. Technol.* **31** 055005 (2022) 
+5. *Kinetic model of a low-pressure microwave discharge in O2-H2 including
+   the effects of O- ions on the characteristics for plasma maintenance*,
+   V. Guerra, J. Loureiro, *Plasma Sources Sci. Technol.* **2** 110 (1999)
