@@ -66,10 +66,11 @@ PeleLM::Advance(int is_initIter)
   // Data for the advance, only live for the duration of the advance
   std::unique_ptr<AdvanceDiffData> diffData;
   diffData = std::make_unique<AdvanceDiffData>(
-    finest_level, grids, dmap, m_factory, m_nGrowAdv, m_use_wbar, m_use_soret);
+    finest_level, grids, dmap, m_factory, m_nGrowAdv, m_use_wbar, m_use_soret,
+    m_nAux);
   std::unique_ptr<AdvanceAdvData> advData;
   advData = std::make_unique<AdvanceAdvData>(
-    finest_level, grids, dmap, m_factory, m_incompressible, m_nGrowAdv,
+    finest_level, grids, dmap, m_factory, m_incompressible, m_nAux, m_nGrowAdv,
     m_nGrowMAC
 #ifdef PELE_USE_PLASMA
     ,
@@ -101,6 +102,11 @@ PeleLM::Advance(int is_initIter)
   // fillpatch the t^{n} data
   averageDownState(AmrOldTime);
   fillPatchState(AmrOldTime);
+
+  if (m_nAux > 0) {
+    averageDownAux(AmrOldTime);
+    fillPatchAux(AmrOldTime);
+  }
 
   // compute t^{n} data
   calcViscosity(AmrOldTime);
@@ -193,6 +199,11 @@ PeleLM::Advance(int is_initIter)
     // Post SDC
     averageDownScalars(AmrNewTime);
     fillPatchState(AmrNewTime);
+
+    if (m_nAux > 0) {
+      averageDownAux(AmrNewTime);
+      fillPatchAux(AmrNewTime);
+    }
 
 #ifdef PELE_USE_SOOT
     if (do_soot_solve) {
@@ -292,6 +303,11 @@ PeleLM::oneSDC(
     averageDownScalars(AmrNewTime);
     fillPatchState(AmrNewTime);
 
+    if (m_nAux > 0) {
+      averageDownAux(AmrNewTime);
+      fillPatchAux(AmrNewTime);
+    }
+
     calcDiffusivity(AmrNewTime);
     computeDifferentialDiffusionTerms(AmrNewTime, diffData);
     if (m_has_divu != 0) {
@@ -366,6 +382,7 @@ PeleLM::oneSDC(
   // Compute and update passive advective terms
   computePassiveAdvTerms(advData, FIRSTSOOT, NUMSOOTVAR);
 #endif
+
   // Get scalar advection SDC forcing
   getScalarAdvForce(advData, diffData);
 
