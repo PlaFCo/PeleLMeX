@@ -520,9 +520,9 @@ PeleLM::computeDifferentialDiffusionFluxes(
 #ifdef PELE_USE_PLASMA
   ,
   const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_ambdriftfluxes
-#else
-)
 #endif
+)
+
 {
   BL_PROFILE("PeleLMeX::computeDifferentialDiffusionFluxes()");
 
@@ -560,7 +560,6 @@ PeleLM::computeDifferentialDiffusionFluxes(
 #ifdef PELE_USE_PLASMA
   // Get the species diffusion fluxes from the DiffusionOp
   // Don't average down just yet
-  int do_avgDown = 0;
   if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
     // Get the species diffusion fluxes from the DiffusionOp
     // Don't average down just yet
