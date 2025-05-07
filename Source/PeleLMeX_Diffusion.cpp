@@ -1603,7 +1603,7 @@ PeleLM::differentialDiffusionUpdate(
             ,
             deamb, use_eamb = m_ef_model
 #endif
-            ] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+            ] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
           for (int n = 0; n < NUM_SPECIES; n++) {
             rhoY(i, j, k, n) = force(i, j, k, n) + dt * dhat(i, j, k, n);
             if (use_wbar != 0) {
