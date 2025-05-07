@@ -519,7 +519,7 @@ PeleLM::computeDifferentialDiffusionFluxes(
   const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_auxfluxes
 #ifdef PELE_USE_PLASMA
   ,
-  const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_ambdriftfluxes)
+  const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_ambdriftfluxes
 #else
 )
 #endif
