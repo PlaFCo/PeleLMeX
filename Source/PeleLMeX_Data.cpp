@@ -217,6 +217,10 @@ PeleLM::AdvanceAdvData::AdvanceAdvData(
 #ifdef PELE_USE_PLASMA
       // PLASMA TODO
       ncomp_force += 1; // add NE
+#ifdef PELE_NLTE
+      // PLASMA TODO
+      ncomp_force += 1; // add TEMPE
+#endif
 #endif
       Forcing[lev].define(
         ba[lev], dm[lev], ncomp_force, nGrowAdv, MFInfo(), *factory[lev]);

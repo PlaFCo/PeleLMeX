@@ -12,8 +12,16 @@
 #ifdef PELE_USE_PLASMA
 #define NE (RHORT + 1)
 #define PHIV (NE + 1)
-#define NUMPLASMA 2
+#ifdef PELE_NLTE
+#define TEMPE (PHIV + 1)
+#define NTEMPE 1
+#define NUMPLASMA 3
 #else
+#define NTEMPE 0
+#define NUMPLASMA 2
+#endif
+#else
+#define NTEMPE 0
 #define NUMPLASMA 0
 #endif
 #ifdef PELE_USE_SOOT
@@ -25,9 +33,9 @@
 #ifndef NUM_ODE
 #define NUM_ODE 0
 #endif
-#define FIRSTODE (RHORT + NUMPLASMA + NUMSOOTVAR + 1)
-#define FIRSTAUX (RHORT + NUMPLASMA + NUMSOOTVAR + NUM_ODE + 1)
-#define NVAR (RHORT + NUMPLASMA + NUMSOOTVAR + NUM_ODE + 1)
+#define FIRSTODE (RHORT + NUMPLASMA + NUMSOOTVAR + NTEMPE + 1)
+#define FIRSTAUX (RHORT + NUMPLASMA + NUMSOOTVAR + NTEMPE + NUM_ODE + 1)
+#define NVAR (RHORT + NUMPLASMA + NUMSOOTVAR + NUM_ODE + NTEMPE + 1)
 // TODO: handle NAUX
 
 #endif

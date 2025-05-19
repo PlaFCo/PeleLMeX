@@ -209,12 +209,21 @@ PeleLM::setBoundaryConditions()
     }
     if (m_ef_model == EFModel::EFlocal) {
       // Get m_phiV_bc
-      const int* lo_phibc = m_phiV_bc.lo();
+      const int* lo_phibc = m_phiV_bc.lo(); 
       const int* hi_phibc = m_phiV_bc.hi();
       for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
         m_bcrec_state[PHIV].setLo(idim, phiV_bc[lo_phibc[idim]]);
         m_bcrec_state[PHIV].setHi(idim, phiV_bc[hi_phibc[idim]]);
       }
+    }
+#endif
+#ifdef PELE_NLTE
+    // Get m_phiV_bc
+    const int* lo_tempebc = m_tempe_bc.lo();
+    const int* hi_tempebc = m_tempe_bc.hi();
+    for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+      m_bcrec_state[TEMPE].setLo(idim, tempE_bc[lo_tempebc[idim]]);
+      m_bcrec_state[TEMPE].setHi(idim, tempE_bc[hi_tempebc[idim]]);
     }
 #endif
 #ifdef PELE_USE_SOOT
