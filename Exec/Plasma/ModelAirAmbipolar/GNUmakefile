@@ -27,6 +27,7 @@ THREAD_SANITIZER = FALSE
 
 # PeleLMeX
 USE_PLASMA = TRUE
+NLTE = TRUE
 
 # PelePhysics
 Chemistry_Model = ModelAir

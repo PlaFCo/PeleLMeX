@@ -39,6 +39,10 @@ int temp_bc[] = {amrex::BCType::int_dir,  amrex::BCType::ext_dir,
                  amrex::BCType::foextrap, amrex::BCType::reflect_even,
                  amrex::BCType::foextrap, amrex::BCType::foextrap,
                  amrex::BCType::ext_dir,  amrex::BCType::ext_dir};
+int tempe_bc[] = {amrex::BCType::int_dir,  amrex::BCType::ext_dir,
+                 amrex::BCType::foextrap, amrex::BCType::reflect_even,
+                 amrex::BCType::foextrap, amrex::BCType::foextrap,
+                 amrex::BCType::ext_dir,  amrex::BCType::ext_dir};
 
 int divu_bc[] = {amrex::BCType::int_dir,      amrex::BCType::reflect_even,
                  amrex::BCType::reflect_even, amrex::BCType::reflect_even,
@@ -218,12 +222,10 @@ PeleLM::setBoundaryConditions()
     }
 #endif
 #ifdef PELE_NLTE
-    // Get m_phiV_bc
-    const int* lo_tempebc = m_tempe_bc.lo();
-    const int* hi_tempebc = m_tempe_bc.hi();
+    // Temperature
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      m_bcrec_state[TEMPE].setLo(idim, tempE_bc[lo_tempebc[idim]]);
-      m_bcrec_state[TEMPE].setHi(idim, tempE_bc[hi_tempebc[idim]]);
+      m_bcrec_state[TEMPE].setLo(idim, tempe_bc[lo_bc[idim]]);
+      m_bcrec_state[TEMPE].setHi(idim, tempe_bc[hi_bc[idim]]);
     }
 #endif
 #ifdef PELE_USE_SOOT
