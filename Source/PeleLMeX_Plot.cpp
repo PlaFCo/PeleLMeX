@@ -200,6 +200,9 @@ PeleLM::WritePlotFile()
 #ifdef PELE_USE_PLASMA
     plt_VarsName.push_back("nE");
     plt_VarsName.push_back("phiV");
+#ifdef PELE_NLTE
+    plt_VarsName.push_back("tempE");
+#endif
 #endif
 #ifdef PELE_USE_SOOT
     for (int mom = 0; mom < NUMSOOTVAR; mom++) {
@@ -328,6 +331,11 @@ PeleLM::WritePlotFile()
 #ifdef PELE_USE_PLASMA
       MultiFab::Copy(mf_plt[lev], m_leveldata_new[lev]->state, NE, cnt, 2, 0);
       cnt += 2;
+#ifdef PELE_NLTE
+      MultiFab::Copy(
+        mf_plt[lev], m_leveldata_new[lev]->state, TEMPE, cnt, 1, 0);
+      cnt += 1;
+#endif
 #endif
 #ifdef PELE_USE_SOOT
       MultiFab::Copy(
@@ -765,6 +773,7 @@ PeleLM::ReadCheckPointFile()
         amrex::MultiFabFileFullPrefix(
           lev, m_restart_chkfile, level_prefix, "state"));
     } else {
+#ifndef PELE_NLTE
       // The chk state is 2 component shorter since phiV and nE aren't in it
       MultiFab stateTemp(grids[lev], dmap[lev], NVAR - 2, m_nGrowState);
       VisMF::Read(
@@ -772,6 +781,15 @@ PeleLM::ReadCheckPointFile()
                      lev, m_restart_chkfile, level_prefix, "state"));
       MultiFab::Copy(
         m_leveldata_new[lev]->state, stateTemp, 0, 0, NVAR - 2, m_nGrowState);
+#else
+      // The chk state is 2 component shorter since phiV and nE and tempE aren't in it
+      MultiFab stateTemp(grids[lev], dmap[lev], NVAR - 3, m_nGrowState);
+      VisMF::Read(
+        stateTemp, amrex::MultiFabFileFullPrefix(
+                     lev, m_restart_chkfile, level_prefix, "state"));
+      MultiFab::Copy(
+        m_leveldata_new[lev]->state, stateTemp, 0, 0, NVAR - 3, m_nGrowState);
+#endif
     }
 #else
     VisMF::Read(
@@ -822,6 +840,9 @@ PeleLM::ReadCheckPointFile()
         // Initialize nE & phiV
         m_leveldata_new[lev]->state.setVal(0.0, NE, 2, m_nGrowState);
       }
+#ifdef PELE_NLTE
+      m_leveldata_new[lev]->state.setVal(0.0, TEMPE, 1, m_nGrowState);
+#endif
 #else
       if (m_do_react != 0) {
         VisMF::Read(
@@ -868,6 +889,9 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
   int idT = -1, idV = -1, idY = -1, nSpecPlt = 0;
 #ifdef PELE_USE_PLASMA
   int inE = -1, iPhiV = -1;
+#ifdef PELE_NLTE
+  int idT_E = -1;
+#endif
 #endif
 #ifdef PELE_USE_SOOT
   int inSoot = -1;
@@ -899,6 +923,10 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
       inE = i;
     if (plt_vars[i] == "phiV")
       iPhiV = i;
+#ifdef PELE_NLTE
+    if (plt_vars[i] == "tempE")
+      idT_E = i;
+#endif
 #endif
 #ifdef PELE_USE_SOOT
     if (plt_vars[i] == "soot_N") {
@@ -967,6 +995,11 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
   pltData.fillPatchFromPlt(a_lev, geom[a_lev], inE, NE, 1, ldata_p->state);
   // phiV
   pltData.fillPatchFromPlt(a_lev, geom[a_lev], iPhiV, PHIV, 1, ldata_p->state);
+#ifdef PELE_NLTE
+  // tempE
+  pltData.fillPatchFromPlt(
+      a_lev, geom[a_lev], idT_E, TEMPE, 1, ldata_p->state);
+#endif
 #endif
 #ifdef PELE_USE_SOOT
   if (do_soot_solve) {

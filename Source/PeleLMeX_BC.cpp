@@ -221,13 +221,13 @@ PeleLM::setBoundaryConditions()
       }
     }
 #endif
-#ifdef PELE_NLTE
-    // Temperature
-    for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      m_bcrec_state[TEMPE].setLo(idim, tempe_bc[lo_bc[idim]]);
-      m_bcrec_state[TEMPE].setHi(idim, tempe_bc[hi_bc[idim]]);
-    }
-#endif
+// #ifdef PELE_NLTE
+//     // Temperature
+//     // for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+//     //   m_bcrec_state[TEMPE].setLo(idim, tempe_bc[lo_bc[idim]]);
+//     //   m_bcrec_state[TEMPE].setHi(idim, tempe_bc[hi_bc[idim]]);
+//     // }
+// #endif
 #ifdef PELE_USE_SOOT
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
       for (int mom = 0; mom < NUMSOOTVAR; mom++) {

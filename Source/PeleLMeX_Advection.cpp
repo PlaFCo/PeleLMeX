@@ -311,12 +311,12 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
   auto bcRecRhoH_d = convertToDeviceVector(bcRecRhoH);
   auto AdvTypeRhoH = fetchAdvTypeArray(RHOH, 1);
   auto AdvTypeRhoH_d = convertToDeviceVector(AdvTypeRhoH);
-#ifdef PELE_NLTE
-  auto bcRecTempE = fetchBCRecArray(TEMPE, 1);
-  auto bcRecTempE_d = convertToDeviceVector(bcRecTempE);
-  auto AdvTypeTempE = fetchAdvTypeArray(TEMPE, 1);
-  auto AdvTypeTempE_d = convertToDeviceVector(AdvTypeTempE);
-#endif
+// #ifdef PELE_NLTE
+//   auto bcRecTempE = fetchBCRecArray(TEMPE, 1);
+//   auto bcRecTempE_d = convertToDeviceVector(bcRecTempE);
+//   auto AdvTypeTempE = fetchAdvTypeArray(TEMPE, 1);
+//   auto AdvTypeTempE_d = convertToDeviceVector(AdvTypeTempE);
+// #endif
 
   //----------------------------------------------------------------
   // Create temporary containers
@@ -569,44 +569,44 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
         fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
     }
 
-#ifdef PELE_NLTE
-    // Get the edge electron temperature
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-  for (MFIter mfi(ldata_p->state, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+// #ifdef PELE_NLTE
+//     // Get the edge electron temperature
+// #ifdef AMREX_USE_OMP
+// #pragma omp parallel if (Gpu::notInLaunchRegion())
+// #endif
+//   for (MFIter mfi(ldata_p->state, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
 
-    Box const& bx = mfi.tilebox();
-    AMREX_D_TERM(auto const& umac = advData->umac[lev][0].const_array(mfi);
-                , auto const& vmac = advData->umac[lev][1].const_array(mfi);
-                , auto const& wmac = advData->umac[lev][2].const_array(mfi);)
-    AMREX_D_TERM(auto const& fx = fluxes[lev][0].array(mfi, NUM_SPECIES + 2);
-                , auto const& fy = fluxes[lev][1].array(mfi, NUM_SPECIES + 2);
-                , auto const& fz = fluxes[lev][2].array(mfi, NUM_SPECIES + 2);)
-    AMREX_D_TERM(
-      auto const& edgex = edgeState[0].array(mfi, NUM_SPECIES + 3);
-      , auto const& edgey = edgeState[1].array(mfi, NUM_SPECIES + 3);
-      , auto const& edgez = edgeState[2].array(mfi, NUM_SPECIES + 3);)
-    auto const& divu_arr = divu.const_array(mfi);
-    auto const& temp_arr = ldata_p->state.const_array(mfi, TEMPE);
-    auto const& force_arr =
-      advData->Forcing[lev].const_array(mfi, NUM_SPECIES + 1);
-    bool is_velocity = false;
-    bool fluxes_are_area_weighted = false;
-    bool knownEdgeState = false;
-    HydroUtils::ComputeFluxesOnBoxFromState(
-      bx, 1, mfi, temp_arr, AMREX_D_DECL(fx, fy, fz),
-      AMREX_D_DECL(edgex, edgey, edgez), knownEdgeState,
-      AMREX_D_DECL(umac, vmac, wmac), divu_arr, force_arr, geom[lev], m_dt,
-      bcRecTemp, bcRecTemp_d.dataPtr(), AdvTypeTemp_d.dataPtr(),
-  #ifdef AMREX_USE_EB
-      ebfact,
-  #endif
-      m_Godunov_ppm != 0, m_Godunov_ForceInTrans != 0, is_velocity,
-      fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
-  }
+//     Box const& bx = mfi.tilebox();
+//     AMREX_D_TERM(auto const& umac = advData->umac[lev][0].const_array(mfi);
+//                 , auto const& vmac = advData->umac[lev][1].const_array(mfi);
+//                 , auto const& wmac = advData->umac[lev][2].const_array(mfi);)
+//     AMREX_D_TERM(auto const& fx = fluxes[lev][0].array(mfi, NUM_SPECIES + 2);
+//                 , auto const& fy = fluxes[lev][1].array(mfi, NUM_SPECIES + 2);
+//                 , auto const& fz = fluxes[lev][2].array(mfi, NUM_SPECIES + 2);)
+//     AMREX_D_TERM(
+//       auto const& edgex = edgeState[0].array(mfi, NUM_SPECIES + 3);
+//       , auto const& edgey = edgeState[1].array(mfi, NUM_SPECIES + 3);
+//       , auto const& edgez = edgeState[2].array(mfi, NUM_SPECIES + 3);)
+//     auto const& divu_arr = divu.const_array(mfi);
+//     auto const& temp_arr = ldata_p->state.const_array(mfi, TEMPE);
+//     auto const& force_arr =
+//       advData->Forcing[lev].const_array(mfi, NUM_SPECIES + 1);
+//     bool is_velocity = false;
+//     bool fluxes_are_area_weighted = false;
+//     bool knownEdgeState = false;
+//     HydroUtils::ComputeFluxesOnBoxFromState(
+//       bx, 1, mfi, temp_arr, AMREX_D_DECL(fx, fy, fz),
+//       AMREX_D_DECL(edgex, edgey, edgez), knownEdgeState,
+//       AMREX_D_DECL(umac, vmac, wmac), divu_arr, force_arr, geom[lev], m_dt,
+//       bcRecTemp, bcRecTemp_d.dataPtr(), AdvTypeTemp_d.dataPtr(),
+//   #ifdef AMREX_USE_EB
+//       ebfact,
+//   #endif
+//       m_Godunov_ppm != 0, m_Godunov_ForceInTrans != 0, is_velocity,
+//       fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
+//   }
       
-#endif
+// #endif
 
     // Get the edge RhoH states
 #ifdef AMREX_USE_OMP
@@ -790,11 +790,12 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
       lev, m_dt, divTmp, 0, advData->AofS[lev], FIRSTSPEC, ldata_p->state,
       FIRSTSPEC, NUM_SPECIES, bcRecSpec_d.dataPtr(), geom[lev]);
   
-#ifdef PELE_NLTE
-    redistributeAofS(
-      lev, m_dt, divTmp, NUM_SPECIES + 1, advData->AofS[lev], TEMPE, ldata_p->state,
-      TEMPE, 1, bcRecSpec_d.dataPtr(), geom[lev]);
-#endif
+// #ifdef PELE_NLTE
+//     std::cout << "redistributeaofs nlte te" << std::endl;
+//     redistributeAofS(
+//       lev, m_dt, divTmp, NUM_SPECIES + 1, advData->AofS[lev], TEMPE, ldata_p->state,
+//       TEMPE, 1, bcRecSpec_d.dataPtr(), geom[lev]);
+// #endif
 
     redistributeAofS(
       lev, m_dt, divTmp, NUM_SPECIES, advData->AofS[lev], RHOH, ldata_p->state,
