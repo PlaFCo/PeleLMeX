@@ -72,8 +72,9 @@ PeleLM::MakeNewLevelFromScratch(
   if (max_level > 0 && lev != max_level) {
     m_coveredMask[lev] =
       std::make_unique<iMultiFab>(grids[lev], dmap[lev], 1, 0);
-    m_resetCoveredMask = 1;
   }
+  m_resetCoveredMask = 1;
+
   if (m_do_react != 0) {
     m_leveldatareact[lev] =
       std::make_unique<LevelDataReact>(grids[lev], dmap[lev], *m_factory[lev]);
@@ -225,6 +226,11 @@ PeleLM::initData()
     }
 #endif
 
+    if (m_nAux > 0) {
+      averageDownAux(AmrNewTime);
+      fillPatchAux(AmrNewTime);
+    }
+
     if (m_plot_init_state) {
       WritePlotFile();
     }
@@ -368,7 +374,7 @@ PeleLM::initLevelData(int lev)
     amrex::ParallelFor(
       bx, [=, m_incompressible = m_incompressible] AMREX_GPU_DEVICE(
             int i, int j, int k) noexcept {
-        pelelmex_initdata(
+        ProblemSpecificFunctions::initdata(
           i, j, k, m_incompressible, state_arr, aux_arr, geomdata, *lprobparm,
           lpmfdata);
       });
@@ -413,7 +419,7 @@ PeleLM::projectInitSolution()
       std::unique_ptr<AdvanceDiffData> diffData;
       diffData = std::make_unique<AdvanceDiffData>(
         finest_level, grids, dmap, m_factory, m_nGrowAdv, m_use_wbar,
-        m_use_soret, is_initialization);
+        m_use_soret, m_nAux, is_initialization);
       calcDivU(
         is_initialization, computeDiffusionTerm, do_avgDown, AmrNewTime,
         diffData);
@@ -468,7 +474,7 @@ PeleLM::projectInitSolution()
         std::unique_ptr<AdvanceDiffData> diffData;
         diffData = std::make_unique<AdvanceDiffData>(
           finest_level, grids, dmap, m_factory, m_nGrowAdv, m_use_wbar,
-          m_use_soret, is_initialization);
+          m_use_soret, m_nAux, is_initialization);
         calcDivU(
           is_initialization, computeDiffusionTerm, do_avgDown, AmrNewTime,
           diffData);
