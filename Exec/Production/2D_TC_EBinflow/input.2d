@@ -1,0 +1,195 @@
+#----------------------DOMAIN DEFINITION------------------------
+geometry.is_periodic = 1 1                # For each dir, 0: non-perio, 1: periodic
+geometry.coord_sys   = 0                  # 0 => cart, 1 => RZ
+geometry.prob_lo     = -0.015 -0.015      # x_lo y_lo (z_lo)
+geometry.prob_hi     =  0.015  0.015      # x_hi y_hi (z_hi)
+
+# Interior, Inflow, Outflow, Symmetry,
+# SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
+peleLM.lo_bc = Interior Interior 
+peleLM.hi_bc = Interior Interior 
+#-------------------------AMR CONTROL----------------------------
+amr.n_cell          = 64 64          # Level 0 number of cells in each direction   
+amr.v               = 2              # AMR verbose
+amr.max_level       = 0              # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2 2 2    # refinement ratio
+amr.regrid_int      = 1000           # how often to regrid
+amr.n_error_buf     = 2 2 2 2 2 2    # number of buffer cells in error est
+amr.grid_eff        = 0.5            # what constitutes an efficient grid
+amr.blocking_factor = 8              # block factor in grid generation (min box size)
+amr.plot_file = "plt_2D_"
+amr.max_grid_size   = 32
+amr.check_int       = -200
+amr.check_file = "chk_2D_"
+#amr.restart        = chk_8slm_00630
+
+#-------------------------PeleLM CONTROL----------------------------
+mac_proj.rtol   = 1e-10
+mac_proj.atol   = 1.0e-11 
+diffusion.rtol  = 1e-11
+nodal_proj.rtol = 1e-9
+nodal_proj.atol = 1e-9
+# Solvers verbosity
+peleLM.v = 3
+#peleLM.verbose = 2
+nodal_proj.verbose =2
+#mac_proj.verbose = 2
+# Solvers tols
+#mac_proj.maxiter   = 2000
+#nodal_proj.maxiter   = 2000
+peleLM.incompressible = 0
+peleLM.gravity = 0.0 0.0 0.0
+# Diffusion
+#peleLM.use_wbar = 1
+peleLM.deltaT_verbose = 2
+peleLM.deltaT_iterMax = 100
+peleLM.deltaT_crashIfFailing =1
+peleLM.deltaT_tol = 1e-10
+# Advance
+peleLM.sdc_iterMax = 2
+peleLM.floor_species = 1
+# Reaction
+peleLM.typical_values_reset_int = 50
+# Advection
+#godunov.use_ppm = 1
+peleLM.advection_scheme="Godunov_PLM"
+# Temporals
+#peleLM.do_temporals = 1
+#peleLM.do_mass_balance = 1
+# Chamber
+peleLM.closed_chamber = 0
+
+# --------------- INPUTS TO CHEMISTRY REACTOR ---------------
+peleLM.chem_integrator = "ReactorNull"
+peleLM.use_typ_vals_chem = 1          # Use species/temp typical values in CVODE
+ode.clean_init_massfrac = 1
+cvode.solve_type = GMRES              # CVODE Linear solve type (for Newton direction) 
+cvode.max_order  = 4                  # CVODE max BDF order. 
+ode.rtol = 1.0e-6
+ode.atol = 1.0e-5
+
+
+#-------------------------- Temporal --------------------------------
+amr.plot_int = 100
+amr.max_step = 400
+amr.dt_shrink = 0.01
+#amr.init_dt = 1e-10
+amr.dt_change_max = 1.2
+amr.min_dt = 1e-20
+#amr.max_dt = 1e-4
+amr.stop_time = 1.0
+amr.cfl = 0.3
+amr.derive_plot_vars = mag_vel viscosity diffcoeff lambda mole_fractions mag_vort avg_pressure
+
+#--------------------------- Problem -------------------------------
+prob.P_mean = 30000 
+prob.tanflux_sccm  = 8000.0
+
+#-------------------------- Embedded -------------------------------
+peleLM.divu_dt_rhoMin = 1e-5 # use higher value 5e-3 N2 at 1e4K
+peleLM.refine_EB_max_level = 0
+peleLM.refine_EB_buffer = 2.0
+peleLM.refine_EB_type = Static
+peleLM.isothermal_EB = 1
+peleLM.EBinflow = 1 
+
+#--UserDefined
+#eb2.geom_type = UserDefined
+eb2.maxiter = 1000
+#eb2.num_coarsen_opt=3
+#eb2.max_grid_size=64
+eb2.small_volfrac = 1.0e-3
+# MAIN CYLINDER BODY --> replaced by Cylinder below, EBUser Defined could be empty
+#eb2.cyl_R = 0.013
+#eb2.cyl_dir = 2
+#eb2.cyl_x = 0.0
+#eb2.cyl_y = 0.0
+#eb2.cyl_z = 0.0
+
+#--Cylinder
+eb2.geom_type = sphere
+eb2.sphere_radius = 0.013
+eb2.sphere_center = 0.0 0.0
+eb2.sphere_has_fluid_inside = 1
+eb2.small_volfrac = 1.0e-4
+# SIDE INJECTIONS
+eb2.rtan = 0.001
+
+
+## wall at 0.48
+## wall|-45mm-holes-60mm+41.5mm-waveguidecenter-41.5mm+60mm-somedistance-outlet
+## power location 480-45-60-41.5
+
+# power
+peleLM.user_defined_ext_sources = false
+#peleLM.plot_extSource = true
+#prob.power = 3.0e2
+#prob.power_shape = 1  # 1- parabolic, 2-...
+#prob.power_radiusx = 0.013
+#prob.power_radiusy = 0.013
+#prob.power_radiusz = 0.0215
+#prob.power_center = 0.266015625 # in z
+
+##--------------------REFINEMENT CONTROL------------------------
+amr.refinement_indicators =  plasma_tracer
+amr.plasma_tracer.max_level     = 2
+amr.plasma_tracer.value_greater = 1e-2
+amr.plasma_tracer.field_name    = X(N)
+
+
+##--------------------- LINEAR SOLVER --------------------------
+#mac_proj.verbose = 1
+#mac_proj.mg_max_coarsening_level = 5
+#mac_proj.bottom_rtol = 1.0e-11
+#mac_proj.bottom_atol = 1.0e-11
+#mac_proj.bottom_solver = "hypre"
+#mac_proj.bottom_verbose = 2
+#mac_proj.hypre_namespace = "mac_proj.hypre"
+#mac_proj.hypre.verbose = 0
+#mac_proj.hypre.hypre_solver = GMRES
+#mac_proj.hypre.hypre_preconditioner = BoomerAMG
+#mac_proj.hypre.bamg_verbose = 0
+#mac_proj.hypre.num_krylov = 100
+#mac_proj.hypre.bamg_coarsen_type = 10
+#mac_proj.hypre.bamg_interp_type = 6
+#mac_proj.hypre.bamg_relax_type = 3
+#mac_proj.hypre.bamg_num_sweeps = 5
+#mac_proj.hypre.bamg_cycle_type = 1
+#mac_proj.hypre.bamg_relax_order = 0
+#mac_proj.hypre.bamg_trunc_factor = 0.25
+#mac_proj.hypre.bamg_max_levels = 10
+#mac_proj.hypre.bamg_pmax_elmts = 4
+#mac_proj.hypre.bamg_keep_transpose = 1
+#mac_proj.hypre.bamg_strong_threshold = .57
+#mac_proj.hypre.recompute_preconditioner = 1
+#mac_proj.hypre.write_matrix_files = 0
+#mac_proj.hypre.overwrite_existing_matrix_files = 0
+#mac_proj.hypre.adjust_singular_matrix = 1
+##--------------------- LINEAR SOLVER --------------------------
+#nodal_proj.verbose = 1
+#nodal_proj.mg_max_coarsening_level = 5
+#nodal_proj.bottom_rtol = 1.0e-11
+#nodal_proj.bottom_atol = 1.0e-11
+#nodal_proj.bottom_solver = "hypre"
+#nodal_proj.bottom_verbose = 1
+#nodal_proj.hypre_namespace = nodal_proj.hypre
+#nodal_proj.hypre.verbose = 0
+#nodal_proj.hypre.hypre_solver = GMRES
+#nodal_proj.hypre.hypre_preconditioner = BoomerAMG
+#nodal_proj.hypre.bamg_verbose = 0
+#nodal_proj.hypre.num_krylov = 100
+#nodal_proj.hypre.bamg_coarsen_type = 10
+#nodal_proj.hypre.bamg_interp_type = 6
+#nodal_proj.hypre.bamg_relax_type = 3
+#nodal_proj.hypre.bamg_num_sweeps = 5
+#nodal_proj.hypre.bamg_cycle_type = 1
+#nodal_proj.hypre.bamg_relax_order = 0
+#nodal_proj.hypre.bamg_trunc_factor = 0.25
+#nodal_proj.hypre.bamg_max_levels = 10
+#nodal_proj.hypre.bamg_pmax_elmts = 4
+#nodal_proj.hypre.bamg_keep_transpose = 1
+#nodal_proj.hypre.bamg_strong_threshold = .57
+#nodal_proj.hypre.recompute_preconditioner = 1
+#nodal_proj.hypre.write_matrix_files = 0
+#nodal_proj.hypre.overwrite_existing_matrix_files = 0
+#nodal_proj.hypre.adjust_singular_matrix = 1
