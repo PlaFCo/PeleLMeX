@@ -99,9 +99,15 @@ PeleLM::Setup()
     trans_parms.initialize();
     if ((m_les_verbose != 0) and m_do_les) { // Say what transport model we're
                                              // going to use
+
       amrex::Print() << "    Using LES in transport with Sc = "
-                     << 1.0 / m_Schmidt_inv
-                     << " and Pr = " << 1.0 / m_Prandtl_inv << std::endl;
+                     << 1.0 / m_Schmidt_inv;
+      if (pele::physics::PhysicsType::eos_type::identifier() == "Manifold") {
+        amrex::Print() << ", enthalpy not diffused for Manifold EOS "
+                       << std::endl;
+      } else {
+        amrex::Print() << " and Pr = " << 1.0 / m_Prandtl_inv << std::endl;
+      }
     } else if (m_verbose != 0) {
       if (m_fixed_Le == 0 && m_fixed_Pr == 0) {
         if (m_use_soret == 0) {
@@ -520,6 +526,11 @@ PeleLM::readParameters()
                    << std::endl;
   }
 
+  // Manifold EOS: invPrandtl needs to be 0 because H not used
+  if (pele::physics::PhysicsType::eos_type::identifier() == "Manifold") {
+    m_Prandtl_inv = 0.0;
+  }
+
   pp.query("deltaT_verbose", m_deltaT_verbose);
   pp.query("deltaT_iterMax", m_deltaTIterMax);
   pp.query("deltaT_tol", m_deltaT_norm_max);
@@ -792,8 +803,10 @@ PeleLM::readParameters()
   m_user_defined_ext_sources = false;
   m_ext_sources_SDC = false; // TODO: add capability to update ext_srcs in SDC
   m_plot_extSource = false;
+  m_add_variance_sources = true;
   pp.query("user_defined_ext_sources", m_user_defined_ext_sources);
   pp.query("plot_extSource", m_plot_extSource);
+  pp.query("add_variance_sources", m_add_variance_sources);
 }
 
 void
