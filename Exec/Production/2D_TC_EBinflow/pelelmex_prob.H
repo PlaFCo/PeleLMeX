@@ -51,7 +51,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     amrex::Real massfrac[NUM_SPECIES] = {0.0};
 
     AMREX_D_TERM(state(i, j, k, VELX) = 0.0;, state(i, j, k, VELY) =0.0; 
-                  , state(i, j, k, VELZ) = -1.0);
+                  , state(i, j, k, VELZ) = 0.0);
 
     state(i, j, k, TEMP) = prob_parm.T_mean;
     amrex::Real P_cgs = prob_parm.P_mean * 10.0;
@@ -73,6 +73,21 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     }
   }
 
+  AMREX_GPU_DEVICE
+  AMREX_FORCE_INLINE
+  static void bcnormal(
+    const amrex::Real x[AMREX_SPACEDIM],
+    const amrex::CellData<amrex::Real>& /*s_in*/,
+    amrex::Real s_ext[NVAR],
+    const int idir,
+    const int sgn,
+    const amrex::Real time,
+    amrex::GeometryData const& geomdata,
+    MyProbParm const& prob_parm,
+    pele::physics::PMF::PmfData::DataContainer const* /*pmf_data*/)
+  {
+  }
+
 
   AMREX_GPU_DEVICE
   AMREX_FORCE_INLINE
@@ -91,15 +106,15 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
 
     // Inflow EB
 	  //amrex::Real zhi  = geomdata.ProbHi(2);
-    //amrex::Real z_center = zhi+prob_parm.ztan;
+    amrex::Real z_center = 0.0;
     amrex::Real xy_center = prob_parm.cyl_R * 0.5;
     amrex::Real xgeom_center = geomdata.ProbLo(0) + 0.5 * (geomdata.ProbHi(0) - geomdata.ProbLo(0));
     amrex::Real ygeom_center = geomdata.ProbLo(1) + 0.5 * (geomdata.ProbHi(1) - geomdata.ProbLo(1));
 
-    amrex::Real r_yz_xpl = std::sqrt( (xEBface[1] - ( - xy_center ))*(xEBface[1] - ( - xy_center )) );//+ (xEBface[2] - z_center)*(xEBface[2] - z_center));
-    amrex::Real r_yz_xmn = std::sqrt( (xEBface[1] - xy_center)*(xEBface[1] - xy_center) ); //+ (xEBface[2] - z_center)*(xEBface[2] - z_center));
-    amrex::Real r_xz_ypl = std::sqrt( (xEBface[0] - xy_center)*(xEBface[0] - xy_center) ); //+ (xEBface[2] - z_center)*(xEBface[2] - z_center));
-    amrex::Real r_xz_ymn = std::sqrt( (xEBface[0] - ( - xy_center ))*(xEBface[0] - ( - xy_center )) ); //+ (xEBface[2] - z_center)*(xEBface[2] - z_center));
+    amrex::Real r_yz_xpl = std::sqrt( (xEBface[1] - ( - xy_center ))*(xEBface[1] - ( - xy_center )) + (xEBface[2] - z_center)*(xEBface[2] - z_center));
+    amrex::Real r_yz_xmn = std::sqrt( (xEBface[1] - xy_center)*(xEBface[1] - xy_center) + (xEBface[2] - z_center)*(xEBface[2] - z_center));
+    amrex::Real r_xz_ypl = std::sqrt( (xEBface[0] - xy_center)*(xEBface[0] - xy_center) + (xEBface[2] - z_center)*(xEBface[2] - z_center));
+    amrex::Real r_xz_ymn = std::sqrt( (xEBface[0] - ( - xy_center ))*(xEBface[0] - ( - xy_center )) + (xEBface[2] - z_center)*(xEBface[2] - z_center));
 
     amrex::Real rad = prob_parm.rtan;
     amrex::Real Pcsg = prob_parm.P_mean * 10.0;
@@ -121,6 +136,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       }
       s_ext[VELX] = prob_parm.vmean_tan;
       s_ext[VELY] = 0.0;
+      s_ext[VELZ] = 0.0;
     }
     // Inflow  -X	  
     if ( (r_yz_xmn <= rad) && (xEBface[0] > xgeom_center) ) {
@@ -134,6 +150,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       }
       s_ext[VELX] = -prob_parm.vmean_tan;
       s_ext[VELY] = 0.0;
+      s_ext[VELZ] = 0.0;
     }
     // Inflow  +Y	  
     if ( (r_xz_ypl <= rad) && (xEBface[1] < ygeom_center) ) {
@@ -147,6 +164,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       }
       s_ext[VELX] = 0.0;
       s_ext[VELY] = prob_parm.vmean_tan;
+      s_ext[VELZ] = 0.0;
     }
     // Inflow  -Y	  
     if ( (r_xz_ymn <= rad) && (xEBface[1] > ygeom_center) ) {
@@ -160,6 +178,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       }
       s_ext[VELX] = 0.0;
       s_ext[VELY] = -prob_parm.vmean_tan;
+      s_ext[VELZ] = 0.0;
     }
   }
 
@@ -180,15 +199,15 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
 
     // Inflow EB
 	  //amrex::Real zhi  = geomdata.ProbHi(2);
-    //amrex::Real z_center = zhi+prob_parm.ztan;
+    amrex::Real z_center = 0.0;
     amrex::Real xy_center = prob_parm.cyl_R * 0.5;
     amrex::Real xgeom_center = geomdata.ProbLo(0) + 0.5 * (geomdata.ProbHi(0) - geomdata.ProbLo(0));
     amrex::Real ygeom_center = geomdata.ProbLo(1) + 0.5 * (geomdata.ProbHi(1) - geomdata.ProbLo(1));
 
-    amrex::Real r_yz_xpl = std::sqrt( (xEBface[1] - ( - xy_center ))*(xEBface[1] - ( - xy_center )) ); //+ (xEBface[2] - z_center)*(xEBface[2] - z_center));
-    amrex::Real r_yz_xmn = std::sqrt( (xEBface[1] - xy_center)*(xEBface[1] - xy_center) ); //+ (xEBface[2] - z_center)*(xEBface[2] - z_center));
-    amrex::Real r_xz_ypl = std::sqrt( (xEBface[0] - xy_center)*(xEBface[0] - xy_center) ); //+ (xEBface[2] - z_center)*(xEBface[2] - z_center));
-    amrex::Real r_xz_ymn = std::sqrt( (xEBface[0] - ( - xy_center ))*(xEBface[0] - ( - xy_center )) ); //+ (xEBface[2] - z_center)*(xEBface[2] - z_center));
+    amrex::Real r_yz_xpl = std::sqrt( (xEBface[1] - ( - xy_center ))*(xEBface[1] - ( - xy_center )) + (xEBface[2] - z_center)*(xEBface[2] - z_center));
+    amrex::Real r_yz_xmn = std::sqrt( (xEBface[1] - xy_center)*(xEBface[1] - xy_center) + (xEBface[2] - z_center)*(xEBface[2] - z_center));
+    amrex::Real r_xz_ypl = std::sqrt( (xEBface[0] - xy_center)*(xEBface[0] - xy_center) + (xEBface[2] - z_center)*(xEBface[2] - z_center));
+    amrex::Real r_xz_ymn = std::sqrt( (xEBface[0] - ( - xy_center ))*(xEBface[0] - ( - xy_center )) + (xEBface[2] - z_center)*(xEBface[2] - z_center));
 
     amrex::Real rad = prob_parm.rtan;
 
