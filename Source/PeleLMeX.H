@@ -195,6 +195,9 @@ public:
     amrex::MultiFab diffE_cc; // Electron diffusivity (dim:1)
     amrex::MultiFab mobE_cc;  // Electron mobility (dim:1)
     amrex::MultiFab mob_cc;   // Species mobility (dim:NUM_IONS)
+#ifdef PELE_USE_NLTE
+    amrex::MultiFab condTe_cc; // Electron thermal conductivity (dim:1)
+#endif
 #endif
   };
 
@@ -1653,7 +1656,11 @@ public:
     if (m_ef_model == EFModel::EFglobal || m_ef_model == EFModel::EFlocal) {
       num_spe += 1;
     }
+#ifdef PELE_USE_NLTE 
+    return num_spe + 2; // +1 for Te and +1 for Th
+#else
     return num_spe;
+#endif
 #else
     return NUM_SPECIES;
 #endif
@@ -1722,6 +1729,10 @@ public:
   getnEVect(const PeleLM::TimeStamp& a_time);
   amrex::Vector<amrex::MultiFab*>
   getnEDiffusivityVect(const PeleLM::TimeStamp& a_time);
+#ifdef PELE_USE_NLTE
+  amrex::Vector<amrex::MultiFab*>
+  getCondTeVect(const PeleLM::TimeStamp& a_time);
+#endif
 #endif
 
   amrex::Vector<amrex::BCRec> fetchBCRecArray(int scomp, int ncomp);

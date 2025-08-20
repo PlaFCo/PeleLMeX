@@ -324,6 +324,9 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
     const bool do_Etransport = (m_ef_model != EFModel::EFglobal);
     const amrex::Real fixedKe = m_fixedKappaE;
     const amrex::Real fixedNDe = m_fixedNDe;
+#ifdef PELE_USE_NLTE
+    auto const& cTea = ldata_p->condTe_cc.arrays();
+#endif
 #endif
 
     amrex::ParallelFor(
@@ -396,6 +399,13 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
             Array4<Real>(dma[box_no], 0), Array4<Real const>(sma[box_no], TEMP),
             Array4<Real>(kma[box_no], 0));
         }
+#ifdef PELE_USE_NLTE
+        getCondTe(
+          i, j, k, Array4<Real const>(sma[box_no], FIRSTSPEC),
+          Array4<Real const>(sma[box_no], TEMPE),
+          Array4<Real const>(sma[box_no], TEMP),
+          Array4<Real>(cTea[box_no], 0));
+#endif
 #endif
       });
 

@@ -1414,6 +1414,9 @@ PeleLM::setTypicalValues(const TimeStamp& a_time, int is_init)
     if (m_ef_model == EFModel::EFglobal) {
       typical_values[NE] = 0.5 * (stateMax[NE] + stateMin[NE]);
     }
+#ifdef PELE_USE_NLTE
+    typical_values[TEMPE] = 0.5 * (stateMax[TEMPE] + stateMin[TEMPE]);
+#endif
 #endif
 #if NUM_ODE > 0
     for (int n = 0; n < NUM_ODE; n++) {
@@ -1451,6 +1454,9 @@ PeleLM::setTypicalValues(const TimeStamp& a_time, int is_init)
       if (m_ef_model == EFModel::EFglobal) {
         Print() << "\tnE:       " << typical_values[NE] << '\n';
       }
+#ifdef PELE_USE_NLTE
+      Print() << "\tTempE:      " << typical_values[TEMPE] << '\n';
+#endif
 #endif
 #if NUM_ODE > 0
       for (int n = 0; n < NUM_ODE; n++) {

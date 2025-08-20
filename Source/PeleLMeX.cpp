@@ -268,6 +268,23 @@ PeleLM::getMobilityVect(const TimeStamp& a_time)
   }
   return r;
 }
+Vector<MultiFab*>
+PeleLM::getCondTeVect(const TimeStamp& a_time)
+{
+  AMREX_ASSERT(!m_incompressible);
+  Vector<MultiFab*> r;
+  r.reserve(finest_level + 1);
+  if (a_time == AmrOldTime) {
+    for (int lev = 0; lev <= finest_level; ++lev) {
+      r.push_back(&(m_leveldata_old[lev]->condTe_cc));
+    }
+  } else {
+    for (int lev = 0; lev <= finest_level; ++lev) {
+      r.push_back(&( m_leveldata_new[lev]->condTe_cc));
+    }
+  }
+  return r;
+}
 #endif
 
 Vector<MultiFab*>
@@ -359,6 +376,9 @@ PeleLM::averageDownScalars(const PeleLM::TimeStamp& a_time)
   int nScal = NUM_SPECIES + 3; // rho, rhoYs, rhoH, Temp
 #ifdef PELE_USE_PLASMA
   nScal += 2; // rhoRT, nE
+#ifdef PELE_USE_NLTE
+  nScal += 1; // rhoTempE
+#endif
 #endif
   for (int lev = finest_level; lev > 0; --lev) {
     auto* ldataFine_p = getLevelDataPtr(lev, a_time);
@@ -486,6 +506,28 @@ PeleLM::getnEVect(const TimeStamp& a_time)
   }
   return r;
 }
+
+#ifdef PELE_USE_NLTE
+Vector<std::unique_ptr<MultiFab>>
+PeleLM::getTempEVect(const TimeStamp& a_time)
+{
+  AMREX_ASSERT(!m_incompressible);
+  Vector<std::unique_ptr<MultiFab>> r;
+  r.reserve(finest_level + 1);
+  if (a_time == AmrOldTime) {
+    for (int lev = 0; lev <= finest_level; ++lev) {
+      r.push_back(std::make_unique<MultiFab>(
+        m_leveldata_old[lev]->state, amrex::make_alias, TEMPE, 1));
+    }
+  } else {
+    for (int lev = 0; lev <= finest_level; ++lev) {
+      r.push_back(std::make_unique<MultiFab>(
+        m_leveldata_new[lev]->state, amrex::make_alias, TEMPE, 1));
+    }
+  }
+  return r;
+}
+#endif
 
 Vector<MultiFab*>
 PeleLM::getnEDiffusivityVect(const TimeStamp& a_time)

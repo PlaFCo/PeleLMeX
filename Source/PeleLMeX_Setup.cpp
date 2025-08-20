@@ -937,6 +937,10 @@ PeleLM::variablesSetup()
     stateComponents.emplace_back(NE, "nE");
     Print() << " PhiV: " << PHIV << "\n";
     stateComponents.emplace_back(PHIV, "PhiV");
+#ifdef PELE_USE_NLTE
+    Print() << " TempE: " << TEMPE << "\n";
+    stateComponents.emplace_back(TEMPE, "TempE");
+#endif
 #endif
 #ifdef PELE_USE_SOOT
     for (int mom = 0; mom < NUMSOOTVAR; mom++) {
@@ -1020,6 +1024,10 @@ PeleLM::variablesSetup()
     m_DiffTypeState[NE] = 0;
     m_AdvTypeState[PHIV] = 0;
     m_DiffTypeState[PHIV] = 0;
+#ifdef PELE_USE_NLTE
+    m_AdvTypeState[TEMPE] = 1;
+    m_DiffTypeState[TEMPE] = 1;
+#endif
 #endif
 #ifdef PELE_USE_SOOT
     for (int mom = 0; mom < NUMSOOTVAR; mom++) {

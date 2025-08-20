@@ -13,6 +13,10 @@
 #define NE (RHORT + 1)
 #define PHIV (NE + 1)
 #define NUMPLASMA 2
+#ifdef PELE_USE_NLTE
+#define TEMPE (PHIV + 1)
+#define NUMPLASMA 3
+#endif
 #else
 #define NUMPLASMA 0
 #endif

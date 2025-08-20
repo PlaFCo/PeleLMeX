@@ -49,6 +49,9 @@ PeleLM::LevelData::LevelData(
     diffE_cc.define(ba, dm, 1, 1, MFInfo(), factory);
     mobE_cc.define(ba, dm, 1, 1, MFInfo(), factory);
     mob_cc.define(ba, dm, NUM_IONS, 1, MFInfo(), factory);
+#ifdef PELE_USE_NLTE
+    condTe_cc.define(ba, dm, 1, 1, MFInfo(), factory);
+#endif
 #endif
   }
   if (a_nAux > 0) {
@@ -65,6 +68,9 @@ PeleLM::LevelDataReact::LevelDataReact(
   int IRsize = NUM_SPECIES;
 #ifdef PELE_USE_PLASMA
   IRsize += 1;
+#ifdef PELE_USE_NLTE
+  IRsize += 1; // TempE
+#endif
 #endif
   I_R.define(ba, dm, IRsize, 0, MFInfo(), factory);
   functC.define(ba, dm, 1, 0, MFInfo(), factory);
@@ -246,6 +252,9 @@ PeleLM::AdvanceAdvData::AdvanceAdvData(
 #ifdef PELE_USE_PLASMA
       // PLASMA TODO
       ncomp_force += 1; // add NE
+#ifdef PELE_USE_NLTE
+      ncomp_force += 1; // add TEMPE
+#endif
 #endif
       Forcing[lev].define(
         ba[lev], dm[lev], ncomp_force, nGrowAdv, MFInfo(), *factory[lev]);
@@ -347,6 +356,11 @@ PeleLM::copyTransportOldToNew()
       MultiFab::Copy(
         m_leveldata_new[lev]->mob_cc, m_leveldata_old[lev]->mob_cc, 0, 0,
         NUM_IONS, 1);
+#ifdef PELE_USE_NLTE
+      MultiFab::Copy(
+        m_leveldata_new[lev]->condTe_cc, m_leveldata_old[lev]->condTe_cc, 0, 0,
+        1, 1);
+#endif
 #endif
     }
     if (m_nAux > 0) {
@@ -362,7 +376,7 @@ PeleLM::copyDiffusionOldToNew(std::unique_ptr<AdvanceDiffData>& diffData)
 {
   for (int lev = 0; lev <= finest_level; lev++) {
     MultiFab::Copy(
-      diffData->Dnp1[lev], diffData->Dn[lev], 0, 0, NUM_SPECIES + 2,
+      diffData->Dnp1[lev], diffData->Dn[lev], 0, 0, NUM_SPECIES + 2*NUM_TEMP,
       m_nGrowAdv);
     if (m_nAux > 0) {
       MultiFab::Copy(

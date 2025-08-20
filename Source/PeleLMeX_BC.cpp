@@ -63,6 +63,10 @@ int nE_bc[] = {amrex::BCType::int_dir,      amrex::BCType::ext_dir,
 
 int phiV_bc[] = {
   amrex::BCType::int_dir, amrex::BCType::ext_dir, amrex::BCType::reflect_even};
+int tempE_bc[] = {amrex::BCType::int_dir,  amrex::BCType::ext_dir,
+                  amrex::BCType::foextrap, amrex::BCType::reflect_even,
+                  amrex::BCType::foextrap, amrex::BCType::foextrap,
+                  amrex::BCType::ext_dir,  amrex::BCType::ext_dir};
 #endif
 
 #ifdef PELE_USE_SOOT
@@ -228,6 +232,13 @@ PeleLM::setBoundaryConditions()
         m_bcrec_state[PHIV].setLo(idim, phiV_bc[lo_phibc[idim]]);
         m_bcrec_state[PHIV].setHi(idim, phiV_bc[hi_phibc[idim]]);
       }
+#ifdef PELE_USE_NLTE    
+    // electron Temperature
+    for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+      m_bcrec_state[TEMPE].setLo(idim, tempE_bc[lo_bc[idim]]);
+      m_bcrec_state[TEMPE].setHi(idim, tempE_bc[hi_bc[idim]]);
+    } 
+#endif
     }
 #endif
 #ifdef PELE_USE_SOOT
@@ -347,6 +358,18 @@ PeleLM::fillPatchPhiV(const TimeStamp& a_time)
     fillpatch_phiV(lev, time, ldata_p->state, PHIV, m_nGrowState);
   }
 }
+#ifdef PELE_USE_NLTE
+void
+PeleLM::fillPatchTempE(const TimeStamp& a_time)
+{
+  BL_PROFILE("PeleLMeX::fillPatchTempE()");
+  for (int lev = 0; lev <= finest_level; lev++) {
+    auto* ldata_p = getLevelDataPtr(lev, a_time);
+    Real time = getTime(lev, a_time);
+    fillpatch_tempE(lev, time, ldata_p->state, TEMPE, m_nGrowState);
+  }
+}
+#endif
 #endif
 //-----------------------------------------------------------------------------
 
@@ -662,6 +685,58 @@ PeleLM::fillpatch_aux(
 }
 
 #ifdef PELE_USE_PLASMA
+#ifdef PELE_USE_NLTE
+// Fill electron temperature
+void
+PeleLM::fillpatch_tempE(
+  int lev,
+  const amrex::Real a_time,
+  amrex::MultiFab& a_temp,
+  int tempE_comp,
+  int nGhost)
+{
+  ProbParm const* lprobparm = prob_parm_d;
+  auto const* lpmfdata = pmf_data.device_parm();
+  if (lev == 0) {
+    PhysBCFunct<
+      GpuBndryFuncFab<PeleLMCCFillExtDirTempE<ProblemSpecificFunctions>>>
+      bndry_func(
+        geom[lev], fetchBCRecArray(TEMPE, 1),
+        PeleLMCCFillExtDirTempE<ProblemSpecificFunctions>{
+          lprobparm, lpmfdata, m_nAux});
+    FillPatchSingleLevel(
+      a_temp, IntVect(nGhost), a_time,
+      {&(m_leveldata_old[lev]->state), &(m_leveldata_new[lev]->state)},
+      {m_t_old[lev], m_t_new[lev]}, TEMPE, tempE_comp, 1, geom[lev], bndry_func,
+      0);
+  } else {
+
+    // Interpolator
+    auto* mapper = getInterpolator();
+
+    PhysBCFunct<
+      GpuBndryFuncFab<PeleLMCCFillExtDirTempE<ProblemSpecificFunctions>>>
+      crse_bndry_func(
+        geom[lev - 1], fetchBCRecArray(TEMPE, 1),
+        PeleLMCCFillExtDirTempE<ProblemSpecificFunctions>{
+          lprobparm, lpmfdata, m_nAux});
+    PhysBCFunct<
+      GpuBndryFuncFab<PeleLMCCFillExtDirTempE<ProblemSpecificFunctions>>>
+      fine_bndry_func(
+        geom[lev], fetchBCRecArray(TEMPE, 1),
+        PeleLMCCFillExtDirTempE<ProblemSpecificFunctions>{
+          lprobparm, lpmfdata, m_nAux});
+    FillPatchTwoLevels(
+      a_temp, IntVect(nGhost), a_time,
+      {&(m_leveldata_old[lev - 1]->state), &(m_leveldata_new[lev - 1]->state)},
+      {m_t_old[lev - 1], m_t_new[lev - 1]},
+      {&(m_leveldata_old[lev]->state), &(m_leveldata_new[lev]->state)},
+      {m_t_old[lev], m_t_new[lev]}, TEMPE, tempE_comp, 1, geom[lev - 1],
+      geom[lev], crse_bndry_func, 0, fine_bndry_func, 0, refRatio(lev - 1),
+      mapper, fetchBCRecArray(TEMPE, 1), 0);
+  }
+}
+#endif
 // Fill electro-static potential
 void
 PeleLM::fillpatch_phiV(

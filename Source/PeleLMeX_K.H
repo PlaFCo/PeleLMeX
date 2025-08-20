@@ -314,6 +314,85 @@ compute_divu(
   }
 }
 
+
+template <typename EOSType>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
+compute_divuTe(
+  int i,
+  int j,
+  int k,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<const amrex::Real> const& T,
+  amrex::Array4<const amrex::Real> const& Te,
+  amrex::Array4<const amrex::Real> const& specDiff,
+  amrex::Array4<const amrex::Real> const& tempDiff,
+  amrex::Array4<const amrex::Real> const& specEnthDiff,
+  amrex::Array4<const amrex::Real> const& tempEDiff,
+  amrex::Array4<const amrex::Real> const& specEleEnthDiff,
+  amrex::Array4<const amrex::Real> const& rhoYdot,
+  amrex::Array4<const amrex::Real> const& extRhoY,
+  amrex::Array4<const amrex::Real> const& extRhoH,
+  amrex::Array4<const amrex::Real> const& extRhoTE,
+  amrex::Array4<amrex::Real> const& divu,
+  int do_react,
+  pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> const*
+    eosparm) noexcept
+{
+  using namespace amrex::literals;
+
+  auto eos = pele::physics::PhysicsType::eos(eosparm);
+  amrex::Real mwtinv[NUM_SPECIES] = {0.0};
+  eos.inv_molecular_weight(mwtinv);
+
+  // Get rho & Y from rhoY
+  amrex::Real rho = 0.0_rt;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rho += rhoY(i, j, k, n);
+  }
+  amrex::Real rhoinv = 1.0_rt / rho;
+  amrex::Real y[NUM_SPECIES] = {0.0};
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    y[n] = rhoY(i, j, k, n) * rhoinv;
+  }
+
+  amrex::Real cpmix_cgs = 0.0_rt;
+  eos.TY2Cp(T(i, j, k), y, cpmix_cgs);
+  amrex::Real Wbar = 0.0_rt;
+  eos.Y2WBAR(y, Wbar);
+  amrex::Real hi_cgs[NUM_SPECIES] = {0.0};
+  eos.T2Hi(T(i, j, k), hi_cgs);
+  amrex::Real cpmix = c2m::Cp(cpmix_cgs); // CGS -> MKS conversion
+  amrex::Real hi[NUM_SPECIES] = {0.0};
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    hi[n] = c2m::H(hi_cgs[n]); // CGS -> MKS conversion
+  }
+
+  // extRhoH(TE) contains m_extSources on the first iteration and I_R on subsequent
+  // eos.RTTeY2SColl( rho, T, Te, y, ScollTe, ScollTh ); TODO
+  amrex::Real cpele = y[E_ID]*mwtinv(E_ID)*20785; // J K-1 kg-1
+
+  amrex::Real denominv = rho * PP_RU_MKS / (rho * (cpmix * T(i, j, k) + cpele*(Te(i, j, k) - T(i, j, k))));
+  cpmix -= cpele;
+  divu(i, j, k) = denominv * rhoinv / cpmix *(specEnthDiff(i, j, k) + tempDiff(i, j, k) + extRhoH(i, j, k))
+  divu(i, j, k) += denominv * rhoinv / cpele * (specEleEnthDiff(i, j, k) tempEDiff(i, j, k) + extRhoTE(i, j, k));
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    if (n == E_ID) continue; // skip electron species
+    amrex::Real specTerm = specDiff(i, j, k, n) + extRhoY(i, j, k, n);
+    if (do_react != 0) {
+      specTerm += rhoYdot(i, j, k, n);
+    }
+    specTerm *= rhoinv;
+    
+    divu(i, j, k) += specTerm * denominv*( T* mwtinv[n]  - hi[n] / cpmix);
+  }
+  amrex::Real specTerm = specDiff(i, j, k, E_ID) + extRhoY(i, j, k, E_ID);
+  if (do_react != 0) {
+    specTerm += rhoYdot(i, j, k, E_ID);
+  }
+  divu(i, j, k) += denominv * rhoinv * (Te(i, j, k) * mwtinv[E_ID] - hi[E_ID] / cpele) * specTerm;
+// #endif
+}
+
 template <>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
 compute_divu<pele::physics::eos::Manifold>(

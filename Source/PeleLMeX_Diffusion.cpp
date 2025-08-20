@@ -72,9 +72,13 @@ PeleLM::computeDifferentialDiffusionTerms(
 
   //----------------------------------------------------------------
   // Setup fluxes
-  // [0:NUM_SPECIES-1] Species     : \Flux_k
-  // [NUM_SPECIES]     Temperature : - \lambda \nabla T
-  // [NUM_SPECIES+1]   DiffDiff    : \sum_k ( h_k * \Flux_k )
+  // [0:NUM_SPECIES-1] Species         : \Flux_k
+  // [NUM_SPECIES]     Temperature     : - \lambda \nabla T
+  // [NUM_SPECIES+1]   DiffDiff        : \sum_k ( h_k * \Flux_k )
+
+  // ifdef PELE_USE_NLTE
+  // [NUM_SPECIES+2]   Ele Temperature : - \lambda_Te \nabla T_e
+  // [NUM_SPECIES+3]   Ele DiffDiff    : h_e * \Flux_e
   constexpr int nGrow = 0; // No need for ghost face on fluxes
   Vector<Array<MultiFab, AMREX_SPACEDIM>> fluxes(finest_level + 1);
   Vector<Array<MultiFab, AMREX_SPACEDIM>> fluxes_aux(finest_level + 1);
@@ -82,9 +86,15 @@ PeleLM::computeDifferentialDiffusionTerms(
     const auto& ba = grids[lev];
     const auto& factory = Factory(lev);
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+#ifndef PELE_USE_NLTE
       fluxes[lev][idim].define(
         amrex::convert(ba, IntVect::TheDimensionVector(idim)), dmap[lev],
         NUM_SPECIES + 2, nGrow, MFInfo(), factory);
+#else
+      fluxes[lev][idim].define(
+        amrex::convert(ba, IntVect::TheDimensionVector(idim)), dmap[lev],
+        NUM_SPECIES + 4, nGrow, MFInfo(), factory);
+#endif
       if (m_nAux > 0) {
         fluxes_aux[lev][idim].define(
           amrex::convert(ba, IntVect::TheDimensionVector(idim)), dmap[lev],
@@ -160,6 +170,8 @@ PeleLM::computeDifferentialDiffusionTerms(
   // [0:NUM_SPECIES-1] Species           : \nabla \cdot \Flux_k
   // [NUM_SPECIES]     Temperature       : \nabla \cdot (-\lambda \nabla T)
   // [NUM_SPECIES+1]   Differential diff : \nabla \cdot \sum_k ( h_k * \Flux_k )
+  // [NUM_SPECIES+2]   Electron Temperature : \nabla \cdot (-\lambda_Te \nabla T_e)
+  // [NUM_SPECIES+3]   Electron Diffusion : \nabla \cdot (h_e * \Flux_e)
   constexpr int intensiveFluxes = 1; // All the fluxes are intensive here
   Vector<MultiFab*> diffTermVec = (a_time == AmrOldTime)
                                     ? GetVecOfPtrs(diffData->Dn)
@@ -199,9 +211,28 @@ PeleLM::computeDifferentialDiffusionTerms(
     GetVecOfConstPtrs(getRhoHVect(a_time)), 0, diffTermVec, NUM_SPECIES + 1,
     GetVecOfArrOfPtrs(fluxes), NUM_SPECIES + 1, {}, 0, 1, intensiveFluxes,
     bcRecRhoH_d.dataPtr(), -1.0, m_dt);
+
+#ifdef PELE_USE_NLTE
+  auto bcRecTempE = fetchBCRecArray(TEMPE, 1);
+  auto bcRecTempE_d = convertToDeviceVector(bcRecTempE);
+  Vector<MultiFab*> EBFluxesVec =
+    (m_isothermalEB) != 0 ? GetVecOfPtrs(EBfluxes) : Vector<MultiFab*>{};
+  fluxDivergenceRD(
+    GetVecOfConstPtrs(getTempEVect(a_time)), 0, diffTermVec, NUM_SPECIES + 2,
+    GetVecOfArrOfPtrs(fluxes), NUM_SPECIES + 2, EBFluxesVec, 0, 1, intensiveFluxes,
+    bcRecTempE_d.dataPtr(), -1.0, m_dt);
+
+  auto bcRecRhoHe = fetchBCRecArray(RHOHe, 1);
+  auto bcRecRhoHe_d = convertToDeviceVector(bcRecRhoHe);
+  fluxDivergenceRD(
+    GetVecOfConstPtrs(getRhoHeVect(a_time)), 0, diffTermVec, NUM_SPECIES + 3,
+    GetVecOfArrOfPtrs(fluxes), NUM_SPECIES + 3, {}, 0, 1, intensiveFluxes,
+    bcRecRhoHe_d.dataPtr(), -1.0, m_dt);
+#endif 
+
 #else
   fluxDivergence(
-    diffTermVec, 0, GetVecOfArrOfPtrs(fluxes), 0, NUM_SPECIES + 2,
+    diffTermVec, 0, GetVecOfArrOfPtrs(fluxes), 0, NUM_SPECIES + 2*NUM_TEMP,
     intensiveFluxes, -1.0);
   if (m_nAux > 0) {
     fluxDivergence(
@@ -714,9 +745,21 @@ PeleLM::computeDifferentialDiffusionFluxes(
   computeSpeciesEnthalpyFlux(a_fluxes, GetVecOfConstPtrs(getTempVect(a_time)));
   //----------------------------------------------------------------
 
+#ifdef PELE_USE_NLTE
+  // Fourier: - \lambda_e \nabla T_e
+  getDiffusionOp()->computeDiffFluxes(
+  a_fluxes, NUM_SPECIES, GetVecOfConstPtrs(getTempVect(a_time)), 0, {},
+  GetVecOfConstPtrs(getDiffusivityVect(a_time)), NUM_SPECIES, bcRecTemp, 1,
+  do_avgDown, {});
+  // Differential diffusion term for electrons: h_e * \Flux_e
+  computeElectronEnthalpyFlux(
+    a_fluxes, GetVecOfConstPtrs(getTempEVect(a_time)),
+    GetVecOfConstPtrs(getTempVect(a_time)));
+#endif
+
   //----------------------------------------------------------------
   // Get fluxes consistent across levels by averaging down all components
-  getDiffusionOp()->avgDownFluxes(a_fluxes, 0, NUM_SPECIES + 2);
+  getDiffusionOp()->avgDownFluxes(a_fluxes, 0, NUM_SPECIES + 2*NUM_TEMP);
   if (m_nAux > 0) {
     getDiffusionOp()->avgDownFluxes(a_auxfluxes, 0, m_nAux);
   }
@@ -1184,6 +1227,100 @@ PeleLM::addAmbDriftTerm(
   }
 }
 #endif
+
+void
+PeleLM::computeElectronEnthalpyFlux(
+  const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_fluxes,
+  Vector<MultiFab const*> const& a_temp)
+{
+
+  BL_PROFILE("PeleLMeX::computeElectronEnthalpyFlux()");
+
+  // Get the species BCRec
+  auto bcRecSpec = fetchBCRecArray(FIRSTSPEC, NUM_SPECIES);
+  auto const* leosparm = eos_parms.device_parm();
+
+  for (int lev = 0; lev <= finest_level; ++lev) {
+
+#ifdef AMREX_USE_EB
+    auto const& ebfact = EBFactory(lev);
+#endif
+    //------------------------------------------------------------------------
+    // Compute the cell-centered species enthalpies
+    constexpr int nGrow = 1;
+    MultiFab Enth(
+      grids[lev], dmap[lev], NUM_SPECIES, nGrow, MFInfo(), Factory(lev));
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(Enth, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+      const Box& gbx = mfi.growntilebox();
+      auto const& Temp_arr = a_temp[lev]->const_array(mfi);
+      auto const& Hi_arr = Enth.array(mfi);
+
+#ifdef AMREX_USE_EB
+      auto const& flagfab = ebfact.getMultiEBCellFlagFab()[mfi];
+      auto const& flag = flagfab.const_array();
+      if (flagfab.getType(gbx) == FabType::covered) { // Covered boxes
+        amrex::ParallelFor(
+          gbx, [Hi_arr] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            Hi_arr(i, j, k) = 0.0;
+          });
+      } else if (flagfab.getType(gbx) != FabType::regular) { // EB containing
+                                                             // boxes
+        amrex::ParallelFor(
+          gbx, [Temp_arr, Hi_arr, flag,
+                leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            if (flag(i, j, k).isCovered()) {
+              Hi_arr(i, j, k) = 0.0;
+            } else {
+              getHGivenT(i, j, k, Temp_arr, Hi_arr, leosparm);
+            }
+          });
+      } else
+#endif
+      {
+        amrex::ParallelFor(
+          gbx, [Temp_arr, Hi_arr,
+                leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            getHGivenT(i, j, k, Temp_arr, Hi_arr, leosparm);
+          });
+      }
+    }
+
+    //------------------------------------------------------------------------
+    // Get the face-centered species enthalpies
+    constexpr int doZeroVisc = 0;
+    constexpr int addTurbContrib = 0;
+    Array<MultiFab, AMREX_SPACEDIM> Enth_ec = getDiffusivity(
+      lev, 0, NUM_SPECIES, doZeroVisc, bcRecSpec, Enth, addTurbContrib);
+
+    //------------------------------------------------------------------------
+    // Compute \sum_k { \Flux_k * h_k }
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(Enth, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+        const Box& ebox = mfi.nodaltilebox(idim);
+        auto const& spflux_ar = a_fluxes[lev][idim]->const_array(mfi, 0);
+        auto const& enthflux_ar =
+          a_fluxes[lev][idim]->array(mfi, NUM_SPECIES + 1);
+        auto const& enth_ar = Enth_ec[idim].const_array(mfi);
+        amrex::ParallelFor(
+          ebox, [spflux_ar, enthflux_ar,
+                 enth_ar] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            enthflux_ar(i, j, k) = 0.0;
+            for (int n = 0; n < NUM_SPECIES; n++) {
+              enthflux_ar(i, j, k) +=
+                spflux_ar(i, j, k, n) * enth_ar(i, j, k, n);
+            }
+          });
+      }
+    }
+  }
+}
 
 void
 PeleLM::computeSpeciesEnthalpyFlux(

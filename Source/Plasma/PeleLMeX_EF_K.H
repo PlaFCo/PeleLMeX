@@ -139,6 +139,30 @@ get_fixedRhoDe(
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void
+getCondTe(
+  int i,
+  int j,
+  int k,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<const amrex::Real> const& Te,
+  amrex::Array4<const amrex::Real> const& Tg,
+  amrex::Array4<amrex::Real> const& condTe) noexcept
+{
+  using namespace amrex::literals;
+  amrex::Real rho = 0.0;
+  condTe(i, j, k) = 2.0e-4
+  // for (int n = 0; n < NUM_SPECIES; n++) {
+  //   rho += rhoY(i, j, k, n);
+  // }
+  // amrex::Real N = P0(i, j, k) / T(i, j, k) / (PP_RU_MKS / Na);
+  // amrex::Real De = cstNDe / N;
+  // rhoDi(i, j, k, E_ID) = rho * De;
+}
+
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+void
 getKappa(
   int i,
   int j,

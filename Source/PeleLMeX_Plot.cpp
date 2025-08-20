@@ -203,6 +203,9 @@ PeleLM::WritePlotFile()
 #ifdef PELE_USE_PLASMA
     plt_VarsName.push_back("nE");
     plt_VarsName.push_back("phiV");
+#ifdef PELE_USE_NLTE
+    plt_VarsName.push_back("TempE");
+#endif
 #endif
 #ifdef PELE_USE_SOOT
     for (int mom = 0; mom < NUMSOOTVAR; mom++) {
@@ -240,6 +243,8 @@ PeleLM::WritePlotFile()
     if (m_ef_model == EFModel::EFglobal) {
       plt_VarsName.push_back("I_R(nE)");
     }
+#ifdef PELE_USE_NLTE
+    plt_VarsName.push_back("I_R(TempE)");
 #endif
     plt_VarsName.push_back("FunctCall");
     // Extras:
@@ -333,8 +338,13 @@ PeleLM::WritePlotFile()
       MultiFab::Copy(mf_plt[lev], m_leveldata_new[lev]->state, RHOH, cnt, 3, 0);
       cnt += 3;
 #ifdef PELE_USE_PLASMA
+#ifndef PELE_USE_NLTE
       MultiFab::Copy(mf_plt[lev], m_leveldata_new[lev]->state, NE, cnt, 2, 0);
       cnt += 2;
+#else
+      MultiFab::Copy(mf_plt[lev], m_leveldata_new[lev]->state, NE, cnt, 1, 0);
+      cnt += 3;
+#endif  
 #endif
 #ifdef PELE_USE_SOOT
       MultiFab::Copy(
@@ -785,6 +795,7 @@ PeleLM::ReadCheckPointFile()
         amrex::MultiFabFileFullPrefix(
           lev, m_restart_chkfile, level_prefix, "state"));
     } else {
+#ifndef PELE_USE_NLTE
       // The chk state is 2 component shorter since phiV and nE aren't in it
       MultiFab stateTemp(grids[lev], dmap[lev], NVAR - 2, m_nGrowState);
       VisMF::Read(
@@ -793,6 +804,16 @@ PeleLM::ReadCheckPointFile()
       MultiFab::Copy(
         m_leveldata_new[lev]->state, stateTemp, 0, 0, NVAR - 2, m_nGrowState);
     }
+#else
+      // The chk state is 3 component shorter since phiV, nE, TempE aren't in it
+      MultiFab stateTemp(grids[lev], dmap[lev], NVAR - 3, m_nGrowState);
+      VisMF::Read(
+        stateTemp, amrex::MultiFabFileFullPrefix(
+                     lev, m_restart_chkfile, level_prefix, "state"));
+      MultiFab::Copy(
+        m_leveldata_new[lev]->state, stateTemp, 0, 0, NVAR - 3, m_nGrowState);
+    }
+#endif
 #else
     VisMF::Read(
       m_leveldata_new[lev]->state,
@@ -845,8 +866,20 @@ PeleLM::ReadCheckPointFile()
             m_leveldatareact[lev]->I_R, I_Rtemp, 0, 0, NUM_SPECIES, 0);
         }
 
+
         // Initialize nE & phiV
+#ifndef PELE_USE_NLTE
         m_leveldata_new[lev]->state.setVal(0.0, NE, 2, m_nGrowState);
+#else
+        // with NLTE, we have an I_R for TempE
+        MultiFab I_Rtemp(grids[lev], dmap[lev], NUM_SPECIES, 0);
+        VisMF::Read(
+          I_Rtemp, amrex::MultiFabFileFullPrefix(
+                      lev, m_restart_chkfile, level_prefix, "I_R"));
+        MultiFab::Copy(
+          m_leveldatareact[lev]->I_R, I_Rtemp, 0, 0, NUM_SPECIES, 0);
+        m_leveldata_new[lev]->state.setVal(0.0, NE, 3, m_nGrowState);
+#endif
       }
 #else
       if (m_do_react != 0) {
@@ -897,6 +930,9 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
   int idT = -1, idV = -1, idY = -1, nSpecPlt = 0;
 #ifdef PELE_USE_PLASMA
   int inE = -1, iPhiV = -1;
+#ifdef PELE_USE_NLTE
+  int iTempE = -1;
+#endif
 #endif
 #ifdef PELE_USE_SOOT
   int inSoot = -1;
@@ -928,6 +964,8 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
       inE = i;
     if (plt_vars[i] == "phiV")
       iPhiV = i;
+    if (plt_vars[i] == "TempE")
+      iTempE = i;
 #endif
 #ifdef PELE_USE_SOOT
     if (plt_vars[i] == "soot_N") {
@@ -996,6 +1034,10 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
   pltData.fillPatchFromPlt(a_lev, geom[a_lev], inE, NE, 1, ldata_p->state);
   // phiV
   pltData.fillPatchFromPlt(a_lev, geom[a_lev], iPhiV, PHIV, 1, ldata_p->state);
+#ifdef PELE_USE_NLTE
+  // nLTE electron temperature
+  pltData.fillPatchFromPlt(a_lev, geom[a_lev], iTempE, TEMPE, 1, ldata_p->state);
+#endif
 #endif
 #ifdef PELE_USE_SOOT
   if (do_soot_solve) {
