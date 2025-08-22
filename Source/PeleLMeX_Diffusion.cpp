@@ -1425,9 +1425,11 @@ PeleLM::differentialDiffusionUpdate(
 
   //------------------------------------------------------------------------
   // Setup fluxes
-  // [0:NUM_SPECIES-1] Species     : \Flux_k
-  // [NUM_SPECIES]     Temperature : - \lambda \nabla T
-  // [NUM_SPECIES+1]   DiffDiff    : \sum_k ( h_k * \Flux_k )
+  // [0:NUM_SPECIES-1] Species                : \Flux_k
+  // [NUM_SPECIES]     Temperature            : - \lambda \nabla T
+  // [NUM_SPECIES+1]   DiffDiff               : \sum_k ( h_k * \Flux_k )
+  // [NUM_SPECIES+2]   Electron temperature   : - \lambda_e \nabla T_e
+  // [NUM_SPECIES+3]   Electron enthalpy flux : \sum_k ( h_k * \Flux_k )
   constexpr int nGrow = 0; // No need for ghost face on fluxes
   Vector<Array<MultiFab, AMREX_SPACEDIM>> fluxes(finest_level + 1);
   Vector<Array<MultiFab, AMREX_SPACEDIM>> fluxes_aux(finest_level + 1);
@@ -1437,7 +1439,7 @@ PeleLM::differentialDiffusionUpdate(
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
       fluxes[lev][idim].define(
         amrex::convert(ba, IntVect::TheDimensionVector(idim)), dmap[lev],
-        NUM_SPECIES + 2, nGrow, MFInfo(), factory);
+        NUM_SPECIES + 2*NUM_TEMP, nGrow, MFInfo(), factory);
       if (m_nAux > 0) {
         fluxes_aux[lev][idim].define(
           amrex::convert(ba, IntVect::TheDimensionVector(idim)), dmap[lev],
@@ -1696,6 +1698,9 @@ PeleLM::differentialDiffusionUpdate(
       m_nAux, 1, -1.0);
   }
 
+  // repeat for electron fourier and enthalpy fluxes 
+  // TODO
+
   // Update species
   // Remove the Wbar and Soret terms because we included them both the dhat and
   // the forcing.
@@ -1830,6 +1835,22 @@ PeleLM::differentialDiffusionUpdate(
       GetVecOfPtrs(diffData->Dhat), NUM_SPECIES, GetVecOfArrOfPtrs(fluxes),
       NUM_SPECIES, 2, 1, -1.0);
   }
+
+#ifdef PELE_USE_NLTE
+//TODO
+  // Fourier: - \lambda_e \nabla T_e 
+  // Differential diffusion term: \sum_k ( h_k * \Flux_k )
+  // average_down enthalpy fluxes
+  // Compute diffusion term D^{np1,kp1} of electron Fourier and DifferentialDiffusion
+#endif
+
+#ifdef PELE_USE_NLTE 
+// delta(Te) iterations
+//TODO
+
+
+// remove Te terms from deltaTh iteration equation
+#endif
 
   //------------------------------------------------------------------------
   // delta(T) iterations
@@ -2148,6 +2169,14 @@ PeleLM::getScalarDiffForce(
         (m_ef_model == EFModel::EFneutral || m_ef_model == EFModel::EFOskam)
           ? diffData->Deamb[lev].const_array(mfi, 0)
           : DummyFab.const_array();
+#ifdef PELE_USE_NLTE
+      auto const& dnte = diffData->Dn[lev].const_array(mfi, NUM_SPECIES + 2);
+      auto const& ddnte = diffData->Dn[lev].const_array(mfi, NUM_SPECIES + 3);
+      auto const& dntep1k = diffData->Dnp1[lev].const_array(mfi, NUM_SPECIES + 2);
+      auto const& ddntep1k = diffData->Dnp1[lev].const_array(mfi, NUM_SPECIES + 3);
+      auto const& extRhoHTe = m_extSource[lev]->const_array(mfi, TEMPE);
+      auto const& fTE = advData->Forcing[lev].array(mfi, TEMPE);
+#endif
 #endif
       amrex::ParallelFor(
         bx, [dn, ddn, dnp1k, ddnp1k, do_react = m_do_react, r, a, extRhoY,
@@ -2162,6 +2191,12 @@ PeleLM::getScalarDiffForce(
           buildDiffusionForcing_plasma(
             i, j, k, dn, ddn, dnp1k, ddnp1k, r, a, dp0dt, is_closed_ch,
             do_react, fY, fT, dwbar, dT, extRhoY, extRhoH, use_wbar, use_soret,
+            use_eamb, deamb, fAux, a_aux, dn_aux, dnp1k_aux, aux_advect_d, 
+            aux_diffuse_d, nAux);
+#elif PELE_USE_NLTE
+          buildDiffusionForcingNLTE(
+            i, j, k, dn, dnte, ddn, ddnte, dnp1k, dntep1k, ddnp1k, ddntep1k, r, a, dp0dt, is_closed_ch,
+            do_react, fY, fT, fTe, dwbar, dT, extRhoY, extRhoH, extRhoHTe, use_wbar, use_soret,
             use_eamb, deamb, fAux, a_aux, dn_aux, dnp1k_aux, aux_advect_d, 
             aux_diffuse_d, nAux);
 #else

@@ -282,15 +282,30 @@ PeleLM::getScalarAdvForce(
       auto const& dn_aux = (m_nAux > 0)
                              ? diffData->Dn_aux[lev].const_array(mfi, 0)
                              : DummyFab.const_array();
+
+#ifdef PELE_USE_NLTE
+      auto const& extRhoTE = m_extSource[lev]->const_array(mfi, TEMPE);
+      auto const& TE = ldata_p->state.const_array(mfi, TEMPE);
+      auto const& condTe = diffData->Dn[lev].const_array(mfi, NUM_SPECIES + 2);
+      auto const& hefe = diffData->Dn[lev].const_array(mfi, NUM_SPECIES + 3);
+      auto const& fTE = advData->Forcing[lev].array(mfi, NUM_SPECIES + 1);
+#endif
       amrex::ParallelFor(
         bx, [rho, rhoY, T, dn, ddn, r, fY, fT, fAux, extRhoY, extRhoH,
              aux_diffuse_d, dn_aux, nAux = m_nAux, dp0dt = m_dp0dt,
              is_closed_ch = m_closed_chamber, do_react = m_do_react,
              leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+#ifndef PELE_USE_NLTE
           buildAdvectionForcing(
             i, j, k, rho, rhoY, T, dn, ddn, r, extRhoY, extRhoH, dp0dt,
             is_closed_ch, do_react, fY, fT, fAux, dn_aux, aux_diffuse_d, nAux,
             leosparm);
+#else
+          buildAdvectionForcingNLTE(
+            i, j, k, rho, rhoY, T, TE, dn, ddn, r, extRhoY, extRhoH, extRhoTE,
+            condTe, hefe, dp0dt, is_closed_ch, do_react, fY, fT, fAux,
+            fTE, dn_aux, aux_diffuse_d, nAux, leosparm);
+#endif
         });
     }
   }
@@ -340,8 +355,8 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
       fluxes[lev][idim].define(
         amrex::convert(grids[lev], IntVect::TheDimensionVector(idim)),
-        dmap[lev], NUM_SPECIES + 1, 0, MFInfo(),
-        Factory(lev)); // Species + RhoH
+        dmap[lev], NUM_SPECIES + NUM_TEM, 0, MFInfo(),
+        Factory(lev)); // Species + RhoH (+ RhoTE)
       if (m_nAux > 0) {
         fluxes_aux[lev][idim].define(
           amrex::convert(grids[lev], IntVect::TheDimensionVector(idim)),
@@ -358,14 +373,14 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
     // Get level data ptr Old
     auto* ldata_p = getLevelDataPtr(lev, AmrOldTime);
 
-    // Define edge state: Density + Species + RhoH + Temp
+    // Define edge state: Density + Species + RhoH + Temp (+ TempE)
     int nGrow = 0;
     Array<MultiFab, AMREX_SPACEDIM> edgeState;
     Array<MultiFab, AMREX_SPACEDIM> edgeState_aux;
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
       edgeState[idim].define(
         amrex::convert(grids[lev], IntVect::TheDimensionVector(idim)),
-        dmap[lev], NUM_SPECIES + 3, nGrow, MFInfo(), Factory(lev));
+        dmap[lev], NUM_SPECIES + 2 + NUM_TEMP, nGrow, MFInfo(), Factory(lev));
       if (m_nAux > 0) {
         edgeState_aux[idim].define(
           amrex::convert(grids[lev], IntVect::TheDimensionVector(idim)),
@@ -640,6 +655,46 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
         fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
     }
 
+#ifdef PELE_USE_NLTE
+    // Get the edge electron temperature
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(ldata_p->state, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+
+      Box const& bx = mfi.tilebox();
+      AMREX_D_TERM(auto const& umac = advData->umac[lev][0].const_array(mfi);
+                   , auto const& vmac = advData->umac[lev][1].const_array(mfi);
+                   , auto const& wmac = advData->umac[lev][2].const_array(mfi);)
+      AMREX_D_TERM(auto const& fx = fluxes[lev][0].array(mfi, NUM_SPECIES+1);
+                   , // Put temp fluxes in place of rhoH
+                   auto const& fy = fluxes[lev][1].array(mfi, NUM_SPECIES+1);
+                   , // will be overwritten later
+                   auto const& fz = fluxes[lev][2].array(mfi, NUM_SPECIES+1);)
+      AMREX_D_TERM(
+        auto const& edgex = edgeState[0].array(mfi, NUM_SPECIES + 3);
+        , auto const& edgey = edgeState[1].array(mfi, NUM_SPECIES + 3);
+        , auto const& edgez = edgeState[2].array(mfi, NUM_SPECIES + 3);)
+      auto const& divu_arr = divu.const_array(mfi);
+      auto const& tempe_arr = ldata_p->state.const_array(mfi, TEMPE);
+      auto const& force_arr =
+        advData->Forcing[lev].const_array(mfi, NUM_SPECIES+1);
+      constexpr bool is_velocity = false;
+      constexpr bool fluxes_are_area_weighted = false;
+      constexpr bool knownEdgeState = false;
+      HydroUtils::ComputeFluxesOnBoxFromState(
+        bx, 1, mfi, tempe_arr, AMREX_D_DECL(fx, fy, fz),
+        AMREX_D_DECL(edgex, edgey, edgez), knownEdgeState,
+        AMREX_D_DECL(umac, vmac, wmac), divu_arr, force_arr, geom[lev], m_dt,
+        bcRecTemp, bcRecTemp_d.dataPtr(), AdvTypeTemp_d.dataPtr(),
+#ifdef AMREX_USE_EB
+        ebfact,
+#endif
+        m_Godunov_ppm != 0, m_Godunov_ForceInTrans != 0, is_velocity,
+        fluxes_are_area_weighted, m_advection_type, m_Godunov_ppm_limiter);
+    }
+#endif
+
     // Get the edge RhoH states
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -679,15 +734,26 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
             });
         } else // Regular boxes
 #endif
-        {
-          amrex::ParallelFor(
+{
+  amrex::ParallelFor(
             ebx, [rho, rhoY, T, rhoHm,
-                  leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+              leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
               getRHmixGivenTY(i, j, k, rho, rhoY, T, rhoHm, leosparm);
             });
         }
       }
     }
+    
+    #ifdef PELE_USE_NLTE
+    // Get the edge RhoHTe state to obtain rhoHTh=rhoH-rhoHTe and rhoHTe afterwards
+    //define newget RHTe and RHTh 
+    
+    // rhoHThm and rhoHTem gotten. Maybe modify getRHmixgivenTY to accept T array as input
+    #endif
+    
+#ifdef PELE_USE_NLTE
+    // Get the RhoHTe advection term
+#endif
 
     // Finally get the RhoH advection term
     // Pass the Temp forces again here, but they aren't used.
@@ -729,6 +795,7 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
     EB_set_covered_faces(GetArrOfPtrs(fluxes[lev]), 0.);
 #endif
   }
+
 
   //----------------------------------------------------------------
   // Average down fluxes to ensure C/F consistency
@@ -795,7 +862,7 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
   //----------------------------------------------------------------
   // Fluxes divergence to get the scalars advection term
   auto AdvTypeAll =
-    fetchAdvTypeArray(FIRSTSPEC, NUM_SPECIES + 1); // Species+RhoH
+    fetchAdvTypeArray(FIRSTSPEC, NUM_SPECIES + NUM_TEMP); // Species+RhoH(+RhoTe)
   auto AdvTypeAll_d = convertToDeviceVector(AdvTypeAll);
   for (int lev = 0; lev <= finest_level; ++lev) {
 
@@ -836,6 +903,12 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
       lev, m_dt, divTmp, NUM_SPECIES, advData->AofS[lev], RHOH, ldata_p->state,
       RHOH, 1, bcRecRhoH_d.dataPtr(), geom[lev]);
 
+#ifdef PELE_USE_NLTE
+    redistributeAofS(
+      lev, m_dt, divTmp, NUM_SPECIES + 1, advData->AofS[lev], TEMPE,
+      ldata_p->state, TEMPE, 1, bcRecTemp_d.dataPtr(), geom[lev]);
+#endif
+
     EB_set_covered(advData->AofS[lev], 0.0);
 
     // repeat process for auxiliaries
@@ -863,7 +936,7 @@ PeleLM::computeScalarAdvTerms(std::unique_ptr<AdvanceAdvData>& advData)
       lev, advData->AofS[lev], FIRSTSPEC, divu, GetArrOfConstPtrs(fluxes[lev]),
       0, GetArrOfConstPtrs(fluxes[lev]),
       0, // This will not be used since none of rhoY/rhoH in convective
-      NUM_SPECIES + 1, AdvTypeAll_d.dataPtr(), geom[lev], -1.0,
+      NUM_SPECIES + +NUM_TEMP, AdvTypeAll_d.dataPtr(), geom[lev], -1.0,
       fluxes_are_area_weighted);
     // repeat for auxiliaries
     if (m_nAux > 0) {
