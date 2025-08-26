@@ -886,6 +886,7 @@ makeVelForce(
 }
 
 // This kernel returns directly rhoHmix
+// with PELE_USE_NLTE, rhoHmix does not include rhoYehe(T)
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
@@ -896,6 +897,9 @@ getRHmixGivenTY(
   amrex::Array4<const amrex::Real> const& rho,
   amrex::Array4<const amrex::Real> const& rhoY,
   amrex::Array4<const amrex::Real> const& T,
+#ifdef PELE_USE_NLTE
+  amrex::Array4<const amrex::Real> const& rhohte,
+#endif
   amrex::Array4<amrex::Real> const& Hmix,
   pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> const*
     eosparm) noexcept
@@ -910,7 +914,7 @@ getRHmixGivenTY(
   }
   amrex::Real hmix_cgs = 0.0;
   eos.TY2H(T(i, j, k), y, hmix_cgs);
-  Hmix(i, j, k) = c2m::H(hmix_cgs) * rho(i, j, k); // CGS -> MKS conversion
+  Hmix(i, j, k) = c2m::H(hmix_cgs) * rho(i, j, k) + rhohte; // CGS -> MKS conversion
 }
 
 AMREX_GPU_DEVICE
@@ -966,6 +970,11 @@ getCpmixGivenRYT(
   amrex::Real cpmix_cgs = 0.0;
   eos.TY2Cp(T(i, j, k), y, cpmix_cgs);
   cpmix(i, j, k) = c2m::Cp(cpmix_cgs); // CGS -> MKS conversion
+#ifdef PELE_USE_NLTE
+// remove ce *cpe 
+  amrex::Real cpe = (5.0/2.0)*8.31446261815324/5.485e-7;
+  cpmix(i, j, k) -= y[E_ID]*cpe;
+#endif
 }
 
 AMREX_GPU_DEVICE

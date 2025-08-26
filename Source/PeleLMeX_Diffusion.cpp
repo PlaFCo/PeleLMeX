@@ -1428,8 +1428,11 @@ PeleLM::differentialDiffusionUpdate(
   // [0:NUM_SPECIES-1] Species                : \Flux_k
   // [NUM_SPECIES]     Temperature            : - \lambda \nabla T
   // [NUM_SPECIES+1]   DiffDiff               : \sum_k ( h_k * \Flux_k )
+  
+  //ifdef PELE_USE_NLTE
   // [NUM_SPECIES+2]   Electron temperature   : - \lambda_e \nabla T_e
   // [NUM_SPECIES+3]   Electron enthalpy flux : \sum_k ( h_k * \Flux_k )
+  //endif
   constexpr int nGrow = 0; // No need for ghost face on fluxes
   Vector<Array<MultiFab, AMREX_SPACEDIM>> fluxes(finest_level + 1);
   Vector<Array<MultiFab, AMREX_SPACEDIM>> fluxes_aux(finest_level + 1);
@@ -1698,8 +1701,7 @@ PeleLM::differentialDiffusionUpdate(
       m_nAux, 1, -1.0);
   }
 
-  // repeat for electron fourier and enthalpy fluxes 
-  // TODO
+
 
   // Update species
   // Remove the Wbar and Soret terms because we included them both the dhat and
@@ -1776,8 +1778,96 @@ PeleLM::differentialDiffusionUpdate(
   }
   //------------------------------------------------------------------------
 
+  #ifdef PELE_USE_NLTE
+  // Convert electron temperature forcing into actual solve RHS by *dt and adding
+  // rhoE_e^{n}
+  for (int lev = 0; lev <= finest_level; ++lev) {
+
+    // Get t^{n} data pointer
+    auto* ldata_p = getLevelDataPtr(lev, AmrOldTime);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(advData->Forcing[lev], TilingIfNotGPU()); mfi.isValid();
+         ++mfi) {
+      const Box& bx = mfi.tilebox();
+      FArrayBox DummyFab(bx, 1);
+      auto const& rhohte_o = ldata_p->state.const_array(mfi, TEMPE);
+      auto const& frhohte = advData->Forcing[lev].array(mfi, TEMPE);
+      amrex::ParallelFor(
+        bx, [rhohte_o, frhohte, dt = m_dt
+        ] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          frhohte(i, j, k) *= dt;
+          frhohte(i, j, k) += rhohte_o(i, j, k);
+        });
+    }
+  }
+  // Electron temperature diffusion solve
+  // Get the electron temperature BCRec
+  auto bcRecETemp = fetchBCRecArray(TEMPE, 1);
+  // Solve for \rhohte^{np1,kp1}
+  // return the updated rhohte^{np1,kp1} and the fluxes^{np1,kp1}
+  getDiffusionOp()->diffuse_scalar(
+    GetVecOfPtrs(getSpeciesVect(AmrNewTime)), TEMPE,
+    GetVecOfConstPtrs(advData->Forcing), TEMPE,
+    GetVecOfArrOfPtrs(fluxes), TEMPE,
+    GetVecOfConstPtrs(
+      getDensityVect(AmrNewTime)), // this is the acoeff of LinOp
+    GetVecOfConstPtrs(getDensityVect(
+      AmrNewTime)), // this triggers proper scaling by density
+    GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)),
+    TEMPE, bcRecETemp, 1, 0, m_dt, {});
+
+  // FillPatch the new species before computing flux correction terms
+  fillPatchSpecies(AmrNewTime);
+
+  // Adjust species diffusion fluxes to ensure their sum is zero
+  adjustSpeciesFluxes<pele::physics::PhysicsType::eos_type>(
+    GetVecOfArrOfPtrs(fluxes), GetVecOfConstPtrs(getSpeciesVect(AmrNewTime)));
+
+  // Average down fluxes^{np1,kp1}
+  getDiffusionOp()->avgDownFluxes(GetVecOfArrOfPtrs(fluxes), 0, TEMPE);
+
+  // Compute diffusion term D^{np1,kp1} (or Dhat)
+  fluxDivergence(
+    GetVecOfPtrs(diffData->Dhat), 0, GetVecOfArrOfPtrs(fluxes), 0, TEMPE,
+    2, -1.0);
+
+      // Update rhohte
+  for (int lev = 0; lev <= finest_level; ++lev) {
+    auto* ldata_p = getLevelDataPtr(lev, AmrNewTime);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(ldata_p->state, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+      const Box& bx = mfi.tilebox();
+      FArrayBox DummyFab(bx, 1);
+      auto const& rhohte = ldata_p->state.array(mfi, TEMPE);
+      auto const& dhat = diffData->Dhat[lev].const_array(mfi);
+      auto const& force = advData->Forcing[lev].const_array(mfi, TEMPE);
+      amrex::ParallelFor(
+        bx, [rhohte, dhat, force
+            ] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          rhohte(i, j, k) = force(i, j, k) + m_dt * dhat(i, j, k);
+        });
+    }
+  }
+
+  // FillPatch rhohte again before going into the enthalpy solve
+  fillPatchRhohte(AmrNewTime);
+#endif
+
+
   //------------------------------------------------------------------------
   // Enthalpy iterative diffusion solve
+  //________________________________________________________________________
+  //ifdef PELE_USE_NLTE 
+  //changes are: recasting using Cp \delta T uses Th and Cpth
+  //recalculation of Cp and H at each iteration uses
+  // new Th, and preivous calculated rhoYn and rhohte
+  //endif
+  //________________________________________________________________________
   // Get the temperature BCRec
   auto bcRecTemp = fetchBCRecArray(TEMP, 1);
 
@@ -1836,21 +1926,6 @@ PeleLM::differentialDiffusionUpdate(
       NUM_SPECIES, 2, 1, -1.0);
   }
 
-#ifdef PELE_USE_NLTE
-//TODO
-  // Fourier: - \lambda_e \nabla T_e 
-  // Differential diffusion term: \sum_k ( h_k * \Flux_k )
-  // average_down enthalpy fluxes
-  // Compute diffusion term D^{np1,kp1} of electron Fourier and DifferentialDiffusion
-#endif
-
-#ifdef PELE_USE_NLTE 
-// delta(Te) iterations
-//TODO
-
-
-// remove Te terms from deltaTh iteration equation
-#endif
 
   //------------------------------------------------------------------------
   // delta(T) iterations
@@ -2109,6 +2184,9 @@ PeleLM::deltaTIter_update(
           i, j, k, Array4<Real const>(sma[box_no], DENSITY),
           Array4<Real const>(sma[box_no], FIRSTSPEC),
           Array4<Real const>(sma[box_no], TEMP),
+#ifdef PELE_USE_NLTE
+          Array4<Real const>(sma[box_no], TEMPE),
+#endif
           Array4<Real>(sma[box_no], RHOH), leosparm);
       });
   }
