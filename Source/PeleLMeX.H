@@ -1582,7 +1582,10 @@ public:
 
   void computeInstantaneousReactionRateEFneutral(
     int lev, const PeleLM::TimeStamp& a_time, amrex::MultiFab* a_I_R);
-
+#ifdef PELE_USE_NLTE
+  void computeInstantaneousReactionRateNLTE(
+    int lev, const PeleLM::TimeStamp& a_time, amrex::MultiFab* a_I_R);
+#endif
   amrex::BCRec
   hackBCChargedParticle(const amrex::Real& zk, const amrex::BCRec& bc_in);
 

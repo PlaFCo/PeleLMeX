@@ -66,8 +66,8 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
     auto const& mask_arr = mask.array(mfi);
     
 #ifdef PELE_USE_NLTE
-    auto const& tempe_o = ldataOld_p->state.const_array(mfi, TEMPE);
-    auto const& tempe_n = ldataNew_p->state.array(mfi, TEMPE);
+    auto const& rhohte_o = ldataOld_p->state.const_array(mfi, TEMPE);
+    auto const& rhohte_n = ldataNew_p->state.array(mfi, TEMPE);
     auto const& extF_rhoHTe = a_extForcing.array(mfi, NUM_SPECIES + 1);
 #endif
     // Reset new to old and convert MKS -> CGS
@@ -82,7 +82,7 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
         rhoH_n(i, j, k) = rhoH_o(i, j, k) * 10.0;
         extF_rhoH(i, j, k) *= 10.0;
 #ifdef PELE_USE_NLTE
-        tempe_n(i, j, k) = tempe_o(i, j, k);
+        rhohte_n(i, j, k) = rhohte_o(i, j, k);
         extF_rhoHTe(i, j, k) *= 10.0;
 #endif
       });
@@ -112,7 +112,7 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
     m_reactor->react(
       bx, rhoY_n, extF_rhoY, temp_n, 
 #ifdef PELE_USE_NLTE
-      tempe_n, 
+      rhohte_n, 
 #endif
       rhoH_n, extF_rhoH, fcl, mask_arr, dt_incr,
       time_chem
@@ -132,6 +132,9 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
         }
         rhoH_n(i, j, k) *= 0.1;
         extF_rhoH(i, j, k) *= 0.1;
+#ifdef PELE_USE_NLTE
+        extF_rhoHTe(i, j, k) *= 0.1;
+#endif
       });
 
 #ifdef PELE_USE_PLASMA
@@ -196,15 +199,15 @@ PeleLM::advanceChemistry(int lev, const Real& a_dt, MultiFab& a_extForcing)
 #endif
 
 #ifdef PELE_USE_NLTE
-      auto const& tempe_o = ldataOld_p->state.const_array(mfi, TEMPE);
-      auto const& tempe_n = ldataNew_p->state.const_array(mfi, TEMPE);
-      auto const& Ftempe = a_extForcing.const_array(mfi, NUM_SPECIES + 2);
-      auto const& TeDot = ldataR_p->I_R.array(mfi, NUM_SPECIES + 2);
+      auto const& rhohte_o = ldataOld_p->state.const_array(mfi, TEMPE);
+      auto const& rhohte_n = ldataNew_p->state.const_array(mfi, TEMPE);
+      auto const& Frhohte = a_extForcing.const_array(mfi, NUM_SPECIES + 2);
+      auto const& rhohteDot = ldataR_p->I_R.array(mfi, NUM_SPECIES + 2);
       ParallelFor(
         bx, [nE_o, nE_n, FnE, nEdot,
              dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-          TeDot(i, j, k) =
-            -(tempe_o(i, j, k) - tempe_n(i, j, k)) * dt_inv - Ftempe(i, j, k);
+          rhohteDot(i, j, k) =
+            -(rhohte_o(i, j, k) - rhohte_n(i, j, k)) * dt_inv - Frhohte(i, j, k);
         });
 #endif 
   }
@@ -266,7 +269,7 @@ PeleLM::advanceChemistryBAChem(
     auto const& mask_arr = mask.array(mfi);
 
 #ifdef PELE_USE_NLTE
-    auto const& tempe_o = ldataOld_p->state.const_array(mfi, TEMPE);
+    auto const& rhohte_o = ldataOld_p->state.const_array(mfi, TEMPE);
     auto const& extF_rhoHTe = chemForcing.array(mfi, NUM_SPECIES + 1);
 #endif
     // Convert MKS -> CGS
@@ -314,7 +317,7 @@ PeleLM::advanceChemistryBAChem(
       m_reactor->react(
         bx, rhoY_o, extF_rhoY, temp_o,
 #ifdef PELE_USE_NLTE
-        tempe_o,
+        rhohte_o,
 #endif
         rhoH_o, extF_rhoH, fcl, mask_arr,
         dt_incr, time_chem
@@ -337,6 +340,10 @@ PeleLM::advanceChemistryBAChem(
           rhoY_o(i, j, k, n) *= 1.0e3;
         }
         rhoH_o(i, j, k) *= 0.1;
+#ifdef PELE_USE_NLTE
+        extF_rhoH(i, j, k) *= 0.1;
+        extF_rhoHTe(i, j, k) *= 0.1;
+#endif
       });
 
 #ifdef PELE_USE_PLASMA
@@ -359,15 +366,15 @@ PeleLM::advanceChemistryBAChem(
 #endif
 
 #ifdef PELE_USE_NLTE
-      auto const& tempe_o = ldataOld_p->state.const_array(mfi, TEMPE);
-      auto const& tempe_n = ldataNew_p->state.const_array(mfi, TEMPE);
-      auto const& Ftempe = a_extForcing.const_array(mfi, NUM_SPECIES + 2);
-      auto const& TeDot = ldataR_p->I_R.array(mfi, NUM_SPECIES + 2);
+      auto const& rhohte_o = ldataOld_p->state.const_array(mfi, TEMPE);
+      auto const& rhohte_n = ldataNew_p->state.const_array(mfi, TEMPE);
+      auto const& Frhohte = a_extForcing.const_array(mfi, NUM_SPECIES + 2);
+      auto const& rhohteDot = ldataR_p->I_R.array(mfi, NUM_SPECIES + 2);
       ParallelFor(
         bx, [nE_o, nE_n, FnE, nEdot,
              dt_inv] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-          TeDot(i, j, k) =
-            -(tempe_o(i, j, k) - tempe_n(i, j, k)) * dt_inv - Ftempe(i, j, k);
+          rhohteDot(i, j, k) =
+            -(rhohte_o(i, j, k) - rhohte_n(i, j, k)) * dt_inv - Frhohte(i, j, k);
         });
 #endif 
 
@@ -399,9 +406,9 @@ PeleLM::advanceChemistryBAChem(
     auto const& rhoH_n = ldataNew_p->state.array(mfi, RHOH);
     auto const& temp_n = ldataNew_p->state.array(mfi, TEMP);
 #ifdef PELE_USE_NLTE
-    auto const& tempe_o = ldataOld_p->state.const_array(mfi, TEMPE);
-    auto const& Tedot = ldataR_p->I_R.array(mfi, NUM_SPECIES + 2);
-    auto const& extF_Te = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
+    auto const& rhohte_o = ldataOld_p->state.const_array(mfi, TEMPE);
+    auto const& rhohtedot = ldataR_p->I_R.array(mfi, NUM_SPECIES + 2);
+    auto const& extF_rhohte = a_extForcing.const_array(mfi, NUM_SPECIES + 1);
 #endif
     auto const& extF_rhoY = a_extForcing.const_array(mfi, 0);
     auto const& rhoYdot = ldataR_p->I_R.array(mfi, 0);
@@ -422,10 +429,10 @@ PeleLM::advanceChemistryBAChem(
           extF_rhoY(i, j, k, n);
         }
 #ifdef PELE_USE_NLTE
-        tempe_n(i, j, k) = state_arr(i, j, k, NUM_SPECIES + 2);
+        rhohte_n(i, j, k) = state_arr(i, j, k, NUM_SPECIES + 2);
         // Compute I_R for Te and rhoHTh
         // computing 
-        Tedot(i, j, k) = (tempe_n(i, j, k) - temp_o(i, j, k)) * dt_inv - extF_Te(i, j, k);
+        rhohtedot(i, j, k) = (rhohte_n(i, j, k) - rhohte_o(i, j, k)) * dt_inv - extF_rhohte(i, j, k);
 #endif
 
       });
@@ -464,6 +471,8 @@ PeleLM::computeInstantaneousReactionRate(
     } else {
       computeInstantaneousReactionRate(lev, a_time, I_R[lev]);
     }
+#elif defined(PELE_USE_NLTE)
+    computeInstantaneousReactionRateNLTE(lev, a_time, I_R[lev]);
 #else
     computeInstantaneousReactionRate(lev, a_time, I_R[lev]);
 #endif
@@ -553,7 +562,7 @@ PeleLM::getScalarReactForce(std::unique_ptr<AdvanceAdvData>& advData)
 #ifdef PELE_USE_NLTE
       auto const& rhoHTe_o = ldataOld_p->state.const_array(mfi, TEMPE);
       auto const& rhoHTe_n = ldataNew_p->state.const_array(mfi, TEMPE);
-      auto const& reactTe = ldataR_p->I_R.const_array(mfi, NUM_SPECIES);
+      auto const& reactrhohte = ldataR_p->I_R.const_array(mfi, NUM_SPECIES);
       auto const& extF_rhoHTe = advData->Forcing[lev].array(mfi, NUM_SPECIES + 1);
 #endif
       amrex::Real dtinv = 1.0 / m_dt;
@@ -569,7 +578,7 @@ PeleLM::getScalarReactForce(std::unique_ptr<AdvanceAdvData>& advData)
 #ifdef PELE_USE_NLTE
           extF_rhoHTe(i, j, k) =
             (rhoHTe_n(i, j, k) - rhoHTe_o(i, j, k)) * dtinv -
-            reactTe(i, j, k);
+            reactrhohte(i, j, k);
 #endif
         });
     }

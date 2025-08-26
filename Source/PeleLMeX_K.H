@@ -1228,6 +1228,47 @@ reactionRateRhoY(
   }
 }
 
+#ifdef PELE_USE_NLTE
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
+void
+reactionRateRhoYNLTE(
+  int i,
+  int j,
+  int k,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<const amrex::Real> const& rhoH,
+  amrex::Array4<const amrex::Real> const& T,
+  amrex::Array4<const amrex::Real> const& rhohte,
+  amrex::Array4<amrex::Real> const& rhoYdot,
+  pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> const*
+    eosparm) noexcept
+{
+  using namespace amrex::literals;
+
+  auto eos = pele::physics::PhysicsType::eos(eosparm);
+
+  // Get rho & Ys from rhoYs.
+  amrex::Real rho = 0.0, rhoinv = 0.0, y[NUM_SPECIES] = {0.0};
+  eos.RY2RRinvY(rhoY.cellData(i, j, k), rho, rhoinv, y);
+
+  // Get T from Y/H.
+  amrex::Real Teloc = rhohte(i, j, k)*rhoinv/y[E_ID]*(2.0*5.0)*(9.1093837e-31/1.380649e-23);;
+  amrex::Real Tloc[2] = {T(i, j, k), Teloc};
+  amrex::Real h_cgs =
+    m2c::H(rhoH(i, j, k) * rhoinv); // Include MKS -> CGS conversion
+  eos.HY2T(h_cgs, y, Tloc);
+
+  // Get wdot.
+  amrex::Real rho_cgs = m2c::Rho(rho); // rho MKS -> CGS
+  amrex::Real wdot[NUM_SPECIES] = {0.0_rt};
+  eos.RTY2WDOT(rho_cgs, Tloc, y, wdot);
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rhoYdot(i, j, k, n) = wdot[n] * 1000.0_rt; // CGS -> MKS conversion
+  }
+}
+#endif
+
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 void
