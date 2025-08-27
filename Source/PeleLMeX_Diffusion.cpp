@@ -1231,7 +1231,7 @@ PeleLM::addAmbDriftTerm(
 void
 PeleLM::computeElectronEnthalpyFlux(
   const Vector<Array<MultiFab*, AMREX_SPACEDIM>>& a_fluxes,
-  Vector<MultiFab const*> const& a_temp)
+  Vector<MultiFab const*> const& a_tempe)
 {
 
   BL_PROFILE("PeleLMeX::computeElectronEnthalpyFlux()");
@@ -1248,43 +1248,43 @@ PeleLM::computeElectronEnthalpyFlux(
     //------------------------------------------------------------------------
     // Compute the cell-centered species enthalpies
     constexpr int nGrow = 1;
-    MultiFab Enth(
-      grids[lev], dmap[lev], NUM_SPECIES, nGrow, MFInfo(), Factory(lev));
+    MultiFab Enthe(
+      grids[lev], dmap[lev], 1, nGrow, MFInfo(), Factory(lev));
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(Enth, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+    for (MFIter mfi(Enthe, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
       const Box& gbx = mfi.growntilebox();
-      auto const& Temp_arr = a_temp[lev]->const_array(mfi);
-      auto const& Hi_arr = Enth.array(mfi);
+      auto const& Tempe_arr = a_tempe[lev]->const_array(mfi);
+      auto const& He_arr = Enthe.array(mfi);
 
 #ifdef AMREX_USE_EB
       auto const& flagfab = ebfact.getMultiEBCellFlagFab()[mfi];
       auto const& flag = flagfab.const_array();
       if (flagfab.getType(gbx) == FabType::covered) { // Covered boxes
         amrex::ParallelFor(
-          gbx, [Hi_arr] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            Hi_arr(i, j, k) = 0.0;
+          gbx, [He_arr] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            He_arr(i, j, k) = 0.0;
           });
       } else if (flagfab.getType(gbx) != FabType::regular) { // EB containing
                                                              // boxes
         amrex::ParallelFor(
-          gbx, [Temp_arr, Hi_arr, flag,
+          gbx, [Tempe_arr, He_arr, flag,
                 leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
             if (flag(i, j, k).isCovered()) {
-              Hi_arr(i, j, k) = 0.0;
+              He_arr(i, j, k) = 0.0;
             } else {
-              getHGivenT(i, j, k, Temp_arr, Hi_arr, leosparm);
+              getHeGivenTe(i, j, k, Tempe_arr, He_arr, leosparm);
             }
           });
       } else
 #endif
       {
         amrex::ParallelFor(
-          gbx, [Temp_arr, Hi_arr,
+          gbx, [Tempe_arr, He_arr,
                 leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            getHGivenT(i, j, k, Temp_arr, Hi_arr, leosparm);
+            getHeGivenTe(i, j, k, Tempe_arr, He_arr, leosparm);
           });
       }
     }
@@ -1293,8 +1293,8 @@ PeleLM::computeElectronEnthalpyFlux(
     // Get the face-centered species enthalpies
     constexpr int doZeroVisc = 0;
     constexpr int addTurbContrib = 0;
-    Array<MultiFab, AMREX_SPACEDIM> Enth_ec = getDiffusivity(
-      lev, 0, NUM_SPECIES, doZeroVisc, bcRecSpec, Enth, addTurbContrib);
+    Array<MultiFab, AMREX_SPACEDIM> Enthe_ec = getDiffusivity(
+      lev, 0, 1, doZeroVisc, bcRecSpec, Enthe, addTurbContrib);
 
     //------------------------------------------------------------------------
     // Compute \sum_k { \Flux_k * h_k }
@@ -1305,17 +1305,17 @@ PeleLM::computeElectronEnthalpyFlux(
       for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
         const Box& ebox = mfi.nodaltilebox(idim);
         auto const& spflux_ar = a_fluxes[lev][idim]->const_array(mfi, 0);
-        auto const& enthflux_ar =
-          a_fluxes[lev][idim]->array(mfi, NUM_SPECIES + 1);
-        auto const& enth_ar = Enth_ec[idim].const_array(mfi);
+        auto const& entheflux_ar =
+          a_fluxes[lev][idim]->array(mfi, NUM_SPECIES + 3);
+        auto const& enthe_ar = Enthe_ec[idim].const_array(mfi);
         amrex::ParallelFor(
-          ebox, [spflux_ar, enthflux_ar,
-                 enth_ar] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            enthflux_ar(i, j, k) = 0.0;
-            for (int n = 0; n < NUM_SPECIES; n++) {
-              enthflux_ar(i, j, k) +=
-                spflux_ar(i, j, k, n) * enth_ar(i, j, k, n);
-            }
+          ebox, [spflux_ar, entheflux_ar,
+                 enthe_ar] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            entheflux_ar(i, j, k) = 0.0;
+            // for (int n = 0; n < NUM_SPECIES; n++) {
+              entheflux_ar(i, j, k) +=
+                spflux_ar(i, j, k, E_ID) * enthe_ar(i, j, k, E_ID);
+            // }
           });
       }
     }
@@ -1581,7 +1581,7 @@ PeleLM::differentialDiffusionUpdate(
       GetVecOfPtrs(getSpeciesVect(AmrNewTime)), 0,
       GetVecOfConstPtrs(advData->Forcing), 0, GetVecOfArrOfPtrs(fluxes), 0,
       GetVecOfConstPtrs(
-        getDensityVect(AmrNewTime)), // this is the acoeff of LinOp
+        getDensityVect(AmrNewTime)), // this is the acoeff of LinOp 
       GetVecOfConstPtrs(
         getDensityVect(AmrNewTime)), // this triggers proper scaling by density
       GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)), 0, bcRecSpec,
@@ -1779,10 +1779,14 @@ PeleLM::differentialDiffusionUpdate(
   //------------------------------------------------------------------------
 
   #ifdef PELE_USE_NLTE
-  // Convert electron temperature forcing into actual solve RHS by *dt and adding
-  // rhoE_e^{n}
+  // RHS is  rhohte^{n} + dt * force + dt * ( div(h_e F_e) )  )
+  // LHS is rho cpte Te^{np1,kp1} - dt * div( lambda_e * grad Te^{np1,kp1} )
+  // after solve get \widetilda{rhohte}^{np1,kp1}  and lambda_e * 
+  // grad Te^{np1,kp1} back
+  // recompute div(h_e F_e) and div( lambda_e * grad Te^{np1,kp1} ) 
+  // and update rhohte^{np1,kp1}
+  // ------------------------------------------------------------------------
   for (int lev = 0; lev <= finest_level; ++lev) {
-
     // Get t^{n} data pointer
     auto* ldata_p = getLevelDataPtr(lev, AmrOldTime);
 #ifdef AMREX_USE_OMP
@@ -1802,38 +1806,74 @@ PeleLM::differentialDiffusionUpdate(
         });
     }
   }
+  computeElectronEnthalpyFlux(
+    GetVecOfArrOfPtrs(fluxes), GetVecOfConstPtrs(getTempeVect(AmrNewTime)));
+
+  Vector<MultiFab> rhs_te(finest_level + 1); // Linear Te solve RHS
+  Vector<MultiFab> RhoCpte(finest_level + 1); // Acoeff of the linear solve
+  for (int lev = 0; lev <= finest_level; ++lev) {
+      rhs_te[lev].define(grids[lev], dmap[lev], 1, 0, MFInfo(), Factory(lev));
+      RhoCpte[lev].define(grids[lev], dmap[lev], 1, 0, MFInfo(), Factory(lev));
+  }
+
+  for (int lev = 0; lev <= finest_level; ++lev) {
+  // Prepare RHS for electron temperature solve
+  auto* ldata_p = getLevelDataPtr(lev, AmrNewTime);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(advData->Forcing[lev], TilingIfNotGPU()); mfi.isValid();
+          ++mfi) {
+      const Box& bx = mfi.tilebox();
+      auto const& rhohte_o = ldata_p->state.const_array(mfi, TEMPE);
+      auto const& frhohte = advData->Forcing[lev].array(mfi, TEMPE);
+      auto const& rhocp = RhoCpte[lev]->array(mfi);
+      auto const& rhs = rhs_te[lev]->array(mfi);
+      auto const& diffDiff =
+          diffData->Dhat[lev].const_array(mfi, NUM_SPECIES + 3);
+
+      auto const& rho = ldataNew_p->state.const_array(mfi, DENSITY);
+      const Real cp_te = 1.0; //TODO get correct value
+      amrex::ParallelFor(
+        bx, [rho, cp_te, a_te, rhohte_o, rhocp, diffDiff, rhs, dt = m_dt
+        ] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+          rhs(i, j, k) = 0.0;
+          rhs(i, j, k) += frhohte(i, j, k);
+          rhs(i, j, k) += dt * diffDiff(i, j, k);
+          rhocp(i, j, k) = rho(i, j, k) * cp_te;
+        });
+    }
+  }
   // Electron temperature diffusion solve
   // Get the electron temperature BCRec
   auto bcRecETemp = fetchBCRecArray(TEMPE, 1);
-  // Solve for \rhohte^{np1,kp1}
-  // return the updated rhohte^{np1,kp1} and the fluxes^{np1,kp1}
+  // Solve for \widetilda{te}^{np1,kp1} 
+  // get back fourier fluxes
   getDiffusionOp()->diffuse_scalar(
-    GetVecOfPtrs(getSpeciesVect(AmrNewTime)), TEMPE,
-    GetVecOfConstPtrs(advData->Forcing), TEMPE,
-    GetVecOfArrOfPtrs(fluxes), TEMPE,
-    GetVecOfConstPtrs(
-      getDensityVect(AmrNewTime)), // this is the acoeff of LinOp
-    GetVecOfConstPtrs(getDensityVect(
-      AmrNewTime)), // this triggers proper scaling by density
+    GetVecOfPtrs(getElectronEnthalpyVect(AmrNewTime)), 0,
+    GetVecOfConstPtrs(rhs_te), 0,
+    GetVecOfArrOfPtrs(fluxes), NUM_SPECIES + 2,
+    GetVecOfConstPtrs(RhoCpte), // this is the acoeff of LinOp
+    GetVecOfConstPtrs(RhoCpte), // this triggers proper scaling by rhocp of phi
     GetVecOfConstPtrs(getDiffusivityVect(AmrNewTime)),
-    TEMPE, bcRecETemp, 1, 0, m_dt, {});
+    TEMPE, bcRecETempe, 1, 0, m_dt, {});
+  
+  //prepare recompute of electron enthalpy fluxes
+  fillPatchElectronEnthalpy(AmrNewTime);
 
-  // FillPatch the new species before computing flux correction terms
-  fillPatchSpecies(AmrNewTime);
+  // Recompute electron enthalpy flux
+  computeElectronEnthalpyFlux(
+  GetVecOfArrOfPtrs(fluxes), GetVecOfConstPtrs(getTempeVect(AmrNewTime)));
 
-  // Adjust species diffusion fluxes to ensure their sum is zero
-  adjustSpeciesFluxes<pele::physics::PhysicsType::eos_type>(
-    GetVecOfArrOfPtrs(fluxes), GetVecOfConstPtrs(getSpeciesVect(AmrNewTime)));
+  // average down electron enthalpy and fourier fluxes
+  getDiffusionOp()->avgDownFluxes(GetVecOfArrOfPtrs(fluxes), NUM_SPECIES+2, 2);
 
-  // Average down fluxes^{np1,kp1}
-  getDiffusionOp()->avgDownFluxes(GetVecOfArrOfPtrs(fluxes), 0, TEMPE);
-
-  // Compute diffusion term D^{np1,kp1} (or Dhat)
+  // Compute diffusion term of electron enthalpy and fourier fluxes
   fluxDivergence(
-    GetVecOfPtrs(diffData->Dhat), 0, GetVecOfArrOfPtrs(fluxes), 0, TEMPE,
+    GetVecOfPtrs(diffData->Dhat), 0, GetVecOfArrOfPtrs(fluxes), 0, NUM_SPECIES,
     2, -1.0);
 
-      // Update rhohte
+  // update rhohte
   for (int lev = 0; lev <= finest_level; ++lev) {
     auto* ldata_p = getLevelDataPtr(lev, AmrNewTime);
 
@@ -1844,18 +1884,18 @@ PeleLM::differentialDiffusionUpdate(
       const Box& bx = mfi.tilebox();
       FArrayBox DummyFab(bx, 1);
       auto const& rhohte = ldata_p->state.array(mfi, TEMPE);
-      auto const& dhat = diffData->Dhat[lev].const_array(mfi);
+      auto const& fourier = diffData->Dhat[lev].const_array(mfi, NUM_SPECIES+2);
+      auto const& enthalpyflux = diffData->Dhat[lev].const_array(mfi, NUM_SPECIES+3);
       auto const& force = advData->Forcing[lev].const_array(mfi, TEMPE);
       amrex::ParallelFor(
-        bx, [rhohte, dhat, force
+        bx, [rhohte, fourier, enthalpyflux, force
             ] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-          rhohte(i, j, k) = force(i, j, k) + m_dt * dhat(i, j, k);
+          rhohte(i, j, k) = force(i, j, k) + m_dt * fourier(i, j, k) + m_dt * enthalpyflux(i, j, k);
         });
     }
   }
-
   // FillPatch rhohte again before going into the enthalpy solve
-  fillPatchRhohte(AmrNewTime);
+  fillPatchElectronEnthalpy(AmrNewTime);
 #endif
 
 
