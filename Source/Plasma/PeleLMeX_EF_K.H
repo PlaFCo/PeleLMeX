@@ -144,19 +144,18 @@ getCondTe(
   int j,
   int k,
   amrex::Array4<const amrex::Real> const& rhoY,
-  amrex::Array4<const amrex::Real> const& Te,
-  amrex::Array4<const amrex::Real> const& Tg,
-  amrex::Array4<amrex::Real> const& condTe) noexcept
+  amrex::Array4<const amrex::Real> const& rhohte,
+  amrex::Array4<amrex::Real> const& lambdate) noexcept
 {
   using namespace amrex::literals;
   amrex::Real rho = 0.0;
-  condTe(i, j, k) = 2.0e-4
-  // for (int n = 0; n < NUM_SPECIES; n++) {
-  //   rho += rhoY(i, j, k, n);
-  // }
-  // amrex::Real N = P0(i, j, k) / T(i, j, k) / (PP_RU_MKS / Na);
-  // amrex::Real De = cstNDe / N;
-  // rhoDi(i, j, k, E_ID) = rho * De;
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    rho += rhoY(i, j, k, n);
+  }
+  amrex::Real rhoinv = 1.0_rt / rho;
+  amrex::Real ye = rhoY(i, j, k, E_ID) * rhoinv;
+  amrex::Real Te = rhohte(i, j, k) * rhoinv / ye / (5.0/2.0) /(1.38e-23/9.109e-31); // kB/me
+  lambdate(i, j, k) = 3.16e-11 * Te ; // Temporary TODO
 }
 
 

@@ -400,11 +400,12 @@ PeleLM::calcDiffusivity(const TimeStamp& a_time)
             Array4<Real>(kma[box_no], 0));
         }
 #ifdef PELE_USE_NLTE
-        getCondTe(
+        // this routine calculates the electron thermal conductivity at Te
+        // at entry NUM_SPECIES+2 
+        getCondTe<pele::physics::PhysicsType::eos_type>(
           i, j, k, Array4<Real const>(sma[box_no], FIRSTSPEC),
           Array4<Real const>(sma[box_no], TEMPE),
-          Array4<Real const>(sma[box_no], TEMP),
-          Array4<Real>(cTea[box_no], 0));
+          Array4<Real>(dma[box_no], NUM_SPECIES + 2)); // electron conductivity
 #endif
 #endif
       });

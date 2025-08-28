@@ -1401,15 +1401,28 @@ PeleLM::computeSpeciesEnthalpyFlux(
         auto const& spflux_ar = a_fluxes[lev][idim]->const_array(mfi, 0);
         auto const& enthflux_ar =
           a_fluxes[lev][idim]->array(mfi, NUM_SPECIES + 1);
+// #ifdef PELE_USE_NLTE
+//         auto const& enthfluxe_ar =
+//           a_fluxes[lev][idim]->array(mfi, NUM_SPECIES + 3);
+// #endif
         auto const& enth_ar = Enth_ec[idim].const_array(mfi);
         amrex::ParallelFor(
           ebox, [spflux_ar, enthflux_ar,
-                 enth_ar] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+// #ifdef PELE_USE_NLTE
+//                 enthfluxe_ar,
+// #endif
+          enth_ar] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
             enthflux_ar(i, j, k) = 0.0;
             for (int n = 0; n < NUM_SPECIES; n++) {
               enthflux_ar(i, j, k) +=
                 spflux_ar(i, j, k, n) * enth_ar(i, j, k, n);
             }
+#ifdef PELE_USE_NLTE
+            // remove electron enthalpy flux computed at Th 
+            // add electron enthalpy flux computed at Te
+            enthflux_ar(i, j, k) -= spflux_ar(i, j, k, E_ID) * enth_ar(i, j, k, E_ID);
+            // enthflux_ar(i, j, k) += enthflux_e_ar(i, j, k);
+#endif
           });
       }
     }
@@ -1808,8 +1821,16 @@ PeleLM::differentialDiffusionUpdate(
   }
   computeElectronEnthalpyFlux(
     GetVecOfArrOfPtrs(fluxes), GetVecOfConstPtrs(getTempeVect(AmrNewTime)));
+  
+  // average down electron enthalpy
+  getDiffusionOp()->avgDownFluxes(GetVecOfArrOfPtrs(fluxes), NUM_SPECIES+3, 1);
 
-  Vector<MultiFab> rhs_te(finest_level + 1); // Linear Te solve RHS
+  // Compute electron enthalpy diffusion term
+  fluxDivergence(
+    GetVecOfPtrs(diffData->Dhat), NUM_SPECIES+3, GetVecOfArrOfPtrs(fluxes), NUM_SPECIES+3, 1,
+    1, -1.0);
+
+  Vector<MultiFab> rhs_te(finest_level + 1); 
   Vector<MultiFab> RhoCpte(finest_level + 1); // Acoeff of the linear solve
   for (int lev = 0; lev <= finest_level; ++lev) {
       rhs_te[lev].define(grids[lev], dmap[lev], 1, 0, MFInfo(), Factory(lev));
@@ -1832,20 +1853,20 @@ PeleLM::differentialDiffusionUpdate(
       auto const& diffDiff =
           diffData->Dhat[lev].const_array(mfi, NUM_SPECIES + 3);
 
-      auto const& rho = ldataNew_p->state.const_array(mfi, DENSITY);
-      const Real cp_te = 1.0; //TODO get correct value
+      auto const& rhoce = ldataNew_p->state.const_array(mfi, FIRST_SPEC + E_ID -1);
+      const Real cp_e = (5.0/2.0)*1.380649e-23/9.1093837e-31; //TODO get correct value
       amrex::ParallelFor(
-        bx, [rho, cp_te, a_te, rhohte_o, rhocp, diffDiff, rhs, dt = m_dt
+        bx, [rhoce, cp_e, a_te, rhohte_o, rhocp, diffDiff, rhs, dt = m_dt
         ] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
           rhs(i, j, k) = 0.0;
           rhs(i, j, k) += frhohte(i, j, k);
           rhs(i, j, k) += dt * diffDiff(i, j, k);
-          rhocp(i, j, k) = rho(i, j, k) * cp_te;
+          rhocp(i, j, k) = rhoce(i, j, k) * cp_e;
         });
     }
   }
-  // Electron temperature diffusion solve
-  // Get the electron temperature BCRec
+  // rhohte diffusion solve
+  // Get rhohte BCRec
   auto bcRecETemp = fetchBCRecArray(TEMPE, 1);
   // Solve for \widetilda{te}^{np1,kp1} 
   // get back fourier fluxes
@@ -1870,8 +1891,8 @@ PeleLM::differentialDiffusionUpdate(
 
   // Compute diffusion term of electron enthalpy and fourier fluxes
   fluxDivergence(
-    GetVecOfPtrs(diffData->Dhat), 0, GetVecOfArrOfPtrs(fluxes), 0, NUM_SPECIES,
-    2, -1.0);
+    GetVecOfPtrs(diffData->Dhat), NUM_SPECIES+2, GetVecOfArrOfPtrs(fluxes), NUM_SPECIES+2, 2,
+    1, -1.0);
 
   // update rhohte
   for (int lev = 0; lev <= finest_level; ++lev) {
@@ -1898,14 +1919,14 @@ PeleLM::differentialDiffusionUpdate(
   fillPatchElectronEnthalpy(AmrNewTime);
 #endif
 
-
   //------------------------------------------------------------------------
   // Enthalpy iterative diffusion solve
   //________________________________________________________________________
   //ifdef PELE_USE_NLTE 
-  //changes are: recasting using Cp \delta T uses Th and Cpth
-  //recalculation of Cp and H at each iteration uses
-  // new Th, and preivous calculated rhoYn and rhohte
+  //rhoH^{kp1,lp1} ~ rhoh_te^{kp1} + rho cp_th^{kp1,l} * \deltaT^{kp1,lp1} 
+  //Cp -> Cp_th = \sum_{k\neq e} Y_k cp_k
+  //h = h_te + \sum_{k\neq e} Y_k h_k = Y_e h_e + \sum_{k\neq e} Y_k h_k
+  //h_te constant during deltaT iterations
   //endif
   //________________________________________________________________________
   // Get the temperature BCRec
@@ -2086,6 +2107,10 @@ PeleLM::deltaTIter_prepare(
       auto const& rhoH_n = ldataNew_p->state.const_array(mfi, RHOH);
       auto const& force = advData->Forcing[lev].const_array(mfi, NUM_SPECIES);
       auto const& fourier = diffData->Dhat[lev].const_array(mfi, NUM_SPECIES);
+#ifdef PELE_USE_NLTE
+      auto const& fourier_e = diffData->Dhat[lev].const_array(mfi, NUM_SPECIES+2);
+      auto const& diffDiff_e = diffData->Dhat[lev].const_array(mfi, NUM_SPECIES+3);
+#endif
       auto const& diffDiff =
         diffData->Dhat[lev].const_array(mfi, NUM_SPECIES + 1);
       auto const& rhs = a_rhs[lev]->array(mfi);
@@ -2105,6 +2130,9 @@ PeleLM::deltaTIter_prepare(
           rhs(i, j, k) =
             dt * ((rhoH_o(i, j, k) - rhoH_n(i, j, k)) * dtinv + force(i, j, k) +
                   fourier(i, j, k) + diffDiff(i, j, k));
+#ifdef PELE_USE_NLTE
+          rhs(i, j, k) += dt * ( fourier_e(i, j, k) + diffDiff_e(i, j, k) );
+#endif
 
           // Get \rho * Cp_{mix}
           getCpmixGivenRYT(i, j, k, rho, rhoY, T, rhocp, leosparm);

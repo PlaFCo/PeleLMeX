@@ -64,10 +64,16 @@ getTransportCoeff(
   bool get_Ddiag = !do_fixed_Le;
   bool get_chi = do_soret;
   auto trans = pele::physics::PhysicsType::transport();
+#ifndef PELE_USE_NLTE
   trans.transport(
     get_xi, get_mu, get_lam, get_Ddiag, get_chi, Tloc, rho_cgs, y, rhoDi_cgs,
     chi_loc, mu_cgs, dummy_xi, lambda_cgs, trans_parm);
-
+#else
+  // In NLTE, ignore electron in heavy species transport, get electron thermal
+  trans.transport(
+    get_xi, get_mu, get_lam, get_Ddiag, get_chi, Tloc, rho_cgs, y, rhoDi_cgs,
+    chi_loc, mu_cgs, dummy_xi, lambda_cgs, trans_parm, true);
+#endif
   // Do CGS -> MKS conversions
   mu(i, j, k) = c2m::Mu(mu_cgs);
   if (do_fixed_Pr && do_fixed_Le) { // fixed Pr and Le, transport all dependent
@@ -914,7 +920,10 @@ getRHmixGivenTY(
   }
   amrex::Real hmix_cgs = 0.0;
   eos.TY2H(T(i, j, k), y, hmix_cgs);
-  Hmix(i, j, k) = c2m::H(hmix_cgs) * rho(i, j, k) + rhohte; // CGS -> MKS conversion
+  Hmix(i, j, k) = c2m::H(hmix_cgs) * rho(i, j, k) 
+#ifdef PELE_USE_NLTE
+  Hmix(i, j, k) += rhohte(i, j, k);
+#endif
 }
 
 AMREX_GPU_DEVICE
@@ -972,7 +981,7 @@ getCpmixGivenRYT(
   cpmix(i, j, k) = c2m::Cp(cpmix_cgs); // CGS -> MKS conversion
 #ifdef PELE_USE_NLTE
 // remove ce *cpe 
-  amrex::Real cpe = (5.0/2.0)*8.31446261815324/5.485e-7;
+  amrex::Real cpe = (5.0/2.0)*1.380649e-23/9.1093837e-31;
   cpmix(i, j, k) -= y[E_ID]*cpe;
 #endif
 }
