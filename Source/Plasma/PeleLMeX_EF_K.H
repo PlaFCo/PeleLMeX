@@ -958,19 +958,24 @@ buildDiffusionForcing_NLTE(
       forceY(i, j, k, n) += deamb(i, j, k, n);
     }
   }
+  forceTe(i, j, k) = a(i, j, k, NUM_SPECIES + 1) +
+                    0.5_rt * (dnte(i, j, k) + ddnte(i, j, k) -
+                              dntep1k(i, j, k) - ddntep1k(i, j, k)) +
+                    extRhoHTe(i, j, k);
   forceT(i, j, k) = a(i, j, k, NUM_SPECIES) +
                     0.5_rt * (dn(i, j, k, NUM_SPECIES) + ddn(i, j, k) -
                               dnp1k(i, j, k, NUM_SPECIES) - ddnp1k(i, j, k)) +
                     extRhoH(i, j, k);
+  // dn(NUM_SPECIES) and ddn(NUM_SPECIES) terms do not include electrons
+  forceT(i, j, k) +=
+    0.5_rt * (dnte(i, j, k) + ddnte(i, j, k) - dntep1k(i, j, k) -
+              ddntep1k(i, j, k));
 
   if (closed_chamber == 1) {
     forceT(i, j, k) += dp0dt;
   }
 
-  forceTe(i, j, k) = a(i, j, k, NUM_SPECIES + 1) +
-                    0.5_rt * (dnte(i, j, k) + ddnte(i, j, k) -
-                              dntep1k(i, j, k) - ddntep1k(i, j, k)) +
-                    extRhoHTe(i, j, k);
+
 
   for (int n = 0; n < nAux; n++) {
     forceAux(i, j, k, n) = 0.0;

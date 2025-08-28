@@ -2333,23 +2333,25 @@ PeleLM::getScalarDiffForce(
              deamb, use_eamb = m_ef_model,
 #endif
              nAux = m_nAux] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-#ifdef PELE_USE_PLASMA
-          buildDiffusionForcing_plasma(
+#ifndef PELE_USE_PLASMA
+          buildDiffusionForcing(
             i, j, k, dn, ddn, dnp1k, ddnp1k, r, a, dp0dt, is_closed_ch,
             do_react, fY, fT, dwbar, dT, extRhoY, extRhoH, use_wbar, use_soret,
-            use_eamb, deamb, fAux, a_aux, dn_aux, dnp1k_aux, aux_advect_d, 
-            aux_diffuse_d, nAux);
-#elif PELE_USE_NLTE
-          buildDiffusionForcingNLTE(
+            fAux, a_aux, dn_aux, dnp1k_aux, aux_advect_d, aux_diffuse_d, nAux);
+#else
+#ifdef PELE_USE_NLTE
+          buildDiffusionForcing_NLTE(
             i, j, k, dn, dnte, ddn, ddnte, dnp1k, dntep1k, ddnp1k, ddntep1k, r, a, dp0dt, is_closed_ch,
             do_react, fY, fT, fTe, dwbar, dT, extRhoY, extRhoH, extRhoHTe, use_wbar, use_soret,
             use_eamb, deamb, fAux, a_aux, dn_aux, dnp1k_aux, aux_advect_d, 
             aux_diffuse_d, nAux);
 #else
-          buildDiffusionForcing(
+          buildDiffusionForcing_plasma(
             i, j, k, dn, ddn, dnp1k, ddnp1k, r, a, dp0dt, is_closed_ch,
             do_react, fY, fT, dwbar, dT, extRhoY, extRhoH, use_wbar, use_soret,
-            fAux, a_aux, dn_aux, dnp1k_aux, aux_advect_d, aux_diffuse_d, nAux);
+            use_eamb, deamb, fAux, a_aux, dn_aux, dnp1k_aux, aux_advect_d, 
+            aux_diffuse_d, nAux);
+#endif
 #endif
 
         });
