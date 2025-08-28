@@ -989,5 +989,88 @@ buildDiffusionForcing_NLTE(
     // To do: source terms for aux
   }
 }
+
+
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
+void
+buildAdvectionForcingNLTE(
+  int i,
+  int j,
+  int k,
+  amrex::Array4<const amrex::Real> const& rho,
+  amrex::Array4<const amrex::Real> const& rhoY,
+  amrex::Array4<const amrex::Real> const& T,
+  amrex::Array4<const amrex::Real> const& rhohte,
+  amrex::Array4<const amrex::Real> const& dn,
+  amrex::Array4<const amrex::Real> const& ddn,
+  amrex::Array4<const amrex::Real> const& dnte,
+  amrex::Array4<const amrex::Real> const& ddnte,
+  amrex::Array4<const amrex::Real> const& r,
+  amrex::Array4<const amrex::Real> const& extRhoY,
+  amrex::Array4<const amrex::Real> const& extRhoH,
+  amrex::Array4<const amrex::Real> const& extRhoTE,
+  amrex::Real const& dp0dt,
+  int const& closed_chamber,
+  int do_react,
+  amrex::Array4<amrex::Real> const& forceY,
+  amrex::Array4<amrex::Real> const& forceT,
+  amrex::Array4<amrex::Real> const& forceAux,
+  amrex::Array4<amrex::Real> const& forcerhohte,
+  amrex::Array4<const amrex::Real> const& dn_aux,
+  const int* aux_diffuse,
+  int nAux,
+  pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> const*
+    eosparm) noexcept
+{
+  using namespace amrex::literals;
+
+  auto eos = pele::physics::PhysicsType::eos(eosparm);
+  // Get species enthalpy
+  amrex::Real hi_spec_cgs[NUM_SPECIES] = {0.0};
+  eos.T2Hi(T(i, j, k), hi_spec_cgs);
+
+  // For species mass fractions
+  amrex::Real rhoinv = 1.0_rt / rho(i, j, k);
+  amrex::Real y[NUM_SPECIES] = {0.0};
+
+  forceT(i, j, k) = dn(i, j, k, NUM_SPECIES) + ddn(i, j, k);
+  for (int n = 0; n < NUM_SPECIES; n++) {
+    y[n] = rhoY(i, j, k, n) * rhoinv;    // get y
+    forceY(i, j, k, n) = dn(i, j, k, n); // forceY = Dnk
+    if (do_react != 0) {
+      forceY(i, j, k, n) += r(i, j, k, n); //         + Rk
+    }
+    forceT(i, j, k) -=
+      forceY(i, j, k, n) *
+      c2m::H(hi_spec_cgs[n]); // forceT -= Sum{ hk. (Rk + Dnk) } with CGS ->
+                              // MKS conversion of hk
+    forceY(i, j, k, n) += extRhoY(i, j, k, n);
+  }
+
+  forceT(i, j, k) += extRhoH(i, j, k);
+  if (closed_chamber == 1) {
+    forceT(i, j, k) += dp0dt; // Add dp0/dt
+  }
+  forcerhohte(i, j, k) = dnte(i, j, k) + ddnte(i, j, k) + extRhoTE(i, j, k) +
+                        r(i, j, k, NUM_SPECIES); // Add R_e
+  forceT(i, j, k) -= r(i, j, k, NUM_SPECIES); 
+  // rhoh = rhohte + rhohth 
+
+
+  for (int n = 0; n < nAux; n++) {
+    if (aux_diffuse[n] != 0) {
+      forceAux(i, j, k, n) = dn_aux(i, j, k, n);
+    } else {
+      forceAux(i, j, k, n) = 0.0;
+    }
+    // TO DO: source terms for Aux
+  }
+
+  amrex::Real cpmix_cgs = 0.0_rt;
+  eos.TY2Cp(T(i, j, k), y, cpmix_cgs);
+  amrex::Real cpmixinv = 1.0_rt / c2m::Cp(cpmix_cgs); // CGS -> MKS conversion
+  forceT(i, j, k) *= rhoinv * cpmixinv;
+}
 #endif
 #endif
