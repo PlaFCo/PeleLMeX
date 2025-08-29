@@ -329,16 +329,16 @@ compute_divuTe(
   int k,
   amrex::Array4<const amrex::Real> const& rhoY,
   amrex::Array4<const amrex::Real> const& T,
-  amrex::Array4<const amrex::Real> const& Te,
+  amrex::Array4<const amrex::Real> const& rhohte,
   amrex::Array4<const amrex::Real> const& specDiff,
   amrex::Array4<const amrex::Real> const& tempDiff,
+  amrex::Array4<const amrex::Real> const& tempeDiff,
   amrex::Array4<const amrex::Real> const& specEnthDiff,
-  amrex::Array4<const amrex::Real> const& tempEDiff,
-  amrex::Array4<const amrex::Real> const& specEleEnthDiff,
+  amrex::Array4<const amrex::Real> const& eEnthDiff,
   amrex::Array4<const amrex::Real> const& rhoYdot,
   amrex::Array4<const amrex::Real> const& extRhoY,
   amrex::Array4<const amrex::Real> const& extRhoH,
-  amrex::Array4<const amrex::Real> const& extRhoTE,
+  amrex::Array4<const amrex::Real> const& extRhoHte,
   amrex::Array4<amrex::Real> const& divu,
   int do_react,
   pele::physics::eos::EosParm<pele::physics::PhysicsType::eos_type> const*
@@ -362,25 +362,35 @@ compute_divuTe(
   }
 
   amrex::Real cpmix_cgs = 0.0_rt;
-  eos.TY2Cp(T(i, j, k), y, cpmix_cgs);
+  eos.TY2Cp(T(i, j, k), y, cpmix_cgs); //  cpmix(t=th) currently
   amrex::Real Wbar = 0.0_rt;
   eos.Y2WBAR(y, Wbar);
   amrex::Real hi_cgs[NUM_SPECIES] = {0.0};
   eos.T2Hi(T(i, j, k), hi_cgs);
+  amrex::Real Te = 0.0;
+  amrex::Real cpte = y[E_ID]*mwtinv(E_ID)*20785; // J K-1 kg-1
+  Te = rhohte(i, j, k) * rhoinv * cpte; // K
   amrex::Real cpmix = c2m::Cp(cpmix_cgs); // CGS -> MKS conversion
   amrex::Real hi[NUM_SPECIES] = {0.0};
+  amrex::Real denominv = 0.0;
   for (int n = 0; n < NUM_SPECIES; n++) {
     hi[n] = c2m::H(hi_cgs[n]); // CGS -> MKS conversion
+    denominv += y[n] * mwtinv[n] * T(i, j, k);
   }
+  hi[E_ID] = rhohte(i, j, k) * rhoinv; // J kg-1
+  denominv -= y[E_ID] * mwtinv[E_ID] *(T(i, j, k) - Te);
+  denominv = 1.0_rt / (denominv);
 
   // extRhoH(TE) contains m_extSources on the first iteration and I_R on subsequent
-  // eos.RTTeY2SColl( rho, T, Te, y, ScollTe, ScollTh ); TODO
-  amrex::Real cpele = y[E_ID]*mwtinv(E_ID)*20785; // J K-1 kg-1
+  // eos.RTTeY2SColl( rho, T, Te, y, ScollTe, ScollTh );
 
-  amrex::Real denominv = rho * PP_RU_MKS / (rho * (cpmix * T(i, j, k) + cpele*(Te(i, j, k) - T(i, j, k))));
-  cpmix -= cpele;
-  divu(i, j, k) = denominv * rhoinv / cpmix *(specEnthDiff(i, j, k) + tempDiff(i, j, k) + extRhoH(i, j, k))
-  divu(i, j, k) += denominv * rhoinv / cpele * (specEleEnthDiff(i, j, k) tempEDiff(i, j, k) + extRhoTE(i, j, k));
+
+  // cpmix -= cpte;
+  // check if specEnthDiff includes electron enth diff or not 
+  // check if cpmix includes electron cp or not 
+  // reactive electron term 
+  divu(i, j, k) = denominv * rhoinv / cpmix *(specEnthDiff(i, j, k) + tempDiff(i, j, k) + extRhoH(i, j, k) - rhoYdot(i, j, k, NUM_SPECIES));
+  divu(i, j, k) += denominv * rhoinv / cpte * (eEnthDiff(i, j, k) + tempeDiff(i, j, k) + extRhoHte(i, j, k) + rhoYdot(i, j, k, NUM_SPECIES));
   for (int n = 0; n < NUM_SPECIES; n++) {
     if (n == E_ID) continue; // skip electron species
     amrex::Real specTerm = specDiff(i, j, k, n) + extRhoY(i, j, k, n);
@@ -389,13 +399,13 @@ compute_divuTe(
     }
     specTerm *= rhoinv;
     
-    divu(i, j, k) += specTerm * denominv*( T* mwtinv[n]  - hi[n] / cpmix);
+    divu(i, j, k) += specTerm * denominv*( T * mwtinv[n]  - hi[n] / cpmix);
   }
   amrex::Real specTerm = specDiff(i, j, k, E_ID) + extRhoY(i, j, k, E_ID);
   if (do_react != 0) {
     specTerm += rhoYdot(i, j, k, E_ID);
   }
-  divu(i, j, k) += denominv * rhoinv * (Te(i, j, k) * mwtinv[E_ID] - hi[E_ID] / cpele) * specTerm;
+  divu(i, j, k) += denominv * rhoinv * (Te(i, j, k) * mwtinv[E_ID] - hi[E_ID] / cpte) * specTerm;
 // #endif
 }
 

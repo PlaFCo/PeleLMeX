@@ -169,19 +169,19 @@ if (flagfab.getType(bx) == FabType::covered) { // Covered boxes
         }
       }
 #else 
-  auto const& Te = ldata_p->state.const_array(mfi, TEMPE);
+  auto const& rhohte = ldata_p->state.const_array(mfi, TEMPE);
   if ( (is_init != 0) and (m_dt > 0.0) ) {
-    auto const& extRhoH = RhoYdot.const_array(mfi, NUM_SPECIES); // average rhoHdot over timestep
-    auto const& extRhoTE = RhoYdot.const_array(mfi, NUM_SPECIES + 1); // average rhoHedot over timestep
+    // auto const& extRhoH = RhoYdot.const_array(mfi, NUM_SPECIES); // average rhoHdot over timestep
+    auto const& extRhohte = RhoYdot.const_array(mfi, NUM_SPECIES); // average rhoHedot over timestep
   }
   else{
-    auto const& extRhoTE = m_extSource[lev]->const_array(mfi, TEMPE);
-}
+    auto const& extRhohte = m_extSource[lev]->const_array(mfi, TEMPE);
+  }
   // call eos function to get Scoll terms
-  auto const& FourierTE = (a_time == AmrOldTime)
+  auto const& Fourierte = (a_time == AmrOldTime)
       ? diffData->Dn[lev].const_array(mfi, NUM_SPECIES + 2)
       : diffData->Dnp1[lev].const_array(mfi, NUM_SPECIES + 2);
-  auto const& DiffDiffE = (a_time == AmrOldTime)
+  auto const& DiffDiffte = (a_time == AmrOldTime)
       ? diffData->Dn[lev].const_array(mfi, NUM_SPECIES + 3)
       : diffData->Dnp1[lev].const_array(mfi, NUM_SPECIES + 3);
 #ifdef AMREX_USE_EB
@@ -193,15 +193,15 @@ if (flagfab.getType(bx) == FabType::covered) { // Covered boxes
         } else if (flagfab.getType(bx) != FabType::regular) { // EB containing
           // boxes
           amrex::ParallelFor(
-            bx, [rhoY, T, SpecD, Fourier, DiffDiff, r, extRhoY, extRhoH, divu,
+            bx, [rhoY, T, rhohte, SpecD, Fourier, Fourierte, DiffDiff, DiffDiffte, r, extRhoY, extRhoH, extRhohte divu,
               use_react, flag,
               leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                 if (flag(i, j, k).isCovered()) {
                   divu(i, j, k) = 0.0;
                 } else {
                   compute_divuTe<pele::physics::PhysicsType::eos_type>(
-                i, j, k, rhoY, T, Te, SpecD, Fourier, DiffDiff, FourierTE, DiffDiffTE, r, extRhoY, extRhoH,
-                extRhoTE, divu, use_react, leosparm);
+                i, j, k, rhoY, T, rhohte, SpecD, Fourier, Fourierte, DiffDiff, DiffDiffte, r, extRhoY, extRhoH,
+                extRhohte, divu, use_react, leosparm);
             }
           });
       } else
@@ -209,11 +209,11 @@ if (flagfab.getType(bx) == FabType::covered) { // Covered boxes
 {
   amrex::ParallelFor(
     bx,
-    [rhoY, T, SpecD, Fourier, DiffDiff, r, extRhoY, extRhoH, divu,
-      use_react, leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-              compute_divuTe<pele::physics::PhysicsType::eos_type>(
-                i, j, k, rhoY, T, Te, SpecD, Fourier, DiffDiff, FourierTE, DiffDiffTE, r, extRhoY, extRhoH,
-                extRhoTE, divu, use_react, leosparm);
+    [rhoY, T, rhohte, SpecD, Fourier, Fourierte, DiffDiff, DiffDiffte, r, extRhoY, extRhoH, extRhohte divu,
+     use_react, flag, leosparm] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                compute_divuTe<pele::physics::PhysicsType::eos_type>(
+                i, j, k, rhoY, T, rhohte, SpecD, Fourier, Fourierte, DiffDiff, DiffDiffte, r, extRhoY, extRhoH,
+                extRhohte, divu, use_react, leosparm);
             });
           }
         }
