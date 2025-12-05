@@ -770,6 +770,34 @@ makeVelForce(
   }
 }
 
+#ifdef PELE_USE_AXISWIRL
+AMREX_GPU_DEVICE
+AMREX_FORCE_INLINE
+void
+makeSwirlForce(
+  int i,
+  int j,
+  int k,
+  int is_incomp,
+  const amrex::Real& rho_incomp,
+  amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dx,
+  amrex::Array4<const amrex::Real> const& rho,
+  amrex::Array4<const amrex::Real> const& ell,
+  amrex::Array4<amrex::Real> const& force) noexcept
+{
+  // Switch between incompressible/low-Mach rhos
+  amrex::Real rho_lcl = 0.0;
+  if (is_incomp != 0) {
+    rho_lcl = rho_incomp;
+  } else {
+    rho_lcl = rho(i, j, k);
+  }
+
+  amrex::Real r = (i + 0.5)/dx[0];
+  force(i, j, k, 0) += ell(i, j, k)*ell(i, j, k)/rho_lcl/r/r/r;
+}
+#endif
+
 // This kernel returns directly rhoHmix
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE

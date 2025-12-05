@@ -22,11 +22,16 @@
 #else
 #define NUMSOOTVAR 0
 #endif
+#ifdef  PELE_USE_AXISWIRL
+#define NUMSWIRL 1
+#else
+#define NUMSWIRL 0
+#endif
 #ifndef NUM_ODE
 #define NUM_ODE 0
 #endif
-#define FIRSTODE (RHORT + NUMPLASMA + NUMSOOTVAR + 1)
-#define NVAR (RHORT + NUMPLASMA + NUMSOOTVAR + NUM_ODE + 1)
+#define FIRSTODE (RHORT + NUMPLASMA + NUMSOOTVAR + NUMSWIRL + 1)
+#define NVAR (RHORT + NUMPLASMA + NUMSOOTVAR + NUMSWIRL + NUM_ODE + 1)
 
 namespace pelelmex {
 enum BCTypeEB {

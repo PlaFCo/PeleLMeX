@@ -1003,6 +1003,10 @@ PeleLM::variablesSetup()
     }
     setSootIndx();
 #endif
+#ifdef PELE_USE_AXISWIRL
+    amrex::Print() << " Angular momentum: " << ANGMOM << "\n";
+    stateComponents.emplace_back(ANGMOM, "AngMom");
+#endif 
 #if NUM_ODE > 0
     amrex::Print() << " First ODE: " << FIRSTODE << "\n";
     ProblemSpecificFunctions::set_ode_names(m_ode_names);
@@ -1080,6 +1084,10 @@ PeleLM::variablesSetup()
     m_DiffTypeState[NE] = 0;
     m_AdvTypeState[PHIV] = 0;
     m_DiffTypeState[PHIV] = 0;
+#endif
+#ifdef PELE_USE_AXISWIRL
+    m_AdvTypeState[ANGMOM] = 1; //conservative
+    m_DiffTypeState[ANGMOM] = 0; //not diffusive for now
 #endif
 #ifdef PELE_USE_SOOT
     for (int mom = 0; mom < NUMSOOTVAR; ++mom) {

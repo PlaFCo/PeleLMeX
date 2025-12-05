@@ -1848,6 +1848,9 @@ public:
   amrex::BCRec m_phiV_bc;    // Store separate phiV BC from input
   amrex::BCRec m_phiV_bcpol; // Store separate phiV BC polarity from input
 #endif
+#ifdef PELE_USE_AXISWIRL
+  amrex::BCRec m_angMom_bc;
+#endif
   amrex::Vector<amrex::BCRec> m_bcrec_state;
   amrex::BCRec m_bcrec_divu;
   amrex::Vector<amrex::BCRec> m_bcrec_force;
