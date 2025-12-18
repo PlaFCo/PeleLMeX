@@ -111,6 +111,7 @@ PeleLM::getVelForces(
     const auto& vel_arr = ldata_p->state.const_array(mfi, VELX);
     const auto& ell_arr = ldata_p->state.const_array(mfi, ANGMOM);
     getSwirlForces(lev, bx, time, force_arr, vel_arr, rho_arr, ell_arr);
+
 #endif
 #ifdef PELE_USE_PLASMA
       const auto& rhoY_arr = (m_incompressible != 0)
@@ -168,7 +169,10 @@ PeleLM::getSwirlForces(
   const amrex::Real rho_incomp = m_rho;
 
   amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-    makeSwirlForce(i, j, k, is_incomp, rho_incomp, dx, rho, ell, force);
+    amrex::Real r = (i+0.5)*dx[0];
+    amrex::Real rho_lcl = rho(i,j,k);
+    
+    makeSwirlForce(i, j, k, is_incomp, rho_incomp, r, rho, ell, force);
   });
 }
 #endif

@@ -780,7 +780,7 @@ makeSwirlForce(
   int k,
   int is_incomp,
   const amrex::Real& rho_incomp,
-  amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const dx,
+  const amrex::Real& r,
   amrex::Array4<const amrex::Real> const& rho,
   amrex::Array4<const amrex::Real> const& ell,
   amrex::Array4<amrex::Real> const& force) noexcept

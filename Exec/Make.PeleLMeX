@@ -31,6 +31,10 @@ ifeq ($(USE_PLASMA),TRUE)
    USERSuffix += .PLASMA
 endif
 
+ifeq ($(USE_AXISWIRL),TRUE)
+   USERSuffix += .AXISWIRL
+endif
+
 all: $(executable)
 ifneq ($(KEEP_BUILDINFO_CPP),TRUE)
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
@@ -48,6 +52,9 @@ LMdirs := Source
 ifeq ($(USE_PLASMA),TRUE)
    DEFINES += -DPELE_USE_PLASMA
    LMdirs += Source/Plasma Source/Plasma/GMRES Source/Plasma/LinOps
+endif
+ifeq ($(USE_AXISWIRL),TRUE)
+   DEFINES += -DPELE_USE_AXISWIRL
 endif
 ifeq ($(USE_PARTICLES), TRUE)
    ifdef SPRAY_FUEL_NUM

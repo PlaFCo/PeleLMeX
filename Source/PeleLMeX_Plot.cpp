@@ -208,6 +208,9 @@ PeleLM::WritePlotFile()
     plt_VarsName.push_back("nE");
     plt_VarsName.push_back("phiV");
 #endif
+#ifdef PELE_USE_AXISWIRL
+    plt_VarsName.push_back("angMom");
+#endif
 #ifdef PELE_USE_SOOT
     for (int mom = 0; mom < NUMSOOTVAR; ++mom) {
       const std::string sootname = soot_model->sootVariableName(mom);
@@ -339,6 +342,11 @@ PeleLM::WritePlotFile()
       amrex::MultiFab::Copy(
         mf_plt[lev], m_leveldata_new[lev]->state, NE, cnt, 2, 0);
       cnt += 2;
+#endif
+#ifdef PELE_USE_AXISWIRL
+      amrex::MultiFab::Copy(
+        mf_plt[lev], m_leveldata_new[lev]->state, ANGMOM, cnt, 1, 0);
+      cnt += 1;
 #endif
 #ifdef PELE_USE_SOOT
       amrex::MultiFab::Copy(
@@ -938,6 +946,9 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
 #ifdef PELE_USE_PLASMA
   int inE = -1, iPhiV = -1;
 #endif
+#ifdef PELE_USE_AXISWIRL
+  int iangMom = -1;
+#endif
 #ifdef PELE_USE_SOOT
   int inSoot = -1;
 #endif
@@ -968,6 +979,10 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
       inE = i;
     if (plt_vars[i] == "phiV")
       iPhiV = i;
+#endif
+#ifdef PELE_USE_AXISWIRL
+    if (plt_vars[i] == "angMom")
+      iangMom = i;
 #endif
 #ifdef PELE_USE_SOOT
     if (plt_vars[i] == "soot_N") {
@@ -1060,6 +1075,10 @@ PeleLM::initLevelDataFromPlt(int a_lev, const std::string& a_dataPltFile)
   pltData.fillPatchFromPlt(a_lev, geom[a_lev], inE, NE, 1, ldata_p->state);
   // phiV
   pltData.fillPatchFromPlt(a_lev, geom[a_lev], iPhiV, PHIV, 1, ldata_p->state);
+#endif
+#ifdef PELE_USE_AXISWIRL
+  // angMom
+  pltData.fillPatchFromPlt(a_lev, geom[a_lev], iangMom, ANGMOM, 1, ldata_p->state);
 #endif
 #ifdef PELE_USE_SOOT
   if (do_soot_solve) {

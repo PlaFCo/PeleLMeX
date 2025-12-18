@@ -24,6 +24,7 @@
 #endif
 #ifdef  PELE_USE_AXISWIRL
 #define NUMSWIRL 1
+#define ANGMOM (RHORT + NUMPLASMA + NUMSOOTVAR + 1)
 #else
 #define NUMSWIRL 0
 #endif
