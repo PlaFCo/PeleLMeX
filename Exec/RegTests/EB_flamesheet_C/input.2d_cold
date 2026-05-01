@@ -4,6 +4,7 @@ geometry.coord_sys   = 0                    # 0 => cart, 1 => RZ
 geometry.prob_lo     =  0.00    0.00        # x_lo y_lo (z_lo)
 geometry.prob_hi     =   0.24    0.06        # x_hi y_hi (z_hi)
 
+
 #---------------------- BC FLAGS ---------------------------------
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
