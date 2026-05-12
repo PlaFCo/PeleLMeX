@@ -73,13 +73,6 @@ constexpr int phiV_bc[] = {
   amrex::BCType::int_dir, amrex::BCType::ext_dir, amrex::BCType::reflect_even};
 #endif
 
-#ifdef PELE_USE_AXISWIRL
-constexpr int angMom_bc[] = {amrex::BCType::int_dir,  amrex::BCType::ext_dir,
-                           amrex::BCType::foextrap, amrex::BCType::reflect_even,
-                           amrex::BCType::foextrap, amrex::BCType::foextrap,
-                           amrex::BCType::ext_dir,  amrex::BCType::ext_dir};
-#endif
-
 #ifdef PELE_USE_SOOT
 constexpr int soot_bc[] = {
   amrex::BCType::int_dir,      amrex::BCType::ext_dir,
@@ -216,7 +209,6 @@ PeleLM::setBoundaryConditions()
         m_bcrec_aux[n].setHi(idim, aux_bc[hi_bc[idim]]);
       }
     }
-
 #ifdef PELE_USE_PLASMA
     // nE
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
@@ -246,13 +238,6 @@ PeleLM::setBoundaryConditions()
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
       auto const bcnESave = m_bcrec_state[NE];
       m_bcrec_state[NE] = hackBCChargedParticle(-1.0, bcnESave);
-    }
-#endif
-#ifdef PELE_USE_AXISWIRL
-    // angMom: reflect even on all but interior bndy
-    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-      m_bcrec_state[ANGMOM].setLo(idim, angMom_bc[lo_bc[idim]]);
-      m_bcrec_state[ANGMOM].setHi(idim, angMom_bc[hi_bc[idim]]);
     }
 #endif
 #ifdef PELE_USE_SOOT

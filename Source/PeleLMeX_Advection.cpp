@@ -349,12 +349,6 @@ PeleLM::computeScalarAdvTerms(const std::unique_ptr<AdvanceAdvData>& advData)
   auto bcRecRhoH_d = convertToDeviceVector(bcRecRhoH);
   auto AdvTypeRhoH = fetchAdvTypeArray(RHOH, 1);
   auto AdvTypeRhoH_d = convertToDeviceVector(AdvTypeRhoH);
-#ifdef PELE_USE_AXISWIRL
-  auto bcRecAngMom = fetchBCRecArray(ANGMOM, 1);
-  auto bcRecAngMom_d = convertToDeviceVector(bcRecAngMom);
-  auto AdvTypeAngMom = fetchAdvTypeArray(ANGMOM, 1);
-  auto AdvTypeAngMom_d = convertToDeviceVector(AdvTypeAngMom);
-#endif
   auto bcRecAux = fetchBCRecAuxArray(0, m_nAux);
   auto bcRecAux_d = convertToDeviceVector(bcRecAux);
   auto AdvTypeAux = fetchAdvTypeAuxArray(0, m_nAux);

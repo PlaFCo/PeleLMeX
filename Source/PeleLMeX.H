@@ -2075,6 +2075,9 @@ public:
   amrex::Vector<int> m_aux_advect;
   // R-z
   int m_rz_correction = 0;
+#ifdef PELE_USE_AXISWIRL
+  int m_angmom_aux = 0;
+#endif
 
   // cc->ec average
   int m_harm_avg_cen2edge = 0;

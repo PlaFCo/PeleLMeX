@@ -421,13 +421,19 @@ PeleLM::readParameters()
   }
 
   m_nAux = pp.countval("aux_vars");
+
+#ifdef PELE_USE_AXISWIRL
+  m_angmom_aux = m_nAux;
+  m_nAux += 1;
+#endif
+
   if (m_nAux > 0) {
     m_aux_names.resize(m_nAux);
     m_AdvTypeAux.resize(m_nAux);
     m_aux_advect.resize(m_nAux);
     m_DiffTypeAux.resize(m_nAux);
     m_aux_Schmidt.resize(m_nAux);
-    for (int n = 0; n < m_nAux; ++n) {
+    for (int n = m_nAux-2; n > -1; --n) {
       pp.get("aux_vars", m_aux_names[n], n);
       std::string aux_prefix = "peleLM." + m_aux_names[n];
       amrex::ParmParse ppa(aux_prefix);
@@ -445,6 +451,13 @@ PeleLM::readParameters()
         m_DiffTypeAux[n] = 1;
       }
     }
+#ifdef PELE_USE_AXISWIRL
+    m_aux_names[m_angmom_aux]   = "AngMom";
+    m_aux_advect[m_angmom_aux]  = 1;   
+    m_AdvTypeAux[m_angmom_aux]  = 1;  
+    m_aux_Schmidt[m_angmom_aux] = -1.; 
+    m_DiffTypeAux[m_angmom_aux] = 0;   
+#endif
   }
 
   // -----------------------------------------
@@ -1003,10 +1016,10 @@ PeleLM::variablesSetup()
     }
     setSootIndx();
 #endif
-#ifdef PELE_USE_AXISWIRL
-    amrex::Print() << " Angular momentum: " << ANGMOM << "\n";
-    stateComponents.emplace_back(ANGMOM, "AngMom");
-#endif 
+// #ifdef PELE_USE_AXISWIRL
+//     amrex::Print() << " Angular momentum: " << ANGMOM << "\n";
+//     stateComponents.emplace_back(ANGMOM, "AngMom");
+// #endif 
 #if NUM_ODE > 0
     amrex::Print() << " First ODE: " << FIRSTODE << "\n";
     ProblemSpecificFunctions::set_ode_names(m_ode_names);
@@ -1085,10 +1098,10 @@ PeleLM::variablesSetup()
     m_AdvTypeState[PHIV] = 0;
     m_DiffTypeState[PHIV] = 0;
 #endif
-#ifdef PELE_USE_AXISWIRL
-    m_AdvTypeState[ANGMOM] = 1; //conservative
-    m_DiffTypeState[ANGMOM] = 0; //not diffusive for now
-#endif
+// #ifdef PELE_USE_AXISWIRL
+//     m_AdvTypeState[ANGMOM] = 1; //conservative
+//     m_DiffTypeState[ANGMOM] = 0; //not diffusive for now
+// #endif
 #ifdef PELE_USE_SOOT
     for (int mom = 0; mom < NUMSOOTVAR; ++mom) {
       m_AdvTypeState[FIRSTSOOT + mom] = 0;

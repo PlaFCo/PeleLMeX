@@ -109,9 +109,8 @@ PeleLM::getVelForces(
       const auto& force_arr = a_velForce->array(mfi);
 #ifdef PELE_USE_AXISWIRL
     const auto& vel_arr = ldata_p->state.const_array(mfi, VELX);
-    const auto& ell_arr = ldata_p->state.const_array(mfi, ANGMOM);
+    const auto& ell_arr =  ldata_p->auxiliaries.const_array(mfi, m_angmom_aux);
     getSwirlForces(lev, bx, time, force_arr, vel_arr, rho_arr, ell_arr);
-
 #endif
 #ifdef PELE_USE_PLASMA
       const auto& rhoY_arr = (m_incompressible != 0)

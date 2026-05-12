@@ -389,10 +389,6 @@ PeleLM::oneSDC(
   // Compute and update passive advective terms
   computePassiveAdvTerms(advData, FIRSTSOOT, NUMSOOTVAR);
 #endif
-#ifdef PELE_USE_AXISWIRL
-  // Compute and update passive advective terms
-  computePassiveAdvTerms(advData, ANGMOM, 1);
-#endif
   // Get scalar advection SDC forcing
   getScalarAdvForce(advData, diffData);
 
