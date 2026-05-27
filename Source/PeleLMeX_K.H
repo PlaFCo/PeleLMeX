@@ -793,7 +793,6 @@ makeSwirlForce(
     rho_lcl = rho(i, j, k);
   }
 
-  amrex::Real r = (i + 0.5)/dx[0];
   force(i, j, k, 0) += ell(i, j, k)*ell(i, j, k)/rho_lcl/r/r/r;
 }
 #endif
