@@ -452,6 +452,7 @@ PeleLM::readParameters()
       }
     }
 #ifdef PELE_USE_AXISWIRL
+    amrex::Print() << " Angular momentum index: " << m_angmom_aux << "\n";
     m_aux_names[m_angmom_aux]   = "AngMom";
     m_aux_advect[m_angmom_aux]  = 1;   
     m_AdvTypeAux[m_angmom_aux]  = 1;  
@@ -857,6 +858,7 @@ PeleLM::readParameters()
   pp.query("user_defined_ext_sources", m_user_defined_ext_sources);
   pp.query("plot_extSource", m_plot_extSource);
   pp.query("add_variance_sources", m_add_variance_sources);
+  pp.query("ext_sources_SDC", m_ext_sources_SDC);
 }
 
 void

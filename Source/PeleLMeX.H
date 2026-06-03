@@ -932,7 +932,8 @@ public:
   void getExternalSources(
     const int is_initIter,
     const PeleLM::TimeStamp a_timestamp_old,
-    const PeleLM::TimeStamp a_timestamp_new);
+    const PeleLM::TimeStamp a_timestamp_new,
+    const int sdcIter = 0);
 
   //-----------------------------------------------------------------------------
   // EOS

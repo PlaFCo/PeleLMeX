@@ -42,18 +42,23 @@ peleLM.sdc_iterMax = 2
 peleLM.floor_species = 0
 peleLM.num_init_iter = 3
 peleLM.num_init_iter = 5
+peleLM.divu_dt_rhoMin = 1e-4
 #amr.restart = chk00005
 #amr.check_int = 2000
 amr.plot_int = 100
 amr.plot_overwrite = true 
 amr.plot_init_state = true
-amr.max_step = 200000
+amr.max_step = 30000
 amr.dt_shrink = 0.3
-amr.stop_time = 0.5
+amr.stop_time = 2
 #amr.fixed_dt = 1e-10
 #amr.stop_time = 1.00
 amr.cfl = 0.5
 amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib angmom
+
+peleLM.user_defined_ext_sources = true
+peleLM.plot_extSource = true
+peleLM.ext_sources_SDC = true
 
 #cvode.solve_type = dense               # CVODE Linear solve type (for Newton direction) 
 #ode.analytical_jacobian = 0            # Provide analytical jacobian (from Fuego) 

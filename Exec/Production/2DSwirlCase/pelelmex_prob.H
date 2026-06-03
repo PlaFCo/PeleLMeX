@@ -201,6 +201,188 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       }
   }
   }
+
+  static void modify_ext_sources(
+    amrex::Real time,
+    amrex::Real /*dt*/,
+    const amrex::MultiFab& state_old,
+    const amrex::MultiFab& state_new,
+    std::unique_ptr<amrex::MultiFab>& ext_src,
+    const amrex::GeometryData& geomdata,
+    const MyProbParm* prob_parm_d,
+    const int sdcIter)
+  {
+    const auto prob_lo = geomdata.ProbLo();
+    const amrex::Real* dx = geomdata.CellSize();
+    auto ext_src_rhoh_a = ext_src->arrays();
+    auto ext_src_a = ext_src->arrays();
+    auto const& state_old_a = state_old.const_arrays();
+    auto const& state_new_a = state_new.const_arrays();
+
+    const amrex::Real pi = 3.141592653589793;
+
+    amrex::Real total_power  = 1*300;
+    amrex::Real z_center     = 0.075;  // 7.5 cm 
+    amrex::Real z_half_width = 0.025;  // 2.5 cm (spans 5.0 cm to 10.0 cm)
+    amrex::Real r_max        = 0.008;  // 0.8 cm
+
+    const amrex::Real P_0 = (3.0 * total_power) / (2.0 * pi * r_max * r_max * z_half_width);
+
+    bool testing_SDC = 1;
+    bool print_P_in = 1;
+    int option = 2; // 1 for parabolic, 2 proportional to temperature
+    
+    if (time < 0.15){
+      option = 1;
+    } else {
+      option = 2;
+    }
+
+    if (option == 1) {
+      amrex::ParallelFor(
+        *ext_src,
+        [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
+        {
+          amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+          amrex::Real z = prob_lo[1] + (static_cast<amrex::Real>(j) + 0.5) * dx[1];
+
+          bool inside_r = (r <= r_max);
+          bool inside_z = (amrex::Math::abs(z - z_center) <= z_half_width);
+
+          if (inside_r && inside_z) {
+            amrex::Real r_norm = r / r_max;
+            amrex::Real z_norm = (z - z_center) / z_half_width;
+
+            ext_src_rhoh_a[box_no](i, j, k, RHOH) = P_0 * (1.0 - r_norm*r_norm) * (1.0 - z_norm*z_norm);
+          } else {
+            ext_src_rhoh_a[box_no](i, j, k, RHOH) = 0.0; 
+          }
+        }
+      );
+    } else if (option == 2) {
+      amrex::ParallelFor(
+        *ext_src,
+        [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
+        {
+          amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+          amrex::Real z = prob_lo[1] + (static_cast<amrex::Real>(j) + 0.5) * dx[1];
+
+          bool inside_r = (r <= r_max);
+          bool inside_z = (amrex::Math::abs(z - z_center) <= z_half_width);
+
+          if (inside_r && inside_z) {
+            amrex::Real r_norm = r / r_max;
+            amrex::Real z_norm = (z - z_center) / z_half_width;
+
+            amrex::Real Tg_temp = 0;
+
+            if(sdcIter > 0) {
+              Tg_temp = (state_old_a[box_no](i, j, k, TEMP)+state_new_a[box_no](i, j, k, TEMP))*0.5;
+            } else {
+              Tg_temp = state_old_a[box_no](i, j, k, TEMP);
+            }
+
+            ext_src_rhoh_a[box_no](i, j, k, RHOH) = P_0 * (1.0 - r_norm*r_norm) * (1.0 - z_norm*z_norm)/(1+std::exp((2500-Tg_temp) / 500.0));
+          } else {
+            ext_src_rhoh_a[box_no](i, j, k, RHOH) = 0.0; 
+          }
+        }
+      );
+
+      amrex::ReduceOps<amrex::ReduceOpSum> reduce_op;
+      amrex::ReduceData<amrex::Real> reduce_data(reduce_op);
+      using ReduceTuple = typename amrex::ReduceData<amrex::Real>::Type;
+
+      for (amrex::MFIter mfi(*ext_src); mfi.isValid(); ++mfi) {
+          const amrex::Box& bx = mfi.validbox();
+          auto const& ext_src_a = ext_src->array(mfi);
+
+          reduce_op.eval(bx, reduce_data,
+          [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept -> ReduceTuple
+          {
+              // Compute the cell-centered radius 'r' for this specific cell
+              amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+              
+              // Calculate the volume of this specific cylindrical ring shell
+              amrex::Real cell_vol = 2.0 * pi * r * dx[0] * dx[1];
+              
+              // Return the energy scaled by this cell's individual volume
+              return ext_src_a(i, j, k, RHOH) * cell_vol;
+          });
+      }
+
+      // Gather the sum across all local GPU threads
+      amrex::Real deposited_power = amrex::get<0>(reduce_data.value());
+
+      // Sum the results across all MPI ranks (parallel processor communication)
+      amrex::ParallelDescriptor::ReduceRealSum(deposited_power);
+
+      amrex::Real scaling_factor = total_power / deposited_power;
+
+      // Now apply the scaling factor to the ext_src to ensure the total deposited power matches the target
+      amrex::ParallelFor(
+        *ext_src,
+        [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
+        {
+          ext_src_rhoh_a[box_no](i, j, k, RHOH) = std::min(ext_src_rhoh_a[box_no](i, j, k, RHOH)*scaling_factor, 3e8);
+        }
+      );
+    }
+    amrex::Gpu::streamSynchronize();
+    
+    if (print_P_in) {
+      amrex::ReduceOps<amrex::ReduceOpSum> reduce_op;
+      amrex::ReduceData<amrex::Real> reduce_data(reduce_op);
+      using ReduceTuple = typename amrex::ReduceData<amrex::Real>::Type;
+
+      for (amrex::MFIter mfi(*ext_src); mfi.isValid(); ++mfi) {
+          const amrex::Box& bx = mfi.validbox();
+          auto const& ext_src_a = ext_src->array(mfi);
+
+          reduce_op.eval(bx, reduce_data,
+          [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept -> ReduceTuple
+          {
+              // Compute the cell-centered radius 'r' for this specific cell
+              amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+              
+              // Calculate the volume of this specific cylindrical ring shell
+              amrex::Real cell_vol = 2.0 * pi * r * dx[0] * dx[1];
+              
+              // Return the energy scaled by this cell's individual volume
+              return ext_src_a(i, j, k, RHOH) * cell_vol;
+          });
+      }
+
+      // Gather the sum across all local GPU threads
+      amrex::Real deposited_power = amrex::get<0>(reduce_data.value());
+
+      // Sum the results across all MPI ranks (parallel processor communication)
+      amrex::ParallelDescriptor::ReduceRealSum(deposited_power);
+
+      if (amrex::ParallelDescriptor::IOProcessor()) {
+        amrex::Print()
+          << "Deposited power = " << deposited_power
+          << " ; target = " << total_power
+          << "\n";
+      }
+    }
+    
+    if (testing_SDC){
+      amrex::ParallelFor(
+        *ext_src,
+        [=, state_old_a=state_old_a, state_new_a=state_new_a]
+        AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept{
+          if (i == 16 && j == 256 && k == 0) {
+            std::cout << "Inside cell (16, 256, 0) at SDC iteration " << sdcIter << std::endl;
+            std::cout << "Tg_n: " << state_old_a[box_no](i, j, k, TEMP) << std::endl;
+            std::cout << "Tg_k: " << state_new_a[box_no](i, j, k, TEMP) << std::endl;
+          }
+        }
+      );
+    }
+    
+
+  };
 };
 
 using ProblemSpecificFunctions = MyProblemSpecificFunctions;

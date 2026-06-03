@@ -188,6 +188,11 @@ PeleLM::Advance(const int is_initIter)
     // SDC iterations
     for (m_sdcIter = 1; m_sdcIter <= m_nSDCmax; ++m_sdcIter) {
       oneSDC(m_sdcIter, advData, diffData);
+
+      // Update external sources at the start of the next SDC iteration (not needed if it's the last iteration and not repreating for the first one)
+      if(m_ext_sources_SDC == 1 && m_sdcIter < m_nSDCmax) {
+        getExternalSources(is_initIter, AmrOldTime, AmrNewTime, m_sdcIter);
+      }
     }
 
     // Post SDC

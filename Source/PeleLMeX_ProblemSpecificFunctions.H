@@ -207,7 +207,8 @@ struct DefaultProblemSpecificFunctions
     const amrex::MultiFab& /*state_new*/,
     std::unique_ptr<amrex::MultiFab>& /*ext_src*/,
     const amrex::GeometryData& /*geomdata*/,
-    const ProbParmDefault* /*prob_parm_d*/)
+    const ProbParmDefault* /*prob_parm_d*/,
+    const int sdcIter)
   {
     /** Notes:
      *   1. ext_src contains sources from velocity forcing coming in.

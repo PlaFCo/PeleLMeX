@@ -381,7 +381,8 @@ void
 PeleLM::getExternalSources(
   const int is_initIter,
   const PeleLM::TimeStamp a_timestamp_old,
-  const PeleLM::TimeStamp a_timestamp_new)
+  const PeleLM::TimeStamp a_timestamp_new,
+  const int sdcIter)
 {
   amrex::ignore_unused(is_initIter);
 
@@ -412,12 +413,12 @@ PeleLM::getExternalSources(
   // User defined external sources
   if (m_user_defined_ext_sources) {
     for (int lev = 0; lev <= finest_level; ++lev) {
-      auto* ldata_p_old = getLevelDataPtr(lev, a_timestamp_old);
-      auto* ldata_p_new = getLevelDataPtr(lev, a_timestamp_new);
+      auto* ldata_p_old = getLevelDataPtr(lev, a_timestamp_old);  // phi_n
+      auto* ldata_p_new = getLevelDataPtr(lev, a_timestamp_new);  // phi_np1_k
       auto& ext_src = m_extSource[lev];
       ProblemSpecificFunctions::modify_ext_sources(
         getTime(lev, a_timestamp_old), m_dt, ldata_p_old->state,
-        ldata_p_new->state, ext_src, geom[lev].data(), prob_parm_d);
+        ldata_p_new->state, ext_src, geom[lev].data(), prob_parm_d, sdcIter);
     }
   }
 }
