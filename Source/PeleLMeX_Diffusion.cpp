@@ -1832,23 +1832,23 @@ PeleLM::getScalarDiffForce(
       (m_nAux > 0) ? diffData->Dn_aux[lev].const_arrays() : dn_ma;
     auto const& dnp1_aux_ma =
       (m_nAux > 0) ? diffData->Dnp1_aux[lev].const_arrays() : dn_ma;
-#ifdef PELE_USE_AXISWIRL
-    auto const& aux_ma = ldata_p->auxiliaries.const_arrays();
-    auto const& rho_ma = ldata_p->state.const_arrays();
-    auto const& mu_ma = ldata_p->diff_cc.const_arrays();
-    const auto prob_lo = geom[lev].ProbLoArray();
-    const auto dx = geom[lev].CellSizeArray();
-    const int angmom_aux = m_angmom_aux;
-#endif
+//#ifdef PELE_USE_AXISWIRL
+//    auto const& aux_ma = ldata_p->auxiliaries.const_arrays();
+//    auto const& rho_ma = ldata_p->state.const_arrays();
+//    auto const& mu_ma = ldata_p->diff_cc.const_arrays();
+//    const auto prob_lo = geom[lev].ProbLoArray();
+//    const auto dx = geom[lev].CellSizeArray();
+//    const int angmom_aux = m_angmom_aux;
+//#endif
     amrex::ParallelFor(
       advData->Forcing[lev],
       [dn_ma, dnp1_ma, r_ma, a_ma, ext_ma, f_ma, dwbar_ma, dT_ma, f_aux_ma,
        a_aux_ma, dn_aux_ma, dnp1_aux_ma, do_react = m_do_react,
        use_wbar = m_use_wbar, use_soret = m_use_soret, dp0dt = m_dp0dt,
        is_closed_ch = m_closed_chamber, nAux = m_nAux, aux_advect_d,
-#ifdef PELE_USE_AXISWIRL
-       aux_ma, rho_ma, mu_ma, prob_lo, dx, angmom_aux,
-#endif
+//#ifdef PELE_USE_AXISWIRL
+//       aux_ma, rho_ma, mu_ma, prob_lo, dx, angmom_aux,
+//#endif
        aux_diffuse_d] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
         amrex::Array4<amrex::Real const> ddn(dn_ma[box_no], NUM_SPECIES + 1);
         amrex::Array4<amrex::Real const> ddnp1(
@@ -1863,49 +1863,49 @@ PeleLM::getScalarDiffForce(
           dT_ma[box_no], extRhoY, extRhoH, use_wbar, use_soret,
           f_aux_ma[box_no], a_aux_ma[box_no], dn_aux_ma[box_no],
           dnp1_aux_ma[box_no], aux_advect_d, aux_diffuse_d, nAux);
-#ifdef PELE_USE_AXISWIRL
-        const int n = angmom_aux;
-        const amrex::Real r =
-          prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
-        const amrex::Real r_eff = amrex::max(r, 0.5 * dx[0]);
-
-        const amrex::Real rho = rho_ma[box_no](i, j, k);
-        if (rho > 1.0e-6) {
-          const amrex::Real u_c =
-            aux_ma[box_no](i, j, k, n) / (rho * r_eff);
-
-          const amrex::Real u_pr =
-            aux_ma[box_no](i + 1, j, k, n) /
-            (rho_ma[box_no](i + 1, j, k) *
-             amrex::max(prob_lo[0] + (static_cast<amrex::Real>(i + 1) + 0.5) * dx[0],
-                        0.5 * dx[0]));
-
-          const amrex::Real u_ml =
-            aux_ma[box_no](i - 1, j, k, n) /
-            (rho_ma[box_no](i - 1, j, k) *
-             amrex::max(prob_lo[0] + (static_cast<amrex::Real>(i - 1) + 0.5) * dx[0],
-                        0.5 * dx[0]));
-
-          const amrex::Real u_pz =
-            aux_ma[box_no](i, j + 1, k, n) /
-            (rho_ma[box_no](i, j + 1, k) * r_eff);
-
-          const amrex::Real u_mz =
-            aux_ma[box_no](i, j - 1, k, n) /
-            (rho_ma[box_no](i, j - 1, k) * r_eff);
-
-          const amrex::Real d2udr2 = (u_pr - 2.0 * u_c + u_ml) / (dx[0] * dx[0]);
-          const amrex::Real dudr = (u_pr - u_ml) / (2.0 * dx[0]);
-          const amrex::Real d2udz2 = (u_pz - 2.0 * u_c + u_mz) / (dx[1] * dx[1]);
-
-          amrex::Real D_utheta =
-            d2udr2 + (1.0 / r_eff) * dudr + d2udz2 - u_c / (r_eff * r_eff);
-
-          D_utheta *= mu_ma[box_no](i, j, k) / rho;
-
-          f_aux_ma[box_no](i, j, k, n) += rho * r_eff * D_utheta;
-        }
-#endif
+//#ifdef PELE_USE_AXISWIRL
+//        const int n = angmom_aux;
+//        const amrex::Real r =
+//          prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+//        const amrex::Real r_eff = amrex::max(r, 0.5 * dx[0]);
+//
+//        const amrex::Real rho = rho_ma[box_no](i, j, k);
+//        if (rho > 1.0e-6) {
+//          const amrex::Real u_c =
+//            aux_ma[box_no](i, j, k, n) / (rho * r_eff);
+//
+//          const amrex::Real u_pr =
+//            aux_ma[box_no](i + 1, j, k, n) /
+//            (rho_ma[box_no](i + 1, j, k) *
+//             amrex::max(prob_lo[0] + (static_cast<amrex::Real>(i + 1) + 0.5) * dx[0],
+//                        0.5 * dx[0]));
+//
+//          const amrex::Real u_ml =
+//            aux_ma[box_no](i - 1, j, k, n) /
+//            (rho_ma[box_no](i - 1, j, k) *
+//             amrex::max(prob_lo[0] + (static_cast<amrex::Real>(i - 1) + 0.5) * dx[0],
+//                        0.5 * dx[0]));
+//
+//          const amrex::Real u_pz =
+//            aux_ma[box_no](i, j + 1, k, n) /
+//            (rho_ma[box_no](i, j + 1, k) * r_eff);
+//
+//          const amrex::Real u_mz =
+//            aux_ma[box_no](i, j - 1, k, n) /
+//            (rho_ma[box_no](i, j - 1, k) * r_eff);
+//
+//          const amrex::Real d2udr2 = (u_pr - 2.0 * u_c + u_ml) / (dx[0] * dx[0]);
+//          const amrex::Real dudr = (u_pr - u_ml) / (2.0 * dx[0]);
+//          const amrex::Real d2udz2 = (u_pz - 2.0 * u_c + u_mz) / (dx[1] * dx[1]);
+//
+//          amrex::Real D_utheta =
+//            d2udr2 + (1.0 / r_eff) * dudr + d2udz2 - u_c / (r_eff * r_eff);
+//
+//          D_utheta *= mu_ma[box_no](i, j, k) / rho;
+//
+//          f_aux_ma[box_no](i, j, k, n) += rho * r_eff * D_utheta;
+//        }
+//#endif
       });
   }
   amrex::Gpu::streamSynchronize();

@@ -792,7 +792,6 @@ makeSwirlForce(
   } else {
     rho_lcl = rho(i, j, k);
   }
-
   force(i, j, k, 0) += ell(i, j, k)*ell(i, j, k)/rho_lcl/r/r/r;
 }
 #endif

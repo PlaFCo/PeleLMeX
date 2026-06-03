@@ -61,11 +61,18 @@ PeleLM::getVelForces(
   auto const& state_ma = ldata_p->state.const_arrays();
   auto const& ext_ma = m_extSource[lev]->const_arrays();
   auto const& force_ma = a_velForce->arrays();
+#ifdef PELE_USE_AXISWIRL
+  auto const& aux_ma =  ldata_p->auxiliaries.const_arrays();
+  auto const m_geomdata = geom[lev].data(); 
+#endif
 
   amrex::ParallelFor(
     *a_velForce,
     [state_ma, ext_ma, force_ma, grav, gp0, ps_dir, is_incomp, rho_incomp,
      pseudo_gravity,
+#ifdef PELE_USE_AXISWIRL
+      aux_ma, m_geomdata, m_angmom=m_angmom_aux,
+#endif
      dV_control] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) {
       amrex::Array4<amrex::Real const> vel(state_ma[box_no], VELX);
       amrex::Array4<amrex::Real const> extmom(ext_ma[box_no], VELX);
@@ -80,6 +87,12 @@ PeleLM::getVelForces(
       makeVelForce(
         i, j, k, is_incomp, rho_incomp, pseudo_gravity, ps_dir, grav, gp0,
         dV_control, vel, rho, extmom, extrho, force_ma[box_no]);
+#ifdef PELE_USE_AXISWIRL
+    amrex::Array4<amrex::Real const> ell(aux_ma[box_no], m_angmom);
+    const amrex::Real* dx = m_geomdata.CellSize();
+    amrex::Real r = (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+    makeSwirlForce(i, j, k, is_incomp, rho_incomp, r, rho, ell, force_ma[box_no]);
+#endif
     });
   amrex::Gpu::streamSynchronize();
 
@@ -107,11 +120,6 @@ PeleLM::getVelForces(
                               ? DummyFab.array()
                               : ldata_p->state.const_array(mfi, DENSITY);
       const auto& force_arr = a_velForce->array(mfi);
-#ifdef PELE_USE_AXISWIRL
-    const auto& vel_arr = ldata_p->state.const_array(mfi, VELX);
-    const auto& ell_arr =  ldata_p->auxiliaries.const_array(mfi, m_angmom_aux);
-    getSwirlForces(lev, bx, time, force_arr, vel_arr, rho_arr, ell_arr);
-#endif
 #ifdef PELE_USE_PLASMA
       const auto& rhoY_arr = (m_incompressible != 0)
                                ? DummyFab.array()
@@ -152,29 +160,6 @@ PeleLM::getVelForces(
   }
 }
 
-#ifdef PELE_USE_AXISWIRL
-void
-PeleLM::getSwirlForces(
-  int lev,
-  const amrex::Box& bx,
-  const amrex::Real& a_time,
-  amrex::Array4<amrex::Real> const& force,
-  amrex::Array4<const amrex::Real> const& vel,
-  amrex::Array4<const amrex::Real> const& rho,
-  amrex::Array4<const amrex::Real> const& ell)
-{
-  const auto dx = geom[lev].CellSizeArray();
-  const int is_incomp = m_incompressible;
-  const amrex::Real rho_incomp = m_rho;
-
-  amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-    amrex::Real r = (i+0.5)*dx[0];
-    amrex::Real rho_lcl = rho(i,j,k);
-    
-    makeSwirlForce(i, j, k, is_incomp, rho_incomp, r, rho, ell, force);
-  });
-}
-#endif
 
 void
 PeleLM::addSpark(const TimeStamp a_timestamp)
