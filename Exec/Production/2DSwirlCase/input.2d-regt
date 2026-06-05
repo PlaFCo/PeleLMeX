@@ -26,11 +26,14 @@ amr.max_grid_size   = 32            # max box size
 prob.P_mean = 101325.0
 prob.solidBody = 40000.0
 
-prob.utheta = 10
-prob.uz = 5
-prob.ur = 1.0
-prob.inletcenter = 0.013
-prob.inletdelta = 0.003
+prob.utheta = 1
+prob.uz = 2
+prob.ur = -0.1
+prob.inlet_center = 0.010
+prob.inlet_delta  = 0.009
+
+prob.total_power = 100
+
 
 #-------------------------PeleLM CONTROL----------------------------
 peleLM.v = 1
@@ -45,10 +48,10 @@ peleLM.num_init_iter = 5
 peleLM.divu_dt_rhoMin = 1e-4
 #amr.restart = chk00005
 #amr.check_int = 2000
-amr.plot_int = 100
+amr.plot_int = 102
 amr.plot_overwrite = true 
 amr.plot_init_state = true
-amr.max_step = 30000
+amr.max_step = 20000
 amr.dt_shrink = 0.3
 amr.stop_time = 2
 #amr.fixed_dt = 1e-10

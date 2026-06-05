@@ -11,6 +11,8 @@
 #include <PMFData.H>
 #include <PelePhysics.H>
 
+#include <harps.h>
+
 struct MyProbParm : public ProbParmDefault
 {
 
@@ -25,6 +27,7 @@ struct MyProbParm : public ProbParmDefault
   int meanFlowDir = 1;
   amrex::Real solidBody = 0.0;
 
+  amrex::Real total_power = 0.0;
 };
 
 struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
@@ -45,6 +48,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     const amrex::Real* prob_lo = geomdata.ProbLo();
     const amrex::Real* prob_hi = geomdata.ProbHi();
     const amrex::Real* dx = geomdata.CellSize();
+    
 
     AMREX_D_TERM(
       const amrex::Real x = prob_lo[0] + (i + 0.5) * dx[0];
@@ -92,7 +96,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     }
     amrex::Real r = (i + 0.5) * dx[0];
 
-    // impose radial Gaussian profile in all auxiliaries
+    // Start with a slow solid body swirl
     aux(i, j, k, aux.nComp()-1) = 0.01*r*r*state(i,j,k,DENSITY);
 
   }
@@ -124,10 +128,10 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       amrex::Real utheta = 0.0;
       amrex::Real ymin = center-deltac;
       amrex::Real ymax = center+deltac;
+      amrex::Real r = x[0];
       if (x[0]<ymax && x[0]>ymin){
         utheta = prob_parm.utheta; //*std::cos(0.5*3.14159*(x[1]-center)/deltac); //prob_parm.utheta;
       }
-      amrex::Real r = x[0];
       
       amrex::Real temp = 300;
       molefrac[N2_ID] = 1.0;
@@ -163,6 +167,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
 
     auto eos = pele::physics::PhysicsType::eos();
 
+        
     if (idir == 1 && sgn == 1) {
       amrex::Real r = x[0];
       
@@ -174,6 +179,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       amrex::Real deltac = prob_parm.inletdelta;
       amrex::Real ymin = center-deltac;
       amrex::Real ymax = center+deltac;
+
       if (x[0]<ymax && x[0]>ymin){
         AMREX_D_TERM(
             s_ext[VELX] = prob_parm.ur; //*std::cos(0.5*3.14159*(x[1]-center)/deltac);
@@ -221,14 +227,18 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
 
     const amrex::Real pi = 3.141592653589793;
 
-    amrex::Real total_power  = 1*300;
+    amrex::Real total_power  = 0;
+
     amrex::Real z_center     = 0.075;  // 7.5 cm 
     amrex::Real z_half_width = 0.025;  // 2.5 cm (spans 5.0 cm to 10.0 cm)
     amrex::Real r_max        = 0.008;  // 0.8 cm
 
     const amrex::Real P_0 = (3.0 * total_power) / (2.0 * pi * r_max * r_max * z_half_width);
 
-    bool testing_SDC = 1;
+    int test_harps = run_test(3, "input/example8_symm.in");
+    amrex::Print() << "Testing outside function: " << test_harps << "\n";
+
+    bool testing_SDC = 0;
     bool print_P_in = 1;
     int option = 2; // 1 for parabolic, 2 proportional to temperature
     
@@ -274,15 +284,15 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
             amrex::Real r_norm = r / r_max;
             amrex::Real z_norm = (z - z_center) / z_half_width;
 
-            amrex::Real Tg_temp = 0;
+            amrex::Real Tg_mid = 0;
 
             if(sdcIter > 0) {
-              Tg_temp = (state_old_a[box_no](i, j, k, TEMP)+state_new_a[box_no](i, j, k, TEMP))*0.5;
+              Tg_mid = (state_old_a[box_no](i, j, k, TEMP)+state_new_a[box_no](i, j, k, TEMP))*0.5;
             } else {
-              Tg_temp = state_old_a[box_no](i, j, k, TEMP);
+              Tg_mid = state_old_a[box_no](i, j, k, TEMP);
             }
 
-            ext_src_rhoh_a[box_no](i, j, k, RHOH) = P_0 * (1.0 - r_norm*r_norm) * (1.0 - z_norm*z_norm)/(1+std::exp((2500-Tg_temp) / 500.0));
+            ext_src_rhoh_a[box_no](i, j, k, RHOH) = P_0 * (1.0 - r_norm*r_norm) * (1.0 - z_norm*z_norm)/(1+std::exp((2500-Tg_mid) / 500.0));
           } else {
             ext_src_rhoh_a[box_no](i, j, k, RHOH) = 0.0; 
           }
@@ -317,7 +327,10 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       // Sum the results across all MPI ranks (parallel processor communication)
       amrex::ParallelDescriptor::ReduceRealSum(deposited_power);
 
-      amrex::Real scaling_factor = total_power / deposited_power;
+      amrex::Real scaling_factor = 0;
+      if (deposited_power > 1e-8) { // Avoid division by zero
+        scaling_factor = total_power / deposited_power;
+      }
 
       // Now apply the scaling factor to the ext_src to ensure the total deposited power matches the target
       amrex::ParallelFor(

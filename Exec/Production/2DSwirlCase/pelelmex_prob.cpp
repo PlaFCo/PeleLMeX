@@ -19,6 +19,7 @@ PeleLM::readProbParm()
   pp.query("inlet_center", PeleLM::prob_parm->inletcenter);
   pp.query("inlet_delta", PeleLM::prob_parm->inletdelta);
 
+  pp.query("total_power", PeleLM::prob_parm->total_power);
 }
 
 void

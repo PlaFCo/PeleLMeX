@@ -34,4 +34,24 @@ Eos_Model = Fuego
 Transport_Model = Simple
 
 PELE_HOME ?= ../../..
+
+# HARPS - MW EFIELD SOLVER
+HARPS_SRC_DIR = ../../../../power_coupling/harps/src
+
+CEXE_sources += harps.cpp
+
+VPATH_LOCATIONS   += $(HARPS_SRC_DIR)
+INCLUDE_LOCATIONS += $(HARPS_SRC_DIR)
+
+CEXE_sources += CartesianCoordinates.cpp
+CEXE_sources += ConfigParser.cpp
+CEXE_sources += MatrixSolver.cpp
+
+# PETSc Dependencies
+PETSC_DIR := $(shell spack location -i petsc)
+
+INCLUDE_LOCATIONS += $(PETSC_DIR)/include
+LIBRARY_LOCATIONS += $(PETSC_DIR)/lib
+LIBRARIES         += -lpetsc
+
 include $(PELE_HOME)/Exec/Make.PeleLMeX
