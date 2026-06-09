@@ -11,6 +11,8 @@
 #include <PMFData.H>
 #include <PelePhysics.H>
 
+#include <petscksp.h>
+
 #include <harps.h>
 
 struct MyProbParm : public ProbParmDefault
@@ -99,6 +101,12 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     // Start with a slow solid body swirl
     aux(i, j, k, aux.nComp()-1) = 0.01*r*r*state(i,j,k,DENSITY);
 
+
+    std::string prog_name = "harps_subroutine"; 
+    char* fake_argv[] = {const_cast<char*>(prog_name.c_str()),const_cast<char*>(prog_name.c_str()), nullptr};
+    int fake_argc = 2;
+    char** p_fake_argv = fake_argv;
+    PetscInitialize(&fake_argc, &p_fake_argv, NULL, NULL);
   }
 
   AMREX_GPU_DEVICE
@@ -235,8 +243,48 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
 
     const amrex::Real P_0 = (3.0 * total_power) / (2.0 * pi * r_max * r_max * z_half_width);
 
-    int test_harps = run_test(3, "input/example8_symm.in");
+
+
+    double y_c = 0.146;
+    double R_in = 0.0135;
+
+    std::vector<std::tuple<int, int, int>> plasma_locations;
+    std::vector<double> plasma_ne;
+    std::vector<double> plasma_mu_re;
+    std::vector<double> plasma_mu_im;
+
+    std::vector<double> y;
+    std::vector<double> z;
+
+
+    // Calculate Conductivity (n_e and mobility)
+    amrex::ParallelFor(
+        *ext_src,
+        [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
+        {
+            if(sdcIter > 0) {
+              Tg_mid = (state_old_a[box_no](i, j, k, TEMP)+state_new_a[box_no](i, j, k, TEMP))*0.5;
+            } else {
+              Tg_mid = state_old_a[box_no](i, j, k, TEMP);
+            }
+            
+            r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+            z = prob_lo[1] + (static_cast<amrex::Real>(j) + 0.5) * dx[1];
+
+            n_e = std::sqrt(Tg_mid);
+            mu_re = 0.02*Tg_mid;
+            mu_im = -0.1*Tg_mid;
+        }
+      );
+
+
+    create_grid("input/2D_RZ.in", y, z);
+    
+    int test_harps = run_harps("input/2D_RZ.in", plasma_locations, plasma_ne, plasma_mu_re, plasma_mu_im);
     amrex::Print() << "Testing outside function: " << test_harps << "\n";
+
+
+
 
     bool testing_SDC = 0;
     bool print_P_in = 1;

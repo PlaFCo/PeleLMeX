@@ -8,53 +8,36 @@
 
 std::string harps_dir = "../../../../power_coupling/harps/";    // Path to the harps directory if I'm running from harps or 1d_fluid if it's next to harps
 
-int run_test(int test_int, const std::string& config_file_path){
 
-    using Complex = std::complex<double>;
-    const Complex zero_C(0.0, 0.0);
-    int rank, size;
+void create_grid(const std::string& config_file_path, std::vector<double>& y, std::vector<double>& z){
+        ConfigParser parser;
+        HARPSConfig config;
+        
+        config = parser.parseFile(harps_dir + config_file_path);
 
-    int fake_argc = 2;
-    
-    std::string prog_name = "harps_subroutine"; 
-    char* fake_argv[] = {
-        const_cast<char*>(prog_name.c_str()),
-        const_cast<char*>(config_file_path.c_str()),
-        nullptr
-    };
+        std::unique_ptr<CoordinateSystem> Grid;
+        Grid = std::make_unique<CartesianCoordinateSystem>(config.n_x, config.n_y, config.n_z, config.lengthX, config.lengthY, config.lengthZ);
+        bool non_uniform_grid = Grid->createNonUniformGrid(config.refinementFactor_x, config.refinementFactor_y, config.refinementFactor_z, 
+                            config.x_BL, config.x_BR, config.x_RL, config.x_RR, config.y_BL, config.y_BR, config.y_RL, config.y_RR,
+                            config.z_BL, config.z_BR, config.z_RL, config.z_RR, config.x_grid, config.y_grid, config.z_grid);
 
-    char** p_fake_argv = fake_argv;
+        y = Grid->y; z = Grid->z;
 
-    // 2. Initialize PETSc with the fake arguments
-    PetscInitialize(&fake_argc, &p_fake_argv, NULL, NULL);
-    
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(PETSC_COMM_WORLD, &size);
-
-    if (rank == 0) {
-        std::cout << "[HARPS] Subroutine initialized with config: " << config_file_path << std::endl;
-    }
-    std::cout << "Counting threads in subroutine: Rank " << rank << " of " << size << std::endl;
-    
-    PetscFinalize();
-
-    return test_int*test_int;
+        return;
 }
 
-int run_harps(int argc, char* argv[]) {
+
+
+int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations, std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im){
     using Complex = std::complex<double>;
     const Complex zero_C(0.0, 0.0);
+    
     int rank, size;
-
-    PetscInitialize(&argc, &argv, NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(PETSC_COMM_WORLD, &size);
-
-    if (argc < 2 && rank == 0) {
-        std::cerr << "Usage: " << argv[0] << " <config_file>" << std::endl;
-
-        PetscFinalize();
-        return 1;
+    if (rank == 0) {
+        std::cout << "[HARPS] Subroutine initialized with config: " << config_file_path << std::endl;
+        std::cout << "[HARPS] Total MPI ranks: " << size << std::endl;
     }
 
     try {
@@ -66,7 +49,7 @@ int run_harps(int argc, char* argv[]) {
         PetscTime(&startTime);
         double previous_time = startTime;
 
-        config = parser.parseFile(harps_dir + argv[1]);
+        config = parser.parseFile(harps_dir + config_file_path);
 
         if(config.printConfig && rank == 0) std::cout << config << std::endl;
 
@@ -85,8 +68,8 @@ int run_harps(int argc, char* argv[]) {
         num_variables = num_pts * 3;
 
         if(num_pts%size != 0){
-            PetscFinalize();
             throw std::runtime_error("Number of threads (" + std::to_string(size) +") needs to evenly divide the number of points (" + std::to_string(num_pts) +"): " + std::to_string(1.*num_pts/size));
+            return 0;
         }
         
         angular_frequency = 2.0 * M_PI * config.frequency;
@@ -115,6 +98,14 @@ int run_harps(int argc, char* argv[]) {
             size_t index = std::get<0>(loc)*config.n_z*config.n_y + std::get<1>(loc)*config.n_z + std::get<2>(loc);
             real_permittivity[index] = value;
         }
+
+        config.electronDensityLocations = plasma_locations;
+        config.electronDensityValues = plasma_ne;
+        config.realMobilityLocations = plasma_locations;
+        config.realMobilityValues = plasma_mu_re;
+        config.imagMobilityLocations = plasma_locations;
+        config.imagMobilityValues = plasma_mu_im;
+        
         for (size_t i = 0; i < config.electronDensityLocations.size(); ++i) {
             const auto& loc = config.electronDensityLocations[i];
             double value = config.electronDensityValues[i];
@@ -543,11 +534,19 @@ int run_harps(int argc, char* argv[]) {
         VecDestroy(&b_vector);
         MatDestroy(&systemMaxwell);
         
-        PetscFinalize();
-
         return 0;
     } catch (const std::exception& error_config) {
         std::cerr << "Error: " << error_config.what() << std::endl;
         return 1;
     }
+
+    return -1;
+}
+
+
+void convert_rz_to_2d(std::vector<std::tuple<int, int, int>>& plasma_locations, std::vector<double>& plasma_ne, std::vector<double>& plasma_mu_re, std::vector<double>& plasma_mu_im){
+    
+
+    
+    return;
 }

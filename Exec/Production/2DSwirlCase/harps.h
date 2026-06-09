@@ -3,10 +3,11 @@
 
 #include <string>
 
-int run_harps(int argc, char* argv);
+void create_grid(const std::string& config_file_path, std::vector<double>& y, std::vector<double>& z);
 
-int run_test(int test_int, const std::string& config_file_path);
+int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations, std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im);
 
+void convert_rz_to_2d(std::vector<std::tuple<int, int, int>>& plasma_locations, std::vector<double>& plasma_ne, std::vector<double>& plasma_mu_re, std::vector<double>& plasma_mu_im);
 
 
 #endif // HARPS_H
