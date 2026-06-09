@@ -28,7 +28,8 @@ void create_grid(const std::string& config_file_path, std::vector<double>& y, st
 
 
 
-int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations, std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im){
+double run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations,
+            std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im, std::vector<double>& plasma_pabs){
     using Complex = std::complex<double>;
     const Complex zero_C(0.0, 0.0);
     
@@ -393,11 +394,13 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
         if(config.printProgress  && rank == 0) std::cout << "Calculating Absorbed Power" << std::endl;
         
         double* absorbedPowerDensity;
+        absorbedPowerDensity = Grid->computeAbsorbedPowerDens(fields, real_conductivity, num_pts);  // Using Joule Heating
+        plasma_pabs.resize(num_pts);
+        std::copy(absorbedPowerDensity, absorbedPowerDensity + plasma_pabs.size(), plasma_pabs.begin());
+        Grid->normalizeDens(absorbedPowerDensity, num_pts, total_abs_power); // without normalizing but still storing p_abs.txt
+        if(symmetric_harps) total_abs_power *= 2.0; // account for the other half of the domain
+        
         if(rank == 0){
-            absorbedPowerDensity = Grid->computeAbsorbedPowerDens(fields, real_conductivity, num_pts);  // Using Joule Heating
-            //absorbedPowerDensity = Grid->normalizeDens(absorbedPowerDensity, num_pts);                  // Normalize P_abs to 1
-            Grid->normalizeDens(absorbedPowerDensity, num_pts, total_abs_power); // without normalizing but still storing p_abs.txt
-            if(symmetric_harps) total_abs_power *= 2.0; // account for the other half of the domain
             std::cout << "Total Joule Power: " << total_abs_power << std::endl;
 
             if (config.injectionValues.size() > 0){
@@ -525,6 +528,7 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
         PetscTime(&endTime);
         PetscPrintf(PETSC_COMM_WORLD, "Time taken: %.3f seconds\n", endTime - startTime);
 
+
         delete[] electron_density; delete[] real_mobility; delete[] imag_mobility; delete[] fields;  delete[] f_grad_cond;
         delete[] real_conductivity; delete[] complex_conductivity; delete[] complex_permittivity; delete[] real_permittivity;
 
@@ -534,7 +538,7 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
         VecDestroy(&b_vector);
         MatDestroy(&systemMaxwell);
         
-        return 0;
+        return total_abs_power;
     } catch (const std::exception& error_config) {
         std::cerr << "Error: " << error_config.what() << std::endl;
         return 1;
@@ -544,9 +548,55 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
 }
 
 
-void convert_rz_to_2d(std::vector<std::tuple<int, int, int>>& plasma_locations, std::vector<double>& plasma_ne, std::vector<double>& plasma_mu_re, std::vector<double>& plasma_mu_im){
-    
+void interpolate_rz_to_yz(const std::vector<double>& y,const std::vector<double>& z, std::vector<std::tuple<int, int, int>>& plasma_locations,
+                        std::vector<double>& plasma_ne, std::vector<double>& plasma_mu_re, std::vector<double>& plasma_mu_im,
+                        const std::vector<double>& amrex_n_e, const std::vector<double>& amrex_mu_re, const std::vector<double>& amrex_mu_im,
+                        int Nr, int Nz, const double* prob_lo, const double* dx, double y_c, double R_in) {
+    plasma_locations.clear();
+    plasma_ne.clear();
+    plasma_mu_re.clear();
+    plasma_mu_im.clear();
 
-    
-    return;
+    for (size_t m = 0; m < y.size(); ++m) {
+        double r_target = std::abs(y[m] - y_c);
+
+        if (r_target > R_in) continue;
+
+        for (size_t n = 0; n < z.size(); ++n) {
+            double z_target = z[n];
+
+            // AMReX grid
+            double f_i = (r_target - prob_lo[0]) / dx[0] - 0.5;
+            double f_j = (z_target - prob_lo[1]) / dx[1] - 0.5;
+
+            // Identify the 4 surrounding bounding cells
+            int i0 = std::floor(f_i);
+            int j0 = std::floor(f_j);
+
+            // Ensure indices stay within safely interpolatable limits [0, N-2]
+            i0 = std::clamp(i0, 0, Nr - 2);
+            j0 = std::clamp(j0, 0, Nz - 2);
+
+            int i1 = i0 + 1;
+            int j1 = j0 + 1;
+
+            double dr = std::clamp(f_i - i0, 0.0, 1.0);
+            double dz = std::clamp(f_j - j0, 0.0, 1.0);
+
+            // Standard Bilinear Interpolation
+            auto bilinear_interp = [&](const std::vector<double>& field) {
+                double v00 = field[i0 + j0 * Nr]; // Bottom-Left
+                double v10 = field[i1 + j0 * Nr]; // Bottom-Right
+                double v01 = field[i0 + j1 * Nr]; // Top-Left
+                double v11 = field[i1 + j1 * Nr]; // Top-Right
+
+                return (1.0 - dr) * (1.0 - dz) * v00 + dr * (1.0 - dz) * v10 + (1.0 - dr) * dz * v01 + dr * dz * v11;
+            };
+
+            plasma_locations.push_back(std::make_tuple(0, static_cast<int>(m), static_cast<int>(n)));
+            plasma_ne.push_back(bilinear_interp(amrex_n_e));
+            plasma_mu_re.push_back(bilinear_interp(amrex_mu_re));
+            plasma_mu_im.push_back(bilinear_interp(amrex_mu_im));
+        }
+    }
 }
