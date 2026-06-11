@@ -27,8 +27,7 @@ void create_grid(const std::string& config_file_path, std::vector<double>& y, st
 }
 
 
-
-double run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations,
+int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations,
             std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im, std::vector<double>& plasma_pabs){
     using Complex = std::complex<double>;
     const Complex zero_C(0.0, 0.0);
@@ -40,6 +39,11 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
         std::cout << "[HARPS] Subroutine initialized with config: " << config_file_path << std::endl;
         std::cout << "[HARPS] Total MPI ranks: " << size << std::endl;
     }
+
+    Mat systemMaxwell = nullptr;
+    Vec b_vector = nullptr;
+    Vec x_seq = nullptr;
+    VecScatter scatter = nullptr;
 
     try {
         ConfigParser parser;
@@ -62,8 +66,6 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
 
         int num_pts, num_variables, temp_idx;
         double angular_frequency, vacuum_wave_number;
-
-        double total_abs_power = 0.0;
 
         num_pts = (config.n_x * config.n_y * config.n_z);
         num_variables = num_pts * 3;
@@ -165,12 +167,11 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
         if (config.enableZLowerPML)  Grid->createPMLProfile('z', false, config.zLowerLayers, angular_frequency, config.orderPML, config.sigma_0);
         if (config.enableZUpperPML)  Grid->createPMLProfile('z', true, config.zUpperLayers, angular_frequency, config.orderPML, config.sigma_0);
 
-        Complex* f_grad_cond = Grid->calculateCondGradFunction(complex_conductivity, complex_permittivity, angular_frequency);
-        
+        std::vector<Complex> f_grad_cond = Grid->calculateCondGradFunction(complex_conductivity, complex_permittivity, angular_frequency);        
+
         // Create system matrix
-        Mat systemMaxwell = Grid->createMaxwellEquationMatrix(f_grad_cond, complex_permittivity, vacuum_wave_number, size);
+        systemMaxwell = Grid->createMaxwellEquationMatrix(f_grad_cond.data(), complex_permittivity, vacuum_wave_number, size);
         
-        Vec b_vector;
         VecCreate(PETSC_COMM_WORLD, &b_vector);
         VecSetSizes(b_vector, PETSC_DECIDE, num_variables);
         VecSetFromOptions(b_vector);
@@ -358,18 +359,17 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
         MPI_Barrier(MPI_COMM_WORLD);
         if(config.printProgress  && rank == 0) std::cout << "Creating Sequential Vector" << std::endl;
 
-        Vec x_seq;
-        VecCreate(PETSC_COMM_SELF, &x_seq);
-        VecSetSizes(x_seq, PETSC_DECIDE, num_variables);
-        VecSetFromOptions(x_seq);
-
+                Vec x_seq = NULL; 
         VecScatter scatter;
+
+        // 2. This single call allocates BOTH the scatter context and the x_seq vector for you
         VecScatterCreateToAll(solution, &scatter, &x_seq);
 
+        // 3. Do the actual communication
         VecScatterBegin(scatter, solution, x_seq, INSERT_VALUES, SCATTER_FORWARD);
         VecScatterEnd(scatter, solution, x_seq, INSERT_VALUES, SCATTER_FORWARD);
 
-        Complex* fields = new Complex[num_variables];
+        std::vector<Complex> fields(num_variables);
         
         // If scalar system was solved put that field in the correct place on the full vector 
         if(config.scalar != -1){
@@ -383,33 +383,24 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
                 fields[i*3 + (config.scalar+2)%3] = zero_C;
             }
             VecRestoreArray(x_seq, &fields_scalar);
-
         } else {
             Complex* fields_petsc;
             VecGetArray(x_seq, &fields_petsc);
-            std::copy(fields_petsc, fields_petsc + num_variables, fields);
+            std::copy(fields_petsc, fields_petsc + num_variables, fields.data());
             VecRestoreArray(x_seq, &fields_petsc);
         }
+        VecScatterDestroy(&scatter);
+        VecDestroy(&x_seq);
 
         if(config.printProgress  && rank == 0) std::cout << "Calculating Absorbed Power" << std::endl;
         
         double* absorbedPowerDensity;
-        absorbedPowerDensity = Grid->computeAbsorbedPowerDens(fields, real_conductivity, num_pts);  // Using Joule Heating
+        absorbedPowerDensity = Grid->computeAbsorbedPowerDens(fields.data(), real_conductivity, num_pts);  // Using Joule Heating
         plasma_pabs.resize(num_pts);
         std::copy(absorbedPowerDensity, absorbedPowerDensity + plasma_pabs.size(), plasma_pabs.begin());
-        Grid->normalizeDens(absorbedPowerDensity, num_pts, total_abs_power); // without normalizing but still storing p_abs.txt
-        if(symmetric_harps) total_abs_power *= 2.0; // account for the other half of the domain
+        delete[] absorbedPowerDensity;
         
         if(rank == 0){
-            std::cout << "Total Joule Power: " << total_abs_power << std::endl;
-
-            if (config.injectionValues.size() > 0){
-                Complex E_0 = 0.0;
-                for (const auto& row : config.injectionValues) for (const auto& element : row) if(std::abs(element) > std::abs(E_0)) E_0 = element;
-                
-                // Complex reflectionCoefficient = fields[Grid->point_index(config.n_x/2, 0, config.n_z/2)+2]/E_0 - 1;
-            }
-
             if(config.storeResults){
                 if(config.printProgress) std::cout << "Storing results" << std::endl;
 
@@ -427,8 +418,8 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
                     double* P_flux_y = new double[num_pts];
                     double* P_flux_z = new double[num_pts];
 
-                    Grid->calculateFlux(fields, P_flux, angular_frequency, num_pts);
-                    Grid->calculatePoynting(P_flux, absorbedPowerDensity, P_poynting, num_pts);
+                    Grid->calculateFlux(fields.data(), P_flux, angular_frequency, num_pts);
+                    Grid->calculatePoynting(P_flux, plasma_pabs.data(), P_poynting, num_pts);
                     
                     Grid->calculateFieldAmplitudes(P_flux, P_flux_amplitude, num_pts);
                     Grid->getFieldComponents(P_flux, P_flux_x, P_flux_y, P_flux_z, num_pts);
@@ -448,7 +439,7 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
                     delete[] P_flux_amplitude; delete[] P_flux_x; delete[] P_flux_y; delete[] P_flux_z; delete[] P_flux; delete[] P_poynting;
                 }
                 if(shouldExport("AbsorbedPower",config.outputFields)){
-                    exportField3D(absorbedPowerDensity, config.outputDirectory + "absorbed_power_density.txt", config.n_x, config.n_y, config.n_z,
+                    exportField3D(plasma_pabs.data(), config.outputDirectory + "absorbed_power_density.txt", config.n_x, config.n_y, config.n_z,
                         config.lengthX, config.lengthY, config.lengthZ, non_uniform_grid, Grid->x, Grid->y, Grid->z);    
                 }
                 if(shouldExport("Inputs",config.outputFields)){
@@ -458,13 +449,15 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
                             config.lengthX, config.lengthY, config.lengthZ , non_uniform_grid, Grid->x, Grid->y, Grid->z);
                     exportField3D(imag_mobility, config.outputDirectory + "imag_mobility.txt", config.n_x, config.n_y, config.n_z,
                             config.lengthX, config.lengthY, config.lengthZ , non_uniform_grid, Grid->x, Grid->y, Grid->z);
-                    if((int) config.sourceLocations.size() == num_pts)
-                        exportField3D(complexToAbsArray(config.sourceValues, 0), config.outputDirectory + "source_values.txt", config.n_x, config.n_y, config.n_z,
-                            config.lengthX, config.lengthY, config.lengthZ , non_uniform_grid, Grid->x, Grid->y, Grid->z);
+                    if((int) config.sourceLocations.size() == num_pts) {
+                        std::vector<double> source_abs = complexToAbsArray(config.sourceValues, 0);
+                        exportField3D(source_abs.data(), config.outputDirectory + "source_values.txt", config.n_x, config.n_y, config.n_z,
+                            config.lengthX, config.lengthY, config.lengthZ, non_uniform_grid, Grid->x, Grid->y, Grid->z);
+                    }
                 }
                 if(shouldExport("FieldAmplitudes",config.outputFields)){
                     double* E_amplitude = new double[num_pts];
-                    Grid->calculateFieldAmplitudes(fields, E_amplitude, num_pts);
+                    Grid->calculateFieldAmplitudes(fields.data(), E_amplitude, num_pts);
 
                     exportField3D(E_amplitude, config.outputDirectory + "E_amplitude.txt", config.n_x, config.n_y, config.n_z, 
                         config.lengthX, config.lengthY, config.lengthZ, non_uniform_grid, Grid->x, Grid->y, Grid->z);
@@ -474,8 +467,8 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
                 if(shouldExport("FieldRealPart",config.outputFields)){
                     double* E_real = new double[num_pts];
                     double* E_imag = new double[num_pts];
-                    Grid->calculateFieldRealPart(fields, E_real, num_pts);
-                    Grid->calculateFieldImagPart(fields, E_imag, num_pts);
+                    Grid->calculateFieldRealPart(fields.data(), E_real, num_pts);
+                    Grid->calculateFieldImagPart(fields.data(), E_imag, num_pts);
 
                     exportField3D(E_real, config.outputDirectory + "E_real.txt", config.n_x, config.n_y, config.n_z, 
                         config.lengthX, config.lengthY, config.lengthZ, non_uniform_grid, Grid->x, Grid->y, Grid->z);
@@ -488,7 +481,7 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
                     double* Ex_amp = new double[num_pts];
                     double* Ey_amp = new double[num_pts];
                     double* Ez_amp = new double[num_pts];
-                    Grid->getFieldComponents(fields, Ex_amp, Ey_amp, Ez_amp, num_pts);
+                    Grid->getFieldComponents(fields.data(), Ex_amp, Ey_amp, Ez_amp, num_pts);
 
                     exportField3D(Ex_amp, config.outputDirectory + "Ex_amp.txt", config.n_x, config.n_y, config.n_z,
                         config.lengthX, config.lengthY, config.lengthZ, non_uniform_grid, Grid->x, Grid->y, Grid->z);
@@ -503,7 +496,7 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
                     double* f_grad_cond_x = new double[num_pts];
                     double* f_grad_cond_y = new double[num_pts];
                     double* f_grad_cond_z = new double[num_pts];
-                    Grid->getFieldComponents(f_grad_cond,f_grad_cond_x, f_grad_cond_y, f_grad_cond_z, num_pts);
+                    Grid->getFieldComponents(f_grad_cond.data(),f_grad_cond_x, f_grad_cond_y, f_grad_cond_z, num_pts);
 
                     exportField3D(f_grad_cond_x, config.outputDirectory + "f_grad_cond_x.txt", config.n_x, config.n_y, config.n_z,
                         config.lengthX, config.lengthY, config.lengthZ, non_uniform_grid, Grid->x, Grid->y, Grid->z);
@@ -523,24 +516,26 @@ double run_harps(const std::string& config_file_path, std::vector<std::tuple<int
             }
             if(config.printProgress) std::cout << "End of Program" << std::endl;
 
-            delete absorbedPowerDensity;
         }
         PetscTime(&endTime);
         PetscPrintf(PETSC_COMM_WORLD, "Time taken: %.3f seconds\n", endTime - startTime);
 
 
-        delete[] electron_density; delete[] real_mobility; delete[] imag_mobility; delete[] fields;  delete[] f_grad_cond;
+        delete[] electron_density; delete[] real_mobility; delete[] imag_mobility;
         delete[] real_conductivity; delete[] complex_conductivity; delete[] complex_permittivity; delete[] real_permittivity;
 
-        VecScatterDestroy(&scatter);
-        VecDestroy(&x_seq);
-        VecDestroy(&solution);
         VecDestroy(&b_vector);
         MatDestroy(&systemMaxwell);
         
-        return total_abs_power;
+        return  0;
     } catch (const std::exception& error_config) {
         std::cerr << "Error: " << error_config.what() << std::endl;
+
+        if (b_vector) VecDestroy(&b_vector);
+        if (x_seq) VecDestroy(&x_seq);
+        if (scatter) VecScatterDestroy(&scatter);
+        if (systemMaxwell) MatDestroy(&systemMaxwell);
+
         return 1;
     }
 

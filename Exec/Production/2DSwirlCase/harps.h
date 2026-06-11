@@ -5,7 +5,7 @@
 
 void create_grid(const std::string& config_file_path, std::vector<double>& y, std::vector<double>& z);
 
-double run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations,
+int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations,
             std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im,
             std::vector<double>& plasma_pabs);
 

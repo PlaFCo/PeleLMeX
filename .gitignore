@@ -23,3 +23,9 @@ temporals
 .project
 Exec/**/*.cproject
 Exec/**/*.project
+
+# Others
+Utils/Plots
+Exec/Production/2DSwirlCase/*.txt
+Exec/RegTests/HotBubble/*.dat
+Exec/Production/2DSwirlCase/cfd

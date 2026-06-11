@@ -100,7 +100,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
       }
     });
   } else if (do_harps == 1) {
-    total_power = 300;
+    total_power *= 1.5;
     double y_c = 0.146;
     double R_in = 0.0135;
     double z_0 = 0.015;
@@ -133,7 +133,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
         Tg_mid = state_old_a[box_no](i, j, k, TEMP);
       }
 
-      n_e_arr[box_no](i, j, k)   = 2e19/(1 + std::exp((4000 - Tg_mid)/800));
+      n_e_arr[box_no](i, j, k)   = 3e19/(1 + std::exp((7000 - Tg_mid)/600));
       mu_re_arr[box_no](i, j, k) = 50/std::sqrt(Tg_mid);
       mu_im_arr[box_no](i, j, k) = -100/std::sqrt(Tg_mid);
     });
@@ -172,8 +172,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
     interpolate_rz_to_yz(y, z, plasma_locations, plasma_ne, plasma_mu_re, plasma_mu_im,
                         amrex_n_e, amrex_mu_re, amrex_mu_im, Nr, Nz, prob_lo, dx, y_c, R_in);    
     
-    double  p_abs_integrated = run_harps("input/2D_RZ.in", plasma_locations, plasma_ne, plasma_mu_re, plasma_mu_im, plasma_pabs);
-    amrex::Print() << "Total Power According to HARPS: " << p_abs_integrated << " W\n";
+    run_harps("input/2D_RZ.in", plasma_locations, plasma_ne, plasma_mu_re, plasma_mu_im, plasma_pabs);
 
 
     // Allocate DeviceVectors with the explicit sizes needed
