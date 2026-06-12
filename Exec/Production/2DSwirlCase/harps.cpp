@@ -60,7 +60,7 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
 
         // debugging prints
         const bool print_ranks = 0;
-        const bool print_times = 0;
+        const bool print_times = 1;
         
         const bool symmetric_harps = false;
 
@@ -362,14 +362,13 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
                 Vec x_seq = NULL; 
         VecScatter scatter;
 
-        // 2. This single call allocates BOTH the scatter context and the x_seq vector for you
         VecScatterCreateToAll(solution, &scatter, &x_seq);
 
-        // 3. Do the actual communication
         VecScatterBegin(scatter, solution, x_seq, INSERT_VALUES, SCATTER_FORWARD);
         VecScatterEnd(scatter, solution, x_seq, INSERT_VALUES, SCATTER_FORWARD);
 
         std::vector<Complex> fields(num_variables);
+        
         
         // If scalar system was solved put that field in the correct place on the full vector 
         if(config.scalar != -1){

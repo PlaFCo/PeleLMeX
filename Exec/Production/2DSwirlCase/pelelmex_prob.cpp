@@ -74,7 +74,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
   bool do_harps = 0;
   bool normalize_power = 1;
   
-  if (time < 0.15){
+  if (time < 0.05){
     do_harps = 0;
   } else {
     do_harps = 1;
