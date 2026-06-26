@@ -315,6 +315,14 @@ PeleLM::calcDiffusivity(const TimeStamp a_time)
     for (int n = 0; n < m_nAux; ++n) {
       auto const& diff_aux_arr = ldata_p->diff_aux_cc.arrays();
       auto const& diff_arr = ldata_p->diff_cc.const_arrays();
+#ifdef PELE_USE_AXISWIRL
+      if (n == m_angmom_aux) {
+        // remove normal diffusion, swirl diffusion added later 
+        ldata_p->diff_aux_cc.setVal(
+          0.0, n, 1, ldata_p->diff_aux_cc.nGrowVect());
+        continue;
+      }
+#endif
       if (m_aux_Schmidt[n] > 0) {
         // Compute diffusivity with Schmidt number
         const amrex::Real inv_sc = 1.0 / m_aux_Schmidt[n];
