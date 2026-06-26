@@ -1,0 +1,67 @@
+# turn off makeSwirlForce
+#----------------------DOMAIN DEFINITION------------------------
+geometry.is_periodic = 0 1 1              # For each dir, 0: non-perio, 1: periodic
+geometry.coord_sys   = 1                  # 0 => cart, 1 => RZ
+geometry.prob_lo     = 0.0   0.0   0.0        # x_lo y_lo (z_lo)
+geometry.prob_hi     = 0.013 0.013 0.00325        # x_hi y_hi (z_hi)
+
+# >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
+# Interior, Inflow, Outflow, Symmetry,
+# SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
+peleLM.lo_bc = Symmetry  Interior Interior 
+peleLM.hi_bc = SlipWallAdiab Interior Interior 
+
+
+#-------------------------AMR CONTROL----------------------------
+amr.n_cell          = 64 64 32      # Level 0 number of cells in each direction   
+amr.v               = 1             # AMR verbose
+amr.max_level       = 0             # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2       # refinement ratio
+amr.regrid_int      = 5             # how often to regrid
+amr.n_error_buf     = 1 1 2 2       # number of buffer cells in error est
+amr.grid_eff        = 0.7           # what constitutes an efficient grid
+amr.blocking_factor = 4             # block factor in grid generation (min box size)
+amr.max_grid_size   = 32            # max box size
+
+#--------------------------- Problem -------------------------------
+prob.P_mean = 101325.0
+prob.solidBody = 1
+prob.p=1
+prob.sin = 1
+
+prob.utheta = 10
+prob.uz = 5
+prob.ur = 1.0
+prob.inletcenter = 0.013
+prob.inletdelta = 0.003
+#-------------------------PeleLM CONTROL----------------------------
+transport.const_viscosity        = 1.0e-4
+transport.const_bulk_viscosity   = 0.0
+transport.const_conductivity     = 0.0
+transport.const_diffusivity      = 0.0
+transport.units = MKS 
+
+#-------------------------PeleLM CONTROL----------------------------
+peleLM.v = 1
+peleLM.incompressible = 0
+peleLM.rho = 1.17
+peleLM.mu = 2.5e-3
+peleLM.use_wbar = 0
+peleLM.sdc_iterMax = 2
+peleLM.floor_species = 0
+peleLM.num_init_iter = 3
+peleLM.num_init_iter = 5
+#amr.restart = chk00005
+amr.check_int = 1000
+amr.plot_int = 1000
+amr.plot_overwrite = true 
+amr.plot_init_state = true
+amr.max_step = 10000
+amr.dt_shrink = 0.3
+amr.stop_time = 2.5
+amr.fixed_dt = 0.2e-05
+amr.cfl = 0.05
+amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib angmom viscosity
+
+#cvode.solve_type = dense               # CVODE Linear solve type (for Newton direction) 
+#ode.analytical_jacobian = 0            # Provide analytical jacobian (from Fuego) 

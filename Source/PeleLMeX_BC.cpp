@@ -90,9 +90,9 @@ constexpr int angmom_bc[] = {
   amrex::BCType::ext_dir,      // Inflow
   amrex::BCType::foextrap,     // Outflow
   amrex::BCType::reflect_odd,  // Symmetry/axis
-  amrex::BCType::hoextrap,     // Slip wall
+  amrex::BCType::reflect_even,     // Slip wall
   amrex::BCType::reflect_odd,  // No-slip wall
-  amrex::BCType::hoextrap,     // Slip isothermal wall
+  amrex::BCType::reflect_even,     // Slip isothermal wall
   amrex::BCType::reflect_odd   // No-slip isothermal wall
 };
 #endif

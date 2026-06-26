@@ -190,6 +190,7 @@ PeleLM::computeDifferentialDiffusionTerms(
       intensiveFluxes, -1.0);
   }
 #ifdef PELE_USE_AXISWIRL
+auto bcRecAngMom = fetchBCRecAuxArray(m_angmom_aux, 1);
 if (m_nAux > 0 && m_angmom_aux >= 0) {
   for (int lev = 0; lev <= finest_level; ++lev) {
 
@@ -199,6 +200,7 @@ if (m_nAux > 0 && m_angmom_aux >= 0) {
       *getAuxVect(a_time)[lev],
       *getDensityVect(a_time)[lev],
       *getViscosityVect(a_time)[lev], 
+      bcRecAngMom[0],
       0);
   }
 }
@@ -1346,6 +1348,7 @@ PeleLM::differentialDiffusionUpdate(
       m_nAux, 1, -1.0);
   }
 #ifdef PELE_USE_AXISWIRL
+auto bcRecAngMom = fetchBCRecAuxArray(m_angmom_aux, 1);
 if (m_nAux > 0 && m_angmom_aux >= 0) {
   for (int lev = 0; lev <= finest_level; ++lev) {
 
@@ -1355,6 +1358,7 @@ if (m_nAux > 0 && m_angmom_aux >= 0) {
       *getAuxVect(AmrNewTime)[lev],
       *getDensityVect(AmrNewTime)[lev],
       *getViscosityVect(AmrNewTime)[lev], 
+      bcRecAngMom[0],
       0);
   }
 }

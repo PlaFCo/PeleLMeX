@@ -1300,6 +1300,7 @@ public:
     amrex::MultiFab const& aux,
     amrex::MultiFab const& state,
     amrex::MultiFab const& mu,
+    amrex::BCRec const& bc,
     int muComp = 0);
 #endif
 

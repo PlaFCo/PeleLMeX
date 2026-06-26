@@ -785,7 +785,6 @@ makeSwirlForce(
   amrex::Array4<const amrex::Real> const& ell,
   amrex::Array4<amrex::Real> const& force) noexcept
 {
-  // Switch between incompressible/low-Mach rhos
   amrex::Real rho_lcl = 0.0;
   if (is_incomp != 0) {
     rho_lcl = rho_incomp;
