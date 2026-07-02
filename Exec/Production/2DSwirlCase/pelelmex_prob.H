@@ -73,11 +73,12 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
 
     pert = 0.0;
     state(i, j, k, TEMP) = 300.0; //pmf_vals[0];
-    molefrac[N2_ID] = 1.0;
+    molefrac[N2_ID] = 0.79;
+    molefrac[O2_ID] = 0.21;
     eos.X2Y(molefrac, massfrac);
 
     AMREX_D_TERM(state(i, j, k, VELX) = 0.0;
-                 , state(i, j, k, VELY) = 0.0; //pmf_vals[1] * 1e-2;
+                 , state(i, j, k, VELY) = 0.01; //pmf_vals[1] * 1e-2;
                  , state(i, j, k, VELZ) = 0.0);
 
     amrex::Real P_cgs = prob_parm.P_mean * 10.0;
@@ -99,14 +100,9 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     amrex::Real r = (i + 0.5) * dx[0];
 
     // Start with a slow solid body swirl
-    aux(i, j, k, aux.nComp()-1) = 0.01*r*r*state(i,j,k,DENSITY);
-
-
-    std::string prog_name = "harps_subroutine"; 
-    char* fake_argv[] = {const_cast<char*>(prog_name.c_str()),const_cast<char*>(prog_name.c_str()), nullptr};
-    int fake_argc = 2;
-    char** p_fake_argv = fake_argv;
-    PetscInitialize(&fake_argc, &p_fake_argv, NULL, NULL);
+    aux(i, j, k, aux.nComp()-1) = (0.01*r)*r*state(i,j,k,DENSITY);
+    //aux(i, j, k, aux.nComp()-1) = (30*r*std::exp(-2*r*r*2e4))*r*state(i,j,k,DENSITY);                  // odd normal
+    //aux(i, j, k, aux.nComp()-1) = (30*0.005*(r/0.005)/(1+(r/0.005)*(r/0.005)))*r*state(i,j,k,DENSITY); // decreasing velocity but increasing l_z
   }
 
   AMREX_GPU_DEVICE
@@ -142,7 +138,8 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       }
       
       amrex::Real temp = 300;
-      molefrac[N2_ID] = 1.0;
+      molefrac[N2_ID] = 0.79;
+      molefrac[O2_ID] = 0.21;
       eos.X2Y(molefrac, massfrac);
 
       amrex::Real rho_cgs, P_cgs, RhoH_temp;
@@ -152,6 +149,26 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       amrex::Real density = rho_cgs * 1.0e3;
       
       aux_ext[naux] = density * r * utheta;
+      //aux_ext[naux] = (20*r/0.01)*r*density;
+    } else if (idir == 0 && sgn == -1){
+      aux_ext[naux] = 0.0;
+
+      if (x[1]>0.025 && x[1]<0.03){
+        amrex::Real utheta = 0.0;
+        amrex::Real temp = 300;
+        molefrac[N2_ID] = 0.79;
+        molefrac[O2_ID] = 0.21;
+        eos.X2Y(molefrac, massfrac);
+
+        amrex::Real rho_cgs, P_cgs, RhoH_temp;
+        P_cgs = prob_parm.P_mean * 10.0;
+
+        eos.PYT2R(P_cgs, massfrac, temp, rho_cgs);
+        amrex::Real density = rho_cgs * 1.0e3;
+
+        utheta = 20;
+        aux_ext[naux] = density * 0.014 * utheta;
+      }
     }
   }
 
@@ -188,6 +205,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       amrex::Real ymin = center-deltac;
       amrex::Real ymax = center+deltac;
 
+
       if (x[0]<ymax && x[0]>ymin){
         AMREX_D_TERM(
             s_ext[VELX] = prob_parm.ur; //*std::cos(0.5*3.14159*(x[1]-center)/deltac);
@@ -197,7 +215,8 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       
       s_ext[TEMP] = 300;// pmf_vals[0];
                         //
-      molefrac[N2_ID] = 1.0;
+      molefrac[N2_ID] = 0.79;
+      molefrac[O2_ID] = 0.21;
       eos.X2Y(molefrac, massfrac);
 
       amrex::Real rho_cgs, P_cgs, RhoH_temp;
@@ -213,8 +232,38 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       for (int n = 0; n < NUM_SPECIES; n++) {
         s_ext[FIRSTSPEC + n] = massfrac[n] * s_ext[DENSITY];
       }
-  }
-  }
+    }else if (idir == 0){
+      AMREX_D_TERM(
+          s_ext[VELX] = 0.0;, s_ext[VELY] = 0.0;
+          , s_ext[VELZ] = 0.0);
+
+      if (x[1]>0.025 && x[1]<0.03){
+        AMREX_D_TERM(
+            s_ext[VELX] = -8; //*std::cos(0.5*3.14159*(x[1]-center)/deltac);
+          , s_ext[VELY] = 0.0; //*std::sin(0.5*3.14159*(x[1]-center)/deltac);
+          , s_ext[VELZ] = 0.0);
+      }
+      
+      s_ext[TEMP] = 300;// pmf_vals[0];
+                        //
+      molefrac[N2_ID] = 0.79;
+      molefrac[O2_ID] = 0.21;
+      eos.X2Y(molefrac, massfrac);
+
+      amrex::Real rho_cgs, P_cgs, RhoH_temp;
+      P_cgs = prob_parm.P_mean * 10.0;
+
+      eos.PYT2R(P_cgs, massfrac, s_ext[TEMP], rho_cgs);
+      s_ext[DENSITY] = rho_cgs * 1.0e3;
+
+      eos.TY2H(s_ext[TEMP], massfrac, RhoH_temp);
+      s_ext[RHOH] = RhoH_temp * 1.0e-4 * s_ext[DENSITY]; // CGS -> MKS conversion
+
+      for (int n = 0; n < NUM_SPECIES; n++) {
+        s_ext[FIRSTSPEC + n] = massfrac[n] * s_ext[DENSITY];
+      }
+    }
+}
 
   static void modify_ext_sources(
     amrex::Real time,

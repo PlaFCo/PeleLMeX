@@ -29,7 +29,7 @@ USE_EFIELD = FALSE
 USE_AXISWIRL = TRUE
 
 # PelePhysics
-Chemistry_Model = air
+Chemistry_Model = air 		#airThermal
 Eos_Model = Fuego
 Transport_Model = Simple
 

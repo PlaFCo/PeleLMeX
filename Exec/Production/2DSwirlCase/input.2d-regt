@@ -8,7 +8,7 @@ geometry.prob_hi     = 0.013 0.208 0.001625        # x_hi y_hi (z_hi)
 # Interior, Inflow, Outflow, Symmetry,
 # SlipWallAdiab, NoSlipWallAdiab, SlipWallIsotherm, NoSlipWallIsotherm
 peleLM.lo_bc = Symmetry  Inflow Interior 
-peleLM.hi_bc = SlipWallAdiab Outflow Interior 
+peleLM.hi_bc = Inflow Outflow Interior 
 
 
 #-------------------------AMR CONTROL----------------------------
@@ -26,17 +26,18 @@ amr.max_grid_size   = 32            # max box size
 prob.P_mean = 101325.0
 prob.solidBody = 40000.0
 
-prob.utheta = 5
+prob.utheta = 0
 prob.uz = 2
-prob.ur = -0.3
+prob.ur = 0
 prob.inlet_center = 0.010
-prob.inlet_delta  = 0.002
+prob.inlet_delta  = 0.019
 
-prob.total_power = 200
+prob.total_power = 300
 
 
 #-------------------------PeleLM CONTROL----------------------------
 peleLM.v = 1
+
 peleLM.incompressible = 0
 peleLM.rho = 1.17
 peleLM.mu = 2.5e-5
@@ -46,15 +47,15 @@ peleLM.floor_species = 0
 peleLM.num_init_iter = 3
 peleLM.num_init_iter = 5
 peleLM.divu_dt_rhoMin = 1e-4
-#amr.restart = chk00005
-#amr.check_int = 2000
-amr.plot_int = 104
+#amr.restart = chk36000
+amr.check_int = 2000
+amr.plot_int = 200
 amr.plot_overwrite = true 
 amr.plot_init_state = true
-amr.max_step = 20000            #20000
+amr.max_step = 60000
 amr.dt_shrink = 0.3
-amr.stop_time = 2
-#amr.fixed_dt = 1e-10
+amr.stop_time = 1
+#amr.fixed_dt = 2e-6
 #amr.stop_time = 1.00
 amr.cfl = 0.5
 amr.derive_plot_vars = avg_pressure mag_vort mass_fractions chargedistrib angmom
@@ -63,8 +64,14 @@ peleLM.user_defined_ext_sources = true
 peleLM.plot_extSource = true
 peleLM.ext_sources_SDC = true
 
-#cvode.solve_type = dense               # CVODE Linear solve type (for Newton direction) 
-#ode.analytical_jacobian = 0            # Provide analytical jacobian (from Fuego) 
+# --------------- INPUTS TO CHEMISTRY REACTOR ---------------
+peleLM.chem_integrator = "ReactorCvode"
+peleLM.use_typ_vals_chem = 1          # Use species/temp typical values in CVODE
+ode.rtol = 1.0e-7                     # Relative tolerance of the chemical solve
+ode.atol = 1.0e-6                     # Absolute tolerance factor applied on typical values
+ode.clean_init_massfrac = 1
+cvode.solve_type = dense_direct       # CVODE Linear solve type (for Newton direction) 
+cvode.max_order  = 4                  # CVODE max BDF order. 
 
 
 #--------------------EFIELD CONTROL------------------------

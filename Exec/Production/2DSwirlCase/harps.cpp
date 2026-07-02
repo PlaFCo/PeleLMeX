@@ -5,6 +5,7 @@
 #include "Utils.h"
 
 #include "harps.h"
+#include <PeleLMeX.H>
 
 std::string harps_dir = "../../../../power_coupling/harps/";    // Path to the harps directory if I'm running from harps or 1d_fluid if it's next to harps
 
@@ -12,7 +13,6 @@ std::string harps_dir = "../../../../power_coupling/harps/";    // Path to the h
 void create_grid(const std::string& config_file_path, std::vector<double>& y, std::vector<double>& z){
         ConfigParser parser;
         HARPSConfig config;
-        
         config = parser.parseFile(harps_dir + config_file_path);
 
         std::unique_ptr<CoordinateSystem> Grid;
@@ -31,10 +31,11 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
             std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im, std::vector<double>& plasma_pabs){
     using Complex = std::complex<double>;
     const Complex zero_C(0.0, 0.0);
-    
+
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(PETSC_COMM_WORLD, &size);
+
     if (rank == 0) {
         std::cout << "[HARPS] Subroutine initialized with config: " << config_file_path << std::endl;
         std::cout << "[HARPS] Total MPI ranks: " << size << std::endl;
@@ -60,7 +61,7 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
 
         // debugging prints
         const bool print_ranks = 0;
-        const bool print_times = 1;
+        const bool print_times = 0;
         
         const bool symmetric_harps = false;
 

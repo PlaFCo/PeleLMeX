@@ -73,8 +73,10 @@ void ProblemSpecificFunctions::modify_ext_sources(
   bool print_P_in = 1;
   bool do_harps = 0;
   bool normalize_power = 1;
+
+  if (total_power < 1e-6) return;
   
-  if (time < 0.05){
+  if (time < 0.10){
     do_harps = 0;
   } else {
     do_harps = 1;
@@ -100,7 +102,6 @@ void ProblemSpecificFunctions::modify_ext_sources(
       }
     });
   } else if (do_harps == 1) {
-    total_power *= 1.5;
     double y_c = 0.146;
     double R_in = 0.0135;
     double z_0 = 0.015;
@@ -133,9 +134,9 @@ void ProblemSpecificFunctions::modify_ext_sources(
         Tg_mid = state_old_a[box_no](i, j, k, TEMP);
       }
 
-      n_e_arr[box_no](i, j, k)   = 3e19/(1 + std::exp((7000 - Tg_mid)/600));
-      mu_re_arr[box_no](i, j, k) = 50/std::sqrt(Tg_mid);
-      mu_im_arr[box_no](i, j, k) = -100/std::sqrt(Tg_mid);
+      n_e_arr[box_no](i, j, k)   = 3e19/(1 + std::exp((6000 - Tg_mid)/600));
+      mu_re_arr[box_no](i, j, k) = 15/std::sqrt(Tg_mid);
+      mu_im_arr[box_no](i, j, k) = -30/std::sqrt(Tg_mid);
     });
 
     // Allocate global flat arrays to hold the full 2D grid data
@@ -167,11 +168,23 @@ void ProblemSpecificFunctions::modify_ext_sources(
     amrex::ParallelDescriptor::ReduceRealSum(amrex_mu_im.data(), amrex_mu_im.size());
 
 
+    // Check if PETSc is already initialized
+    PetscBool petsc_is_initialized;
+    PetscInitialized(&petsc_is_initialized);
+
+    if (!petsc_is_initialized) {
+      std::string prog_name = "harps_subroutine"; 
+      char* fake_argv[] = {const_cast<char*>(prog_name.c_str()), const_cast<char*>(prog_name.c_str()), nullptr};
+      int fake_argc = 2;
+      char** p_fake_argv = fake_argv;
+      PetscInitialize(&fake_argc, &p_fake_argv, NULL, NULL);
+    }
+
     create_grid("input/2D_RZ.in", y, z);
 
     interpolate_rz_to_yz(y, z, plasma_locations, plasma_ne, plasma_mu_re, plasma_mu_im,
-                        amrex_n_e, amrex_mu_re, amrex_mu_im, Nr, Nz, prob_lo, dx, y_c, R_in);    
-    
+                        amrex_n_e, amrex_mu_re, amrex_mu_im, Nr, Nz, prob_lo, dx, y_c, R_in);   
+
     run_harps("input/2D_RZ.in", plasma_locations, plasma_ne, plasma_mu_re, plasma_mu_im, plasma_pabs);
 
 
@@ -267,7 +280,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
       }
 
       amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept{
-        ext_src_rhoh_a[box_no](i, j, k, RHOH) = std::min(ext_src_rhoh_a[box_no](i, j, k, RHOH)*normalization_factor, 3e8);
+        ext_src_rhoh_a[box_no](i, j, k, RHOH) = std::min(ext_src_rhoh_a[box_no](i, j, k, RHOH)*normalization_factor, 4e8);
       });
     }
   }
