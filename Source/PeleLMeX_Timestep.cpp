@@ -1,6 +1,7 @@
 #include <PeleLMeX.H>
 #include <PeleLMeX_K.H>
 
+
 amrex::Real
 PeleLM::computeDt(const int is_init, const TimeStamp a_time)
 {
@@ -27,6 +28,11 @@ PeleLM::computeDt(const int is_init, const TimeStamp a_time)
         dtdivU = estDivUDt(a_time);
         estdt = amrex::min<amrex::Real>(estdt, dtdivU);
       }
+
+#ifdef PELE_USE_AXISWIRL
+      amrex::Real dtswirl = estSwirlViscousDt(a_time);
+      estdt = amrex::min<amrex::Real>(estdt, dtswirl);
+#endif
 #ifdef PELE_USE_PLASMA
       amrex::Real dtions = estEFIonsDt(a_time);
       estdt = amrex::min<amrex::Real>(estdt, dtions);
@@ -38,6 +44,9 @@ PeleLM::computeDt(const int is_init, const TimeStamp a_time)
       if (m_verbose != 0) {
         amrex::Print() << " Est. time step - Conv: " << dtconv
                        << ", divu: " << dtdivU
+#ifdef PELE_USE_AXISWIRL
+                       << ", swirl_visc: " << dtswirl
+#endif
 #ifdef PELE_USE_PLASMA
                        << ", ions: " << dtions
 #endif
@@ -58,7 +67,6 @@ PeleLM::computeDt(const int is_init, const TimeStamp a_time)
     estdt = amrex::min<amrex::Real>(estdt, m_max_dt);
     // Shorten the dt to output plt file at exact req. time
     if (m_plot_per_exact > 0.0) {
-      // Ensure ~O(dt) step by checking a little in advance
       amrex::Real timeToNextPlot =
         (std::floor(m_cur_time / m_plot_per_exact) + 1) * m_plot_per_exact -
         m_cur_time;
@@ -70,10 +78,8 @@ PeleLM::computeDt(const int is_init, const TimeStamp a_time)
         }
       }
     }
-    // If we're are getting close to the end of the simulation, shorten the dt
-    // too
+    // If we are getting close to the end of the simulation, shorten the dt
     if (m_stop_time >= 0.0) {
-      // Ensure ~O(dt) last step by checking a little in advance
       amrex::Real timeLeft = (m_stop_time - m_cur_time);
       if (2.0 * estdt > timeLeft && timeLeft > estdt) {
         estdt = 0.5 * timeLeft;
@@ -258,3 +264,58 @@ PeleLM::checkDt(const TimeStamp a_time, const amrex::Real a_dt)
   }
   amrex::Gpu::streamSynchronize();
 }
+
+
+
+#ifdef PELE_USE_AXISWIRL
+amrex::Real
+PeleLM::estSwirlViscousDt(const TimeStamp a_time)
+{
+  BL_PROFILE("PeleLMeX::estSwirlViscousDt()");
+
+  if (m_nAux <= 0 || m_angmom_aux < 0) {
+    return 1.0e200;
+  }
+
+  amrex::Real dtswirl = 1.0e200;
+  const amrex::Real cfl_visc = 0.5; // Viscous CFL safety factor (<= 0.5 for 2D explicit)
+
+  for (int lev = 0; lev <= finest_level; ++lev) {
+    auto* ldata = getLevelDataPtr(lev, a_time);
+    const auto dx = geom[lev].CellSizeArray();
+    const amrex::Real inv_dx2 = (1.0 / (dx[0] * dx[0])) + (1.0 / (dx[1] * dx[1]));
+
+    amrex::ReduceOps<amrex::ReduceOpMin> reduce_op;
+    amrex::ReduceData<amrex::Real> reduce_data(reduce_op);
+    using ReduceTuple = typename decltype(reduce_data)::Type;
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInParallelRegion())
+#endif
+    for (amrex::MFIter mfi(ldata->state, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+      const amrex::Box& bx = mfi.tilebox();
+      auto const& state_arr = ldata->state.const_array(mfi);
+      auto const& visc_arr  = ldata->visc_cc.const_array(mfi);
+
+      reduce_op.eval(bx, reduce_data,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept -> ReduceTuple
+      {
+        const amrex::Real rho = state_arr(i, j, k, DENSITY);
+        const amrex::Real mu  = visc_arr(i, j, k, 0);
+        const amrex::Real nu  = mu / rho;
+
+        if (nu > 1.0e-12) {
+          return cfl_visc / (2.0 * nu * inv_dx2);
+        }
+        return 1.0e200;
+      });
+    }
+
+    amrex::Real dt_lev = amrex::get<0>(reduce_data.value(reduce_op));
+    dtswirl = std::min(dtswirl, dt_lev);
+  }
+
+  amrex::ParallelDescriptor::ReduceRealMin(dtswirl);
+  return dtswirl;
+}
+#endif

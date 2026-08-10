@@ -821,6 +821,10 @@ public:
    */
   amrex::Real computeDt(const int is_init, const PeleLM::TimeStamp a_time);
 
+  #ifdef PELE_USE_AXISWIRL
+  amrex::Real estSwirlViscousDt(const TimeStamp a_time);
+  #endif
+  
   /**
    * \brief Compute the CFL step size
    * \param a_time state time to work on, either Old or New
