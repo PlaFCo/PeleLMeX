@@ -100,7 +100,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     amrex::Real r = (i + 0.5) * dx[0];
 
     // Start with a slow solid body swirl
-    aux(i, j, k, aux.nComp()-1) = (0*0.01*r)*r*state(i,j,k,DENSITY);
+    aux(i, j, k, aux.nComp()-1) = (0.1*r)*r*state(i,j,k,DENSITY);
     //aux(i, j, k, aux.nComp()-1) =(20*r/0.01)*r*state(i,j,k,DENSITY);
     //aux(i, j, k, aux.nComp()-1) = (30*r*std::exp(-2*r*r*2e4))*r*state(i,j,k,DENSITY);                  // odd normal
     //aux(i, j, k, aux.nComp()-1) = (30*0.005*(r/0.005)/(1+(r/0.005)*(r/0.005)))*r*state(i,j,k,DENSITY); // decreasing velocity but increasing l_z

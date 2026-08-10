@@ -70,7 +70,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
   amrex::Real z_half_width = 0.025;  // 3.0 cm (spans 5.0 cm to 10.0 cm)
   amrex::Real r_max        = 0.008;  // 0.8 cm
 
-  amrex::Real power_time   = 0.4;  // s
+  amrex::Real power_time   = 0.04;  // s 0.4
 
   bool print_P_in = 1;
   bool do_harps = 0;
