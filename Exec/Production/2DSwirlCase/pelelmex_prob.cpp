@@ -66,9 +66,11 @@ void ProblemSpecificFunctions::modify_ext_sources(
 
   amrex::Real total_power = prob_parm_d->total_power;
 
-  amrex::Real z_center     = 0.075;  // 7.5 cm 
-  amrex::Real z_half_width = 0.025;  // 2.5 cm (spans 5.0 cm to 10.0 cm)
+  amrex::Real z_center     = 0.140;  // 7.5 cm 
+  amrex::Real z_half_width = 0.025;  // 3.0 cm (spans 5.0 cm to 10.0 cm)
   amrex::Real r_max        = 0.008;  // 0.8 cm
+
+  amrex::Real power_time   = 0.4;  // s
 
   bool print_P_in = 1;
   bool do_harps = 0;
@@ -76,14 +78,15 @@ void ProblemSpecificFunctions::modify_ext_sources(
 
   if (total_power < 1e-6) return;
   
-  if (time < 0.10){
+  if (time < 0.30){
     do_harps = 0;
   } else {
     do_harps = 1;
   }
 
   if (do_harps == 0) {
-    const amrex::Real P_0 = (3.0 * total_power) / (2.0 * pi * r_max * r_max * z_half_width);
+    amrex::Real P_0 = (3.0 * total_power) / (2.0 * pi * r_max * r_max * z_half_width);
+    P_0 = P_0 * amrex::min(1.0, time/power_time);
 
     amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept{
       amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
@@ -97,6 +100,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
         amrex::Real z_norm = (z - z_center) / z_half_width;
 
         ext_src_rhoh_a[box_no](i, j, k, RHOH) = P_0 * (1.0 - r_norm*r_norm) * (1.0 - z_norm*z_norm);
+        // ext_src_rhoh_a[box_no](i, j, k, RHOH) = total_power*amrex::min(1.0, time/power_time);/(3.14*r_max*r_max*z_half_width)
       } else {
         ext_src_rhoh_a[box_no](i, j, k, RHOH) = 0.0; 
       }
@@ -104,8 +108,11 @@ void ProblemSpecificFunctions::modify_ext_sources(
   } else if (do_harps == 1) {
     double y_c = 0.146;
     double R_in = 0.0135;
-    double z_0 = 0.015;
     double L_z = 0.120;
+
+    double max_power = 5e8;
+
+    double z_0 = z_center - L_z/2;
 
     std::vector<std::tuple<int, int, int>> plasma_locations;
     std::vector<double> plasma_ne;
@@ -126,17 +133,45 @@ void ProblemSpecificFunctions::modify_ext_sources(
     auto mu_im_arr = mu_im_mf.arrays();
 
     // Compute conductivity related quantities (n_e, mu)
+    amrex::Real E_ion_O2 = 12.06 * 1.60218e-19; // J
+    amrex::Real E_ion_N2 = 15.58 * 1.60218e-19; // J
+    amrex::Real E_ion_NO = 9.26 * 1.60218e-19;  // J
+    amrex::Real h_planck = 6.62607015e-34;      // J*s
+    amrex::Real k_B = 1.380649e-23;             // J/K
+    amrex::Real m_e = 9.10938356e-31;           // kg
+    amrex::Real atomic_mass_unit = 1.66053906660e-27; // kg
+
     amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept {
       amrex::Real Tg_mid;
+      amrex::Real n_O2_mid;
+      amrex::Real n_N2_mid;
+      amrex::Real n_NO_mid;
+      amrex::Real n_e_O2;
+      amrex::Real n_e_N2;
+      amrex::Real n_e_NO;
+
       if(sdcIter > 0) {
         Tg_mid = (state_old_a[box_no](i, j, k, TEMP) + state_new_a[box_no](i, j, k, TEMP)) * 0.5;
+        n_O2_mid = (state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + O2_ID) + state_new_a[box_no](i, j, k, DENSITY) * state_new_a[box_no](i, j, k, FIRSTSPEC + O2_ID)) * 0.5 / (32.0 * atomic_mass_unit);
+        n_N2_mid = (state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + N2_ID) + state_new_a[box_no](i, j, k, DENSITY) * state_new_a[box_no](i, j, k, FIRSTSPEC + N2_ID)) * 0.5 / (28.0 * atomic_mass_unit);
+        // n_NO_mid = (state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + NO_ID) + state_new_a[box_no](i, j, k, DENSITY) * state_new_a[box_no](i, j, k, FIRSTSPEC + NO_ID)) * 0.5 / (30.0 * atomic_mass_unit);
       } else {
         Tg_mid = state_old_a[box_no](i, j, k, TEMP);
+        n_O2_mid = state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + O2_ID) / (32.0 * atomic_mass_unit);
+        n_N2_mid = state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + N2_ID) / (28.0 * atomic_mass_unit);
+        // n_NO_mid = state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + NO_ID) / (30.0 * atomic_mass_unit);
       }
+      amrex::Real gas_density = prob_parm_d->P_mean /(k_B*Tg_mid); // Ideal Gas
 
-      n_e_arr[box_no](i, j, k)   = 3e19/(1 + std::exp((6000 - Tg_mid)/600));
-      mu_re_arr[box_no](i, j, k) = 15/std::sqrt(Tg_mid);
-      mu_im_arr[box_no](i, j, k) = -30/std::sqrt(Tg_mid);
+      n_e_O2 = sqrt(n_O2_mid*pow(2*3.14159*m_e*k_B*Tg_mid/h_planck/h_planck,1.5)*exp(-E_ion_O2/(k_B*Tg_mid))); // Saha equation, is probably overestimating n_e because of no diffusion and no recombination
+      n_e_N2 = sqrt(n_N2_mid*pow(2*3.14159*m_e*k_B*Tg_mid/h_planck/h_planck,1.5)*exp(-E_ion_N2/(k_B*Tg_mid)));
+      //n_e_NO = sqrt(n_NO_mid*pow(2*3.14159*m_e*k_B*Tg_mid/h_planck/h_planck,1.5)*exp(-E_ion_NO/(k_B*Tg_mid)));
+
+      n_e_arr[box_no](i, j, k)   = sqrt(n_e_O2*n_e_O2 + n_e_N2*n_e_N2);
+      //n_e_arr[box_no](i, j, k)   = sqrt(n_e_O2*ne_O2 + n_e_N2*n_e_N2 + n_e_NO*n_e_NO);
+
+      mu_re_arr[box_no](i, j, k) = 5*exp(-((log(gas_density/1.2e23))*(log(gas_density/1.2e23)))/(2*1.3*1.3)); // approximation from LoKI at 1.5 eV
+      mu_im_arr[box_no](i, j, k) = -17+17/(1+exp(-(gas_density-1.2e23)/2e23));
     });
 
     // Allocate global flat arrays to hold the full 2D grid data
@@ -183,7 +218,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
     create_grid("input/2D_RZ.in", y, z);
 
     interpolate_rz_to_yz(y, z, plasma_locations, plasma_ne, plasma_mu_re, plasma_mu_im,
-                        amrex_n_e, amrex_mu_re, amrex_mu_im, Nr, Nz, prob_lo, dx, y_c, R_in);   
+                        amrex_n_e, amrex_mu_re, amrex_mu_im, Nr, Nz, prob_lo, dx, y_c, R_in, z_0);   
 
     run_harps("input/2D_RZ.in", plasma_locations, plasma_ne, plasma_mu_re, plasma_mu_im, plasma_pabs);
 
@@ -216,7 +251,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
 
       if (inside_r && inside_z) {
         double y_target = y_c - r;
-        double z_target = z;
+        double z_target = z - z_0;
 
         // Find surrounding indices on the non-uniform grid
         int m0 = find_nonuniform_index(y_ptr, Ny, y_target);
@@ -278,9 +313,11 @@ void ProblemSpecificFunctions::modify_ext_sources(
       if (deposited_power > 1e-8) { // Avoid division by zero
         normalization_factor = total_power/deposited_power;
       }
+      //normalization_factor = 1.4;
+      amrex::Print() << "[Normalize Pabs] Normalization factor = " << normalization_factor << "\n";
 
       amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept{
-        ext_src_rhoh_a[box_no](i, j, k, RHOH) = std::min(ext_src_rhoh_a[box_no](i, j, k, RHOH)*normalization_factor, 4e8);
+        ext_src_rhoh_a[box_no](i, j, k, RHOH) = std::min(ext_src_rhoh_a[box_no](i, j, k, RHOH)*normalization_factor, max_power);
       });
     }
   }
@@ -315,7 +352,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
 
     if (amrex::ParallelDescriptor::IOProcessor()) {
       amrex::Print()
-        << "Deposited power = " << deposited_power
+        << "[Print Pabs] Deposited power = " << deposited_power
         << " ; target = " << total_power
         << "\n";
     }

@@ -546,7 +546,7 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
 void interpolate_rz_to_yz(const std::vector<double>& y,const std::vector<double>& z, std::vector<std::tuple<int, int, int>>& plasma_locations,
                         std::vector<double>& plasma_ne, std::vector<double>& plasma_mu_re, std::vector<double>& plasma_mu_im,
                         const std::vector<double>& amrex_n_e, const std::vector<double>& amrex_mu_re, const std::vector<double>& amrex_mu_im,
-                        int Nr, int Nz, const double* prob_lo, const double* dx, double y_c, double R_in) {
+                        int Nr, int Nz, const double* prob_lo, const double* dx, double y_c, double R_in, double z_0) {
     plasma_locations.clear();
     plasma_ne.clear();
     plasma_mu_re.clear();
@@ -558,7 +558,7 @@ void interpolate_rz_to_yz(const std::vector<double>& y,const std::vector<double>
         if (r_target > R_in) continue;
 
         for (size_t n = 0; n < z.size(); ++n) {
-            double z_target = z[n];
+            double z_target = z[n] + z_0;
 
             // AMReX grid
             double f_i = (r_target - prob_lo[0]) / dx[0] - 0.5;

@@ -86,6 +86,217 @@ writeBuildInfo()
   std::cout << "\n\n";
 }
 
+#ifdef PELE_USE_AXISWIRL
+
+void
+PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm(
+  int lev,
+  amrex::MultiFab& diffTermAux,
+  amrex::MultiFab const& aux,
+  amrex::MultiFab const& density,
+  amrex::MultiFab const& mu,
+  amrex::BCRec const& bc,
+  int muComp)
+{
+  BL_PROFILE("PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm()");
+
+  if (m_nAux <= 0 || m_angmom_aux < 0) {
+    return;
+  }
+
+  const int n = m_angmom_aux;
+
+  const auto prob_lo = geom[lev].ProbLoArray();
+  const auto dx = geom[lev].CellSizeArray();
+
+  const auto domain = geom[lev].Domain();
+  const int domlo0 = domain.smallEnd(0);
+  const int domhi0 = domain.bigEnd(0);
+  const int domlo1 = domain.smallEnd(1);
+  const int domhi1 = domain.bigEnd(1);
+
+  const int bc_lo_x = bc.lo(0);
+  const int bc_hi_x = bc.hi(0);
+  const int bc_lo_y = bc.lo(1);
+  const int bc_hi_y = bc.hi(1);
+
+  auto const& dterm_ma = diffTermAux.arrays();
+  auto const& aux_ma   = aux.const_arrays();
+  auto const& rho_ma   = density.const_arrays();
+  auto const& mu_ma    = mu.const_arrays();
+
+  amrex::ParallelFor(
+    diffTermAux,
+    [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept
+    {
+      const amrex::Real dr = dx[0];
+      const amrex::Real dz = dx[1];
+
+      const bool at_axis = (i == domlo0);
+      const bool at_rmax = (i == domhi0);
+      const bool at_zmin = (j == domlo1);
+      const bool at_zmax = (j == domhi1);
+
+      const amrex::Real r_c =
+        prob_lo[0] +
+        (static_cast<amrex::Real>(i - domlo0) + 0.5) * dr;
+
+      const amrex::Real r_eff = r_c;
+      const amrex::Real r_m = r_eff - 0.5 * dr;
+      const amrex::Real r_p = r_eff + 0.5 * dr;
+
+      const amrex::Real rho_c = rho_ma[box_no](i, j, k, DENSITY);
+      const amrex::Real ell_c = aux_ma[box_no](i, j, k, n);
+      const amrex::Real mu_c  = mu_ma[box_no](i, j, k, muComp);
+
+      const amrex::Real u_c = ell_c / (rho_c * r_eff);
+
+      auto utheta = [&] AMREX_GPU_DEVICE
+        (int ii, int jj, int kk) noexcept -> amrex::Real
+      {
+        const amrex::Real rr =
+          prob_lo[0] +
+          (static_cast<amrex::Real>(ii - domlo0) + 0.5) * dr;
+
+        const amrex::Real rr_eff = amrex::max(rr, 0.5 * dr);
+
+        return aux_ma[box_no](ii, jj, kk, n) /
+               (rho_ma[box_no](ii, jj, kk, DENSITY) * rr_eff);
+      };
+
+      amrex::Real flux_rm = 0.0;
+      amrex::Real flux_rp = 0.0;
+      amrex::Real tau_zm = 0.0;
+      amrex::Real tau_zp = 0.0;
+
+      // r-minus face.
+      if (at_axis) {
+        flux_rm = 0.0;
+      } else {
+        const amrex::Real u_im = utheta(i - 1, j, k);
+        const amrex::Real mu_im = mu_ma[box_no](i - 1, j, k, muComp);
+        const amrex::Real mu_rm = 0.5 * (mu_c + mu_im);
+
+        const amrex::Real u_rm_face = 0.5 * (u_im + u_c);
+        const amrex::Real dudr_rm = (u_c - u_im) / dr;
+
+        const amrex::Real tau_rm =
+          mu_rm * (dudr_rm - u_rm_face / r_m);
+
+        flux_rm = r_m * r_m * tau_rm;
+      }
+
+      // r-plus face.
+      if (at_rmax) {
+        if (bc_hi_x == amrex::BCType::reflect_odd ||
+            bc_hi_x == amrex::BCType::ext_dir) {
+
+          const amrex::Real u_wall = 0.0;
+          const amrex::Real dudr_rp = (u_wall - u_c) / (0.5 * dr);
+          const amrex::Real tau_rp = mu_c * dudr_rp;
+
+          flux_rp = r_p * r_p * tau_rp;
+
+        } else if (
+            bc_hi_x == amrex::BCType::reflect_even ||
+            bc_hi_x == amrex::BCType::foextrap ||
+            bc_hi_x == amrex::BCType::hoextrap) {
+
+          flux_rp = 0.0;
+
+        } else {
+          const amrex::Real u_ip = utheta(i + 1, j, k);
+          const amrex::Real mu_ip = mu_ma[box_no](i + 1, j, k, muComp);
+          const amrex::Real mu_rp = 0.5 * (mu_c + mu_ip);
+
+          const amrex::Real u_rp_face = 0.5 * (u_c + u_ip);
+          const amrex::Real dudr_rp = (u_ip - u_c) / dr;
+
+          const amrex::Real tau_rp =
+            mu_rp * (dudr_rp - u_rp_face / r_p);
+
+          flux_rp = r_p * r_p * tau_rp;
+        }
+      } else {
+        const amrex::Real u_ip = utheta(i + 1, j, k);
+        const amrex::Real mu_ip = mu_ma[box_no](i + 1, j, k, muComp);
+        const amrex::Real mu_rp = 0.5 * (mu_c + mu_ip);
+
+        const amrex::Real u_rp_face = 0.5 * (u_c + u_ip);
+        const amrex::Real dudr_rp = (u_ip - u_c) / dr;
+
+        const amrex::Real tau_rp =
+          mu_rp * (dudr_rp - u_rp_face / r_p);
+
+        flux_rp = r_p * r_p * tau_rp;
+      }
+
+      // z-minus face.
+      if (at_zmin) {
+        if (bc_lo_y == amrex::BCType::reflect_odd ||
+            bc_lo_y == amrex::BCType::ext_dir) {
+
+          const amrex::Real u_wall = 0.0;
+          tau_zm = mu_c * (u_c - u_wall) / (0.5 * dz);
+
+        } else if (
+            bc_lo_y == amrex::BCType::reflect_even ||
+            bc_lo_y == amrex::BCType::foextrap ||
+            bc_lo_y == amrex::BCType::hoextrap) {
+
+          tau_zm = 0.0;
+
+        } else {
+          const amrex::Real u_jm = utheta(i, j - 1, k);
+          const amrex::Real mu_jm = mu_ma[box_no](i, j - 1, k, muComp);
+          const amrex::Real mu_zm = 0.5 * (mu_c + mu_jm);
+          tau_zm = mu_zm * (u_c - u_jm) / dz;
+        }
+      } else {
+        const amrex::Real u_jm = utheta(i, j - 1, k);
+        const amrex::Real mu_jm = mu_ma[box_no](i, j - 1, k, muComp);
+        const amrex::Real mu_zm = 0.5 * (mu_c + mu_jm);
+        tau_zm = mu_zm * (u_c - u_jm) / dz;
+      }
+
+      // z-plus face.
+      if (at_zmax) {
+        if (bc_hi_y == amrex::BCType::reflect_odd ||
+            bc_hi_y == amrex::BCType::ext_dir) {
+
+          const amrex::Real u_wall = 0.0;
+          tau_zp = mu_c * (u_wall - u_c) / (0.5 * dz);
+
+        } else if (
+            bc_hi_y == amrex::BCType::reflect_even ||
+            bc_hi_y == amrex::BCType::foextrap ||
+            bc_hi_y == amrex::BCType::hoextrap) {
+
+          tau_zp = 0.0;
+
+        } else {
+          const amrex::Real u_jp = utheta(i, j + 1, k);
+          const amrex::Real mu_jp = mu_ma[box_no](i, j + 1, k, muComp);
+          const amrex::Real mu_zp = 0.5 * (mu_c + mu_jp);
+          tau_zp = mu_zp * (u_jp - u_c) / dz;
+        }
+      } else {
+        const amrex::Real u_jp = utheta(i, j + 1, k);
+        const amrex::Real mu_jp = mu_ma[box_no](i, j + 1, k, muComp);
+        const amrex::Real mu_zp = 0.5 * (mu_c + mu_jp);
+        tau_zp = mu_zp * (u_jp - u_c) / dz;
+      }
+
+      const amrex::Real source_ell =
+          (flux_rp - flux_rm) / (r_eff * dr)
+        + r_eff * (tau_zp - tau_zm) / dz;
+
+      dterm_ma[box_no](i, j, k, n) += source_ell;
+    });
+}
+
+#endif
+
 void
 PeleLM::fluxDivergence(
   const amrex::Vector<amrex::MultiFab*>& a_divergence,

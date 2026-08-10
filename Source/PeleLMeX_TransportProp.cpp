@@ -315,48 +315,46 @@ PeleLM::calcDiffusivity(const TimeStamp a_time)
     for (int n = 0; n < m_nAux; ++n) {
       auto const& diff_aux_arr = ldata_p->diff_aux_cc.arrays();
       auto const& diff_arr = ldata_p->diff_cc.const_arrays();
-      
-      // Adding this check to honour non-diffusive flag
-      if (m_DiffTypeAux[n] == 0) {
+#ifdef PELE_USE_AXISWIRL
+      if (n == m_angmom_aux) {
+        // remove normal diffusion, swirl diffusion added later 
+        ldata_p->diff_aux_cc.setVal(
+          0.0, n, 1, ldata_p->diff_aux_cc.nGrowVect());
+        continue;
+      }
+#endif
+      if (m_aux_Schmidt[n] > 0) {
+        // Compute diffusivity with Schmidt number
+        const amrex::Real inv_sc = 1.0 / m_aux_Schmidt[n];
         amrex::ParallelFor(
           ldata_p->diff_aux_cc, ldata_p->diff_aux_cc.nGrowVect(),
-          [diff_aux_arr, n] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
-            diff_aux_arr[box_no](i, j, k, n) = 0.0;
+          [diff_aux_arr, diff_arr, inv_sc,
+           n] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
+            diff_aux_arr[box_no](i, j, k, n) =
+              diff_arr[box_no](i, j, k, NUM_SPECIES + 1) * inv_sc;
           });
       } else {
-        if (m_aux_Schmidt[n] > 0) {
-          // Compute diffusivity with Schmidt number
-          const amrex::Real inv_sc = 1.0 / m_aux_Schmidt[n];
-          amrex::ParallelFor(
-            ldata_p->diff_aux_cc, ldata_p->diff_aux_cc.nGrowVect(),
-            [diff_aux_arr, diff_arr, inv_sc,
-            n] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
-              diff_aux_arr[box_no](i, j, k, n) =
-                diff_arr[box_no](i, j, k, NUM_SPECIES + 1) * inv_sc;
-            });
-        } else {
-          // Otherwise, assume unity Lewis number
-          const auto& ba = ldata_p->state.boxArray();
-          const auto& dm = ldata_p->state.DistributionMap();
-          const auto& factory = ldata_p->state.Factory();
-          const int ngrow = ldata_p->diff_cc.nGrow();
-          amrex::MultiFab cp_cc(ba, dm, 1, ngrow, amrex::MFInfo(), factory);
-          auto const& state_arr = ldata_p->state.const_arrays();
-          auto const& cp_arr = cp_cc.arrays();
-          amrex::ParallelFor(
-            ldata_p->diff_aux_cc, ldata_p->diff_aux_cc.nGrowVect(),
-            [state_arr, cp_arr, diff_aux_arr, diff_arr, leosparm,
-            n] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
-              getCpmixGivenRYT(
-                i, j, k,
-                amrex::Array4<amrex::Real const>(state_arr[box_no], DENSITY),
-                amrex::Array4<amrex::Real const>(state_arr[box_no], FIRSTSPEC),
-                amrex::Array4<amrex::Real const>(state_arr[box_no], TEMP),
-                amrex::Array4<amrex::Real>(cp_arr[box_no]), leosparm);
-              diff_aux_arr[box_no](i, j, k, n) =
-                diff_arr[box_no](i, j, k, NUM_SPECIES) / cp_arr[box_no](i, j, k);
-            });
-        }
+        // Otherwise, assume unity Lewis number
+        const auto& ba = ldata_p->state.boxArray();
+        const auto& dm = ldata_p->state.DistributionMap();
+        const auto& factory = ldata_p->state.Factory();
+        const int ngrow = ldata_p->diff_cc.nGrow();
+        amrex::MultiFab cp_cc(ba, dm, 1, ngrow, amrex::MFInfo(), factory);
+        auto const& state_arr = ldata_p->state.const_arrays();
+        auto const& cp_arr = cp_cc.arrays();
+        amrex::ParallelFor(
+          ldata_p->diff_aux_cc, ldata_p->diff_aux_cc.nGrowVect(),
+          [state_arr, cp_arr, diff_aux_arr, diff_arr, leosparm,
+           n] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
+            getCpmixGivenRYT(
+              i, j, k,
+              amrex::Array4<amrex::Real const>(state_arr[box_no], DENSITY),
+              amrex::Array4<amrex::Real const>(state_arr[box_no], FIRSTSPEC),
+              amrex::Array4<amrex::Real const>(state_arr[box_no], TEMP),
+              amrex::Array4<amrex::Real>(cp_arr[box_no]), leosparm);
+            diff_aux_arr[box_no](i, j, k, n) =
+              diff_arr[box_no](i, j, k, NUM_SPECIES) / cp_arr[box_no](i, j, k);
+          });
       }
     }
   }

@@ -81,6 +81,22 @@ constexpr int soot_bc[] = {
   amrex::BCType::ext_dir,      amrex::BCType::ext_dir};
 #endif
 
+#ifdef PELE_USE_AXISWIRL
+// Interior, Inflow, Outflow, Symmetry,
+// SlipWallAdiab, NoSlipWallAdiab,
+// SlipWallIsotherm, NoSlipWallIsotherm
+constexpr int angmom_bc[] = {
+  amrex::BCType::int_dir,      // Interior
+  amrex::BCType::ext_dir,      // Inflow
+  amrex::BCType::foextrap,     // Outflow
+  amrex::BCType::reflect_odd,  // Symmetry/axis
+  amrex::BCType::reflect_even,     // Slip wall
+  amrex::BCType::reflect_odd,  // No-slip wall
+  amrex::BCType::reflect_even,     // Slip isothermal wall
+  amrex::BCType::reflect_odd   // No-slip isothermal wall
+};
+#endif
+
 amrex::InterpBase*
 PeleLM::
   getInterpolator( // NOLINT(readability-convert-member-functions-to-static)
@@ -209,6 +225,23 @@ PeleLM::setBoundaryConditions()
         m_bcrec_aux[n].setHi(idim, aux_bc[hi_bc[idim]]);
       }
     }
+
+#ifdef PELE_USE_AXISWIRL
+{
+  const int n = m_angmom_aux;
+
+  AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+    n >= 0 && n < m_nAux,
+    "angmom_aux is outside the auxiliary-variable range");
+
+  for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+    m_bcrec_aux[n].setLo(idim, angmom_bc[lo_bc[idim]]);
+    m_bcrec_aux[n].setHi(idim, angmom_bc[hi_bc[idim]]);
+  }
+
+}
+#endif
+
 #ifdef PELE_USE_PLASMA
     // nE
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {

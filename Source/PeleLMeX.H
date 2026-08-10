@@ -1293,6 +1293,17 @@ public:
 
     key = keyT.str2int.at(userkey);
   }
+  
+#ifdef PELE_USE_AXISWIRL
+  void addAxisymmetricSwirlDiffusionToAuxDiffTerm(
+    int lev,
+    amrex::MultiFab& diffTermAux,
+    amrex::MultiFab const& aux,
+    amrex::MultiFab const& state,
+    amrex::MultiFab const& mu,
+    amrex::BCRec const& bc,
+    int muComp = 0);
+#endif
 
   // flux divergence
   void fluxDivergence(

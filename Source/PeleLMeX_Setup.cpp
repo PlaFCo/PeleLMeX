@@ -457,8 +457,8 @@ PeleLM::readParameters()
     m_aux_names[m_angmom_aux]   = "AngMom";
     m_aux_advect[m_angmom_aux]  = 1;   
     m_AdvTypeAux[m_angmom_aux]  = 1;  
-    m_aux_Schmidt[m_angmom_aux] = -1; 
-    m_DiffTypeAux[m_angmom_aux] = 0;   
+    m_aux_Schmidt[m_angmom_aux] = -1.; 
+    m_DiffTypeAux[m_angmom_aux] = 1;   
 #endif
   }
 

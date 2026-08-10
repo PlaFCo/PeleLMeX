@@ -90,7 +90,9 @@ PeleLM::getVelForces(
 #ifdef PELE_USE_AXISWIRL
     amrex::Array4<amrex::Real const> ell(aux_ma[box_no], m_angmom);
     const amrex::Real* dx = m_geomdata.CellSize();
-    amrex::Real r = (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+    const amrex::Real* prob_lo = m_geomdata.ProbLo();
+    amrex::Real r =
+      prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
     makeSwirlForce(i, j, k, is_incomp, rho_incomp, r, rho, ell, force_ma[box_no]);
 #endif
     });

@@ -78,7 +78,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     eos.X2Y(molefrac, massfrac);
 
     AMREX_D_TERM(state(i, j, k, VELX) = 0.0;
-                 , state(i, j, k, VELY) = 0.01; //pmf_vals[1] * 1e-2;
+                 , state(i, j, k, VELY) = 0.1; //pmf_vals[1] * 1e-2;
                  , state(i, j, k, VELZ) = 0.0);
 
     amrex::Real P_cgs = prob_parm.P_mean * 10.0;
@@ -100,7 +100,8 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     amrex::Real r = (i + 0.5) * dx[0];
 
     // Start with a slow solid body swirl
-    aux(i, j, k, aux.nComp()-1) = (0.01*r)*r*state(i,j,k,DENSITY);
+    aux(i, j, k, aux.nComp()-1) = (0*0.01*r)*r*state(i,j,k,DENSITY);
+    //aux(i, j, k, aux.nComp()-1) =(20*r/0.01)*r*state(i,j,k,DENSITY);
     //aux(i, j, k, aux.nComp()-1) = (30*r*std::exp(-2*r*r*2e4))*r*state(i,j,k,DENSITY);                  // odd normal
     //aux(i, j, k, aux.nComp()-1) = (30*0.005*(r/0.005)/(1+(r/0.005)*(r/0.005)))*r*state(i,j,k,DENSITY); // decreasing velocity but increasing l_z
   }
@@ -134,7 +135,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       amrex::Real ymax = center+deltac;
       amrex::Real r = x[0];
       if (x[0]<ymax && x[0]>ymin){
-        utheta = prob_parm.utheta; //*std::cos(0.5*3.14159*(x[1]-center)/deltac); //prob_parm.utheta;
+        utheta = 0*prob_parm.utheta; //*std::cos(0.5*3.14159*(x[1]-center)/deltac); //prob_parm.utheta;
       }
       
       amrex::Real temp = 300;
@@ -148,12 +149,12 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       eos.PYT2R(P_cgs, massfrac, temp, rho_cgs);
       amrex::Real density = rho_cgs * 1.0e3;
       
-      aux_ext[naux] = density * r * utheta;
-      //aux_ext[naux] = (20*r/0.01)*r*density;
+      //aux_ext[naux] = density * r * utheta;
+      aux_ext[naux] = (20*r/0.01)*r*density;
     } else if (idir == 0 && sgn == -1){
       aux_ext[naux] = 0.0;
 
-      if (x[1]>0.025 && x[1]<0.03){
+      if (x[1]>0.059 && x[1]<0.061){
         amrex::Real utheta = 0.0;
         amrex::Real temp = 300;
         molefrac[N2_ID] = 0.79;
@@ -166,8 +167,10 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
         eos.PYT2R(P_cgs, massfrac, temp, rho_cgs);
         amrex::Real density = rho_cgs * 1.0e3;
 
-        utheta = 20;
+        utheta = prob_parm.utheta;
         aux_ext[naux] = density * 0.014 * utheta;
+      } else{
+        aux_ext[naux] = 0.0;
       }
     }
   }
@@ -208,7 +211,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
 
       if (x[0]<ymax && x[0]>ymin){
         AMREX_D_TERM(
-            s_ext[VELX] = prob_parm.ur; //*std::cos(0.5*3.14159*(x[1]-center)/deltac);
+            s_ext[VELX] = 0*prob_parm.ur; //*std::cos(0.5*3.14159*(x[1]-center)/deltac);
           , s_ext[VELY] = prob_parm.uz; //*std::sin(0.5*3.14159*(x[1]-center)/deltac);
           , s_ext[VELZ] = 0.0);
       }
@@ -237,9 +240,9 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
           s_ext[VELX] = 0.0;, s_ext[VELY] = 0.0;
           , s_ext[VELZ] = 0.0);
 
-      if (x[1]>0.025 && x[1]<0.03){
+      if (x[1]>0.059 && x[1]<0.061){
         AMREX_D_TERM(
-            s_ext[VELX] = -8; //*std::cos(0.5*3.14159*(x[1]-center)/deltac);
+            s_ext[VELX] = prob_parm.ur; //*std::cos(0.5*3.14159*(x[1]-center)/deltac); // equivalent to 5 slm
           , s_ext[VELY] = 0.0; //*std::sin(0.5*3.14159*(x[1]-center)/deltac);
           , s_ext[VELZ] = 0.0);
       }
@@ -264,7 +267,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       }
     }
 }
-
+  
   static void modify_ext_sources(
     amrex::Real time,
     amrex::Real /*dt*/,
@@ -274,6 +277,8 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     const amrex::GeometryData& geomdata,
     const MyProbParm* prob_parm_d,
     const int sdcIter);
+
+  
 };
 
 using ProblemSpecificFunctions = MyProblemSpecificFunctions;
