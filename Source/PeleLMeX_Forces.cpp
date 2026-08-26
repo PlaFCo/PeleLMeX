@@ -384,7 +384,8 @@ PeleLM::getExternalSources(
   const int is_initIter,
   const PeleLM::TimeStamp a_timestamp_old,
   const PeleLM::TimeStamp a_timestamp_new,
-  const int sdcIter)
+  const int sdcIter,
+  const int nSDCmax)
 {
   amrex::ignore_unused(is_initIter);
 
@@ -420,7 +421,7 @@ PeleLM::getExternalSources(
       auto& ext_src = m_extSource[lev];
       ProblemSpecificFunctions::modify_ext_sources(
         getTime(lev, a_timestamp_old), m_dt, ldata_p_old->state,
-        ldata_p_new->state, ext_src, geom[lev].data(), prob_parm_d, sdcIter);
+        ldata_p_new->state, ext_src, geom[lev].data(), prob_parm_d, sdcIter, nSDCmax);
     }
   }
 }

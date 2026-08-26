@@ -742,6 +742,7 @@ PeleLM::readParameters()
   ppa.query("fixed_dt", m_fixed_dt);
   ppa.query("init_dt", m_init_dt);
   ppa.query("cfl", m_cfl);
+  ppa.query("cfl_swirl", m_cfl_swirl);
   ppa.query("dt_shrink", m_dtshrink);
   ppa.query("dt_change_max", m_dtChangeMax);
   ppa.query("max_dt", m_max_dt);

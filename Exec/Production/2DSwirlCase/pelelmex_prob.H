@@ -276,7 +276,8 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     std::unique_ptr<amrex::MultiFab>& ext_src,
     const amrex::GeometryData& geomdata,
     const MyProbParm* prob_parm_d,
-    const int sdcIter);
+    const int sdcIter,
+    const int nSDCmax);
 
   
 };

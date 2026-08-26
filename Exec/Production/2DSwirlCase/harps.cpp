@@ -28,7 +28,7 @@ void create_grid(const std::string& config_file_path, std::vector<double>& y, st
 
 
 int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations,
-            std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im, std::vector<double>& plasma_pabs){
+            std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im, std::vector<double>& plasma_pabs, std::vector<double>& plasma_E_field){
     using Complex = std::complex<double>;
     const Complex zero_C(0.0, 0.0);
 
@@ -133,10 +133,35 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
         }
 
         // Calculate plasma parameters
-        for(int i = 0; i < num_pts; i++) {
-            complex_conductivity[i] = Constants::CHARGE_E * electron_density[i] * (real_mobility[i] + Complex(0,1)*imag_mobility[i]);
-            complex_permittivity[i] = real_permittivity[i] - Complex(0,1) * complex_conductivity[i] /  (angular_frequency * Constants::EPSILON_0);
-            real_conductivity[i] = std::real(complex_conductivity[i]);
+        // For N_x == 1 rescalling conductivity since plasma if plasma is not infinitly long in that direction
+        double W_factor = 1.0;
+        if (config.n_x == 1 && config.flag_cylindrical_plasma) {
+            double a = config.lengthX;            // Waveguide width in X [m]
+            
+            int N_quad = 200;
+            double dx_quad = a / N_quad;
+            double integral = 0.0;
+            
+            for (int m = 0; m <= N_quad; m++) {
+                double x_m = m * dx_quad;
+                double sin_val = std::sin(M_PI * x_m / a);
+                double gaussian = std::exp(-std::pow((x_m - 0.5 * a) / config.plasma_Rx, 2.0));
+                double weight = (m == 0 || m == N_quad) ? 0.5 : 1.0;
+                
+                integral += gaussian * (sin_val * sin_val) * weight;
+            }
+            
+            W_factor = (2.0 / a) * integral * dx_quad;
+        }
+        if (config.n_x == 1 && config.flag_cylindrical_plasma) {
+            for (int i = 0; i < num_pts; i++) {
+                Complex sigma_local = Constants::CHARGE_E * electron_density[i] * (real_mobility[i] + Complex(0, 1) * imag_mobility[i]);
+                
+                complex_conductivity[i] = sigma_local * W_factor;
+                real_conductivity[i]    = std::real(complex_conductivity[i]);
+
+                complex_permittivity[i] = real_permittivity[i] - Complex(0, 1)*complex_conductivity[i]/(angular_frequency*Constants::EPSILON_0);
+            }
         }
 
         // Create output directory if it doesn't exist
@@ -171,7 +196,7 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
         std::vector<Complex> f_grad_cond = Grid->calculateCondGradFunction(complex_conductivity, complex_permittivity, angular_frequency);        
 
         // Create system matrix
-        systemMaxwell = Grid->createMaxwellEquationMatrix(f_grad_cond.data(), complex_permittivity, vacuum_wave_number, size);
+        systemMaxwell = Grid->createMaxwellEquationMatrix(f_grad_cond.data(), complex_permittivity, vacuum_wave_number, config.waveguide_number, size);
         
         VecCreate(PETSC_COMM_WORLD, &b_vector);
         VecSetSizes(b_vector, PETSC_DECIDE, num_variables);
@@ -398,7 +423,12 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
         absorbedPowerDensity = Grid->computeAbsorbedPowerDens(fields.data(), real_conductivity, num_pts);  // Using Joule Heating
         plasma_pabs.resize(num_pts);
         std::copy(absorbedPowerDensity, absorbedPowerDensity + plasma_pabs.size(), plasma_pabs.begin());
-        delete[] absorbedPowerDensity;
+
+        double* E_amplitude = new double[num_pts];
+        Grid->calculateFieldAmplitudes(fields.data(), E_amplitude, num_pts);
+        plasma_E_field.resize(num_pts);
+        std::copy(E_amplitude, E_amplitude + num_pts, plasma_E_field.begin());
+        delete[] E_amplitude;
         
         if(rank == 0){
             if(config.storeResults){

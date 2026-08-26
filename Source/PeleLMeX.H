@@ -937,7 +937,8 @@ public:
     const int is_initIter,
     const PeleLM::TimeStamp a_timestamp_old,
     const PeleLM::TimeStamp a_timestamp_new,
-    const int sdcIter = 0);
+    const int sdcIter = 0,
+    const int nSDCmax = 1);
 
   //-----------------------------------------------------------------------------
   // EOS
@@ -2025,6 +2026,7 @@ public:
   amrex::Real m_cur_time = 0.0;
   amrex::Real m_dt = -1.0;
   amrex::Real m_cfl = 0.7;
+  amrex::Real m_cfl_swirl = 0.5;
   amrex::Real m_fixed_dt = -1.0;
   amrex::Real m_init_dt = -1.0;
   amrex::Real m_min_dt = 1.0e-12;

@@ -145,36 +145,43 @@ PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm(
       const amrex::Real r_m = r_eff - 0.5 * dr;
       const amrex::Real r_p = r_eff + 0.5 * dr;
 
-      const amrex::Real rho_c = rho_ma[box_no](i, j, k, DENSITY);
+      const amrex::Real rho_c = rho_ma[box_no](i, j, k, 0);
       const amrex::Real ell_c = aux_ma[box_no](i, j, k, n);
       const amrex::Real mu_c  = mu_ma[box_no](i, j, k, muComp);
 
       const amrex::Real u_c = ell_c / (rho_c * r_eff);
+      
+      auto utheta = [&] AMREX_GPU_DEVICE(int ii, int jj, int kk) noexcept -> amrex::Real{
+        const amrex::Real rho_val = rho_ma[box_no](ii, jj, kk, 0);
+        const amrex::Real ell_val = aux_ma[box_no](ii, jj, kk, n);
 
-      auto utheta = [&] AMREX_GPU_DEVICE
-        (int ii, int jj, int kk) noexcept -> amrex::Real
-      {
-        const amrex::Real rr =
-          prob_lo[0] +
-          (static_cast<amrex::Real>(ii - domlo0) + 0.5) * dr;
+        if (rho_val <= 1.0e-12 || std::isnan(rho_val) || std::isnan(ell_val)) {
+          return 0.0;
+        }
 
+        const amrex::Real rr = prob_lo[0] + (static_cast<amrex::Real>(ii - domlo0) + 0.5) * dr;
         const amrex::Real rr_eff = amrex::max(rr, 0.5 * dr);
 
-        return aux_ma[box_no](ii, jj, kk, n) /
-               (rho_ma[box_no](ii, jj, kk, DENSITY) * rr_eff);
+        return ell_val / (rho_val * rr_eff);
       };
+
+      // 2. Viscosity lookup helper (falls back to local mu_c if ghost cell is NaN or zero)
+      auto get_mu = [&] AMREX_GPU_DEVICE (int ii, int jj, int kk) noexcept -> amrex::Real {
+        const amrex::Real val = mu_ma[box_no](ii, jj, kk, muComp);
+        return (std::isnan(val) || val <= 0.0) ? mu_c : val;
+      }; 
 
       amrex::Real flux_rm = 0.0;
       amrex::Real flux_rp = 0.0;
       amrex::Real tau_zm = 0.0;
       amrex::Real tau_zp = 0.0;
 
-      // r-minus face.
+      // r-minus face
       if (at_axis) {
         flux_rm = 0.0;
       } else {
         const amrex::Real u_im = utheta(i - 1, j, k);
-        const amrex::Real mu_im = mu_ma[box_no](i - 1, j, k, muComp);
+        const amrex::Real mu_im = get_mu(i - 1, j, k);
         const amrex::Real mu_rm = 0.5 * (mu_c + mu_im);
 
         const amrex::Real u_rm_face = 0.5 * (u_im + u_c);
@@ -186,7 +193,7 @@ PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm(
         flux_rm = r_m * r_m * tau_rm;
       }
 
-      // r-plus face.
+      // r-plus face
       if (at_rmax) {
         if (bc_hi_x == amrex::BCType::reflect_odd ||
             bc_hi_x == amrex::BCType::ext_dir) {
@@ -206,7 +213,7 @@ PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm(
 
         } else {
           const amrex::Real u_ip = utheta(i + 1, j, k);
-          const amrex::Real mu_ip = mu_ma[box_no](i + 1, j, k, muComp);
+          const amrex::Real mu_ip = get_mu(i + 1, j, k);
           const amrex::Real mu_rp = 0.5 * (mu_c + mu_ip);
 
           const amrex::Real u_rp_face = 0.5 * (u_c + u_ip);
@@ -219,7 +226,7 @@ PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm(
         }
       } else {
         const amrex::Real u_ip = utheta(i + 1, j, k);
-        const amrex::Real mu_ip = mu_ma[box_no](i + 1, j, k, muComp);
+        const amrex::Real mu_ip = get_mu(i + 1, j, k);
         const amrex::Real mu_rp = 0.5 * (mu_c + mu_ip);
 
         const amrex::Real u_rp_face = 0.5 * (u_c + u_ip);
@@ -231,7 +238,7 @@ PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm(
         flux_rp = r_p * r_p * tau_rp;
       }
 
-      // z-minus face.
+      // z-minus face
       if (at_zmin) {
         if (bc_lo_y == amrex::BCType::reflect_odd ||
             bc_lo_y == amrex::BCType::ext_dir) {
@@ -248,18 +255,18 @@ PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm(
 
         } else {
           const amrex::Real u_jm = utheta(i, j - 1, k);
-          const amrex::Real mu_jm = mu_ma[box_no](i, j - 1, k, muComp);
+          const amrex::Real mu_jm = get_mu(i, j - 1, k);
           const amrex::Real mu_zm = 0.5 * (mu_c + mu_jm);
           tau_zm = mu_zm * (u_c - u_jm) / dz;
         }
       } else {
         const amrex::Real u_jm = utheta(i, j - 1, k);
-        const amrex::Real mu_jm = mu_ma[box_no](i, j - 1, k, muComp);
+        const amrex::Real mu_jm = get_mu(i, j - 1, k);
         const amrex::Real mu_zm = 0.5 * (mu_c + mu_jm);
         tau_zm = mu_zm * (u_c - u_jm) / dz;
       }
 
-      // z-plus face.
+      // z-plus face
       if (at_zmax) {
         if (bc_hi_y == amrex::BCType::reflect_odd ||
             bc_hi_y == amrex::BCType::ext_dir) {
@@ -276,13 +283,13 @@ PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm(
 
         } else {
           const amrex::Real u_jp = utheta(i, j + 1, k);
-          const amrex::Real mu_jp = mu_ma[box_no](i, j + 1, k, muComp);
+          const amrex::Real mu_jp = get_mu(i, j + 1, k);
           const amrex::Real mu_zp = 0.5 * (mu_c + mu_jp);
           tau_zp = mu_zp * (u_jp - u_c) / dz;
         }
       } else {
         const amrex::Real u_jp = utheta(i, j + 1, k);
-        const amrex::Real mu_jp = mu_ma[box_no](i, j + 1, k, muComp);
+        const amrex::Real mu_jp = get_mu(i, j + 1, k);
         const amrex::Real mu_zp = 0.5 * (mu_c + mu_jp);
         tau_zp = mu_zp * (u_jp - u_c) / dz;
       }

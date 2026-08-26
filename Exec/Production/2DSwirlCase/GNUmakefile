@@ -27,9 +27,10 @@ THREAD_SANITIZER = FALSE
 # PeleLMeX
 USE_EFIELD = FALSE
 USE_AXISWIRL = TRUE
+USE_SUNDIALS = TRUE
 
 # PelePhysics
-Chemistry_Model = air 		#airThermal
+Chemistry_Model = airThermal		#airThermal
 Eos_Model = Fuego
 Transport_Model = Simple
 

@@ -278,7 +278,6 @@ PeleLM::estSwirlViscousDt(const TimeStamp a_time)
   }
 
   amrex::Real dtswirl = 1.0e200;
-  const amrex::Real cfl_visc = 0.5; // Viscous CFL safety factor (<= 0.5 for 2D explicit)
 
   for (int lev = 0; lev <= finest_level; ++lev) {
     auto* ldata = getLevelDataPtr(lev, a_time);
@@ -305,7 +304,7 @@ PeleLM::estSwirlViscousDt(const TimeStamp a_time)
         const amrex::Real nu  = mu / rho;
 
         if (nu > 1.0e-12) {
-          return cfl_visc / (2.0 * nu * inv_dx2);
+          return m_cfl_swirl / (2.0*nu*inv_dx2);
         }
         return 1.0e200;
       });
