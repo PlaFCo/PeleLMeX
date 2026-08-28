@@ -35,6 +35,10 @@ prob.inlet_delta  = 0.019
 prob.total_power = 150
 
 
+prob.sponge_gamma = 1
+prob.sponge_zstart = 0.27
+
+
 #-------------------------PeleLM CONTROL----------------------------
 peleLM.v = 1
 
@@ -47,14 +51,14 @@ peleLM.floor_species = 1
 peleLM.num_init_iter = 3
 peleLM.num_init_iter = 5
 peleLM.divu_dt_rhoMin = 1e-4
-amr.restart = chk02160
+#amr.restart = chk08000
 amr.check_int = 250
-amr.plot_int = 200
+amr.plot_int = 202
 amr.plot_overwrite = true 
 amr.plot_init_state = true
-amr.max_step = 15000
+amr.max_step = 40000
 amr.dt_shrink = 0.3
-amr.stop_time = 1
+amr.stop_time = 1.5
 #amr.max_dt = 2e-5
 #amr.fixed_dt = 1.5e-5
 #amr.stop_time = 1.00

@@ -132,38 +132,6 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
             imag_mobility[index] = value;
         }
 
-        // Calculate plasma parameters
-        // For N_x == 1 rescalling conductivity since plasma if plasma is not infinitly long in that direction
-        double W_factor = 1.0;
-        if (config.n_x == 1 && config.flag_cylindrical_plasma) {
-            double a = config.lengthX;            // Waveguide width in X [m]
-            
-            int N_quad = 200;
-            double dx_quad = a / N_quad;
-            double integral = 0.0;
-            
-            for (int m = 0; m <= N_quad; m++) {
-                double x_m = m * dx_quad;
-                double sin_val = std::sin(M_PI * x_m / a);
-                double gaussian = std::exp(-std::pow((x_m - 0.5 * a) / config.plasma_Rx, 2.0));
-                double weight = (m == 0 || m == N_quad) ? 0.5 : 1.0;
-                
-                integral += gaussian * (sin_val * sin_val) * weight;
-            }
-            
-            W_factor = (2.0 / a) * integral * dx_quad;
-        }
-        if (config.n_x == 1 && config.flag_cylindrical_plasma) {
-            for (int i = 0; i < num_pts; i++) {
-                Complex sigma_local = Constants::CHARGE_E * electron_density[i] * (real_mobility[i] + Complex(0, 1) * imag_mobility[i]);
-                
-                complex_conductivity[i] = sigma_local * W_factor;
-                real_conductivity[i]    = std::real(complex_conductivity[i]);
-
-                complex_permittivity[i] = real_permittivity[i] - Complex(0, 1)*complex_conductivity[i]/(angular_frequency*Constants::EPSILON_0);
-            }
-        }
-
         // Create output directory if it doesn't exist
         config.outputDirectory = harps_dir + config.outputDirectory;
         if (!config.outputDirectory.empty() && config.outputDirectory.back() != '/') config.outputDirectory += '/';
@@ -192,6 +160,18 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
         if (config.enableYUpperPML)  Grid->createPMLProfile('y', true, config.yUpperLayers, angular_frequency, config.orderPML, config.sigma_0);
         if (config.enableZLowerPML)  Grid->createPMLProfile('z', false, config.zLowerLayers, angular_frequency, config.orderPML, config.sigma_0);
         if (config.enableZUpperPML)  Grid->createPMLProfile('z', true, config.zUpperLayers, angular_frequency, config.orderPML, config.sigma_0);
+
+        // Calculate plasma conductivity and permitivity
+        for (int i = 0; i < num_pts; ++i) {
+            Complex mobility(real_mobility[i], imag_mobility[i]);
+            complex_conductivity[i] = Constants::CHARGE_E*electron_density[i]*mobility;
+        }
+        if (config.flag_cylindrical_plasma) Grid->calculatePlasmaFillingFactor(complex_conductivity, config.yCenter);     // 2D YZ Plasma Filling in X
+
+        for (int i = 0; i < num_pts; ++i){
+            real_conductivity[i] = std::real(complex_conductivity[i]);  // Used for p_abs = 0.5*cond_real*|E|^2
+            complex_permittivity[i] = real_permittivity[i] - Complex(0.0, 1.0)*complex_conductivity[i]/(angular_frequency*Constants::EPSILON_0);
+        }
 
         std::vector<Complex> f_grad_cond = Grid->calculateCondGradFunction(complex_conductivity, complex_permittivity, angular_frequency);        
 

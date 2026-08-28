@@ -21,6 +21,9 @@ PeleLM::readProbParm()
   pp.query("inlet_delta", PeleLM::prob_parm->inletdelta);
 
   pp.query("total_power", PeleLM::prob_parm->total_power);
+
+  pp.query("sponge_gamma", PeleLM::prob_parm->sponge_gamma);
+  pp.query("sponge_zstart", PeleLM::prob_parm->sponge_zstart);
 }
 
 void
@@ -87,12 +90,12 @@ void ProblemSpecificFunctions::modify_ext_sources(
   }
 
   if (do_harps == 0) {
-    amrex::Real P_0 = (3.0 * total_power) / (2.0 * pi * r_max * r_max * z_half_width);
-    P_0 = P_0 * amrex::min(1.0, time/power_time);
+    amrex::Real P_0 = (3.0*total_power)/(2.0*pi*r_max*r_max*z_half_width);
+    P_0 = P_0*amrex::min(1.0, time/power_time);
 
     amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept{
-      amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
-      amrex::Real z = prob_lo[1] + (static_cast<amrex::Real>(j) + 0.5) * dx[1];
+      amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5)*dx[0];
+      amrex::Real z = prob_lo[1] + (static_cast<amrex::Real>(j) + 0.5)*dx[1];
 
       bool inside_r = (r <= r_max);
       bool inside_z = (amrex::Math::abs(z - z_center) <= z_half_width);
@@ -101,7 +104,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
         amrex::Real r_norm = r / r_max;
         amrex::Real z_norm = (z - z_center) / z_half_width;
 
-        ext_src_rhoh_a[box_no](i, j, k, RHOH) = P_0 * (1.0 - r_norm*r_norm) * (1.0 - z_norm*z_norm);
+        ext_src_rhoh_a[box_no](i, j, k, RHOH) = P_0*(1.0 - r_norm*r_norm)*(1.0 - z_norm*z_norm)*0.99963489868;
       } else {
         ext_src_rhoh_a[box_no](i, j, k, RHOH) = 0.0; 
       }
@@ -111,7 +114,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
     double R_in = 0.0135;
     double L_z = 0.100;
 
-    double max_power = 9e8;
+    double max_power = 10e8;
 
     double z_0 = z_center - L_z/2;
 
@@ -156,39 +159,41 @@ void ProblemSpecificFunctions::modify_ext_sources(
     auto n_e_old_arr = n_e_old_mf->arrays();
     
     // Compute conductivity related quantities (n_e, mu)
-    amrex::Real E_ion_O2 = 12.06 * 1.60218e-19; // J
-    amrex::Real E_ion_N2 = 15.58 * 1.60218e-19; // J
-    amrex::Real E_ion_NO = 9.26 * 1.60218e-19;  // J
+    amrex::Real E_ion_O2 = 12.06*1.60218e-19; // J
+    amrex::Real E_ion_N2 = 15.58*1.60218e-19; // J
+    amrex::Real E_ion_NO = 9.26*1.60218e-19;  // J
     amrex::Real h_planck = 6.62607015e-34;      // J*s
     amrex::Real k_B = 1.380649e-23;             // J/K
     amrex::Real m_e = 9.10938356e-31;           // kg
     amrex::Real atomic_mass_unit = 1.66053906660e-27; // kg
+    
     PlasmaLookupTable lut;
     amrex::Real alpha_under_relaxation = 0.5;
 
     amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept {
-      amrex::Real z = prob_lo[1] + (static_cast<amrex::Real>(j) + 0.5) * dx[1];
+      amrex::Real z = prob_lo[1] + (static_cast<amrex::Real>(j) + 0.5)*dx[1];
       if (z > z_0 && z < z_0 + L_z){
         amrex::Real Tg_mid;
         amrex::Real n_O2_mid; amrex::Real n_N2_mid; amrex::Real n_NO_mid = 0; amrex::Real n_O_mid = 0; amrex::Real n_N_mid = 0;
         amrex::Real n_e_O2; amrex::Real n_e_N2; amrex::Real n_e_NO = 0;
         amrex::Real E_field_mid;
 
+        // Mid Point Rule (using n and n+1,k)
         if(sdcIter > 0) {
           Tg_mid = (state_old_a[box_no](i, j, k, TEMP) + state_new_a[box_no](i, j, k, TEMP))*0.5;
-          n_O2_mid = (state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + O2_ID) + state_new_a[box_no](i, j, k, DENSITY) * state_new_a[box_no](i, j, k, FIRSTSPEC + O2_ID)) * 0.5 / (32.0 * atomic_mass_unit);
-          n_N2_mid = (state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + N2_ID) + state_new_a[box_no](i, j, k, DENSITY) * state_new_a[box_no](i, j, k, FIRSTSPEC + N2_ID)) * 0.5 / (28.0 * atomic_mass_unit);
-          n_NO_mid = (state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + NO_ID) + state_new_a[box_no](i, j, k, DENSITY) * state_new_a[box_no](i, j, k, FIRSTSPEC + NO_ID)) * 0.5 / (30.0 * atomic_mass_unit);
-          n_O_mid = (state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + O_ID) + state_new_a[box_no](i, j, k, DENSITY) * state_new_a[box_no](i, j, k, FIRSTSPEC + O_ID)) * 0.5 / (16.0 * atomic_mass_unit);
-          n_N_mid = (state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + N_ID) + state_new_a[box_no](i, j, k, DENSITY) * state_new_a[box_no](i, j, k, FIRSTSPEC + N_ID)) * 0.5 / (14.0 * atomic_mass_unit);
+          n_O2_mid = (state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + O2_ID) + state_new_a[box_no](i, j, k, DENSITY)*state_new_a[box_no](i, j, k, FIRSTSPEC + O2_ID))*0.5 / (32.0*atomic_mass_unit);
+          n_N2_mid = (state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + N2_ID) + state_new_a[box_no](i, j, k, DENSITY)*state_new_a[box_no](i, j, k, FIRSTSPEC + N2_ID))*0.5 / (28.0*atomic_mass_unit);
+          n_NO_mid = (state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + NO_ID) + state_new_a[box_no](i, j, k, DENSITY)*state_new_a[box_no](i, j, k, FIRSTSPEC + NO_ID))*0.5 / (30.0*atomic_mass_unit);
+          n_O_mid = (state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + O_ID) + state_new_a[box_no](i, j, k, DENSITY)*state_new_a[box_no](i, j, k, FIRSTSPEC + O_ID))*0.5 / (16.0*atomic_mass_unit);
+          n_N_mid = (state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + N_ID) + state_new_a[box_no](i, j, k, DENSITY)*state_new_a[box_no](i, j, k, FIRSTSPEC + N_ID))*0.5 / (14.0*atomic_mass_unit);
           E_field_mid = (E_field_a[box_no](i, j, k) + E_field_new_a[box_no](i, j, k))*0.5;
         } else {
           Tg_mid = state_old_a[box_no](i, j, k, TEMP);
-          n_O2_mid = state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + O2_ID) / (32.0 * atomic_mass_unit);
-          n_N2_mid = state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + N2_ID) / (28.0 * atomic_mass_unit);
-          n_NO_mid = state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + NO_ID) / (30.0 * atomic_mass_unit);
-          n_O_mid = state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + O_ID) / (16.0 * atomic_mass_unit);
-          n_N_mid = state_old_a[box_no](i, j, k, DENSITY) * state_old_a[box_no](i, j, k, FIRSTSPEC + N_ID) / (14.0 * atomic_mass_unit);
+          n_O2_mid = state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + O2_ID) / (32.0*atomic_mass_unit);
+          n_N2_mid = state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + N2_ID) / (28.0*atomic_mass_unit);
+          n_NO_mid = state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + NO_ID) / (30.0*atomic_mass_unit);
+          n_O_mid = state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + O_ID) / (16.0*atomic_mass_unit);
+          n_N_mid = state_old_a[box_no](i, j, k, DENSITY)*state_old_a[box_no](i, j, k, FIRSTSPEC + N_ID) / (14.0*atomic_mass_unit);
           E_field_mid = E_field_a[box_no](i, j, k);
         }
         amrex::Real gas_density = prob_parm_d->P_mean/(k_B*Tg_mid); // Ideal Gas
@@ -197,8 +202,8 @@ void ProblemSpecificFunctions::modify_ext_sources(
 
         // Interpolate from LoKI-B table for N2 and O2 at 1013 mbar
         PlasmaProperties elec_props = lut.eval(n_O2_mid/(n_NO_mid+n_N2_mid), E_over_N, Tg_mid);
+
         amrex::Real Te_mid = elec_props.te*11604.52;
-    
         mu_re_arr[box_no](i, j, k) = elec_props.mobi_real;
         mu_im_arr[box_no](i, j, k) = elec_props.mobi_imag;
 
@@ -210,7 +215,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
         amrex::Real ne_saha = sqrt(n_e_O2*n_e_O2 + n_e_N2*n_e_N2 + n_e_NO*n_e_NO);
         amrex::Real ne_old = n_e_old_arr[box_no](i,j,k);
 
-        amrex::Real ne_new = ne_old * pow(ne_saha / ne_old, alpha_under_relaxation); // Under relaxation
+        amrex::Real ne_new = ne_old*pow(ne_saha / ne_old, alpha_under_relaxation); // Under relaxation
         n_e_arr[box_no](i,j,k) = ne_new;
         n_e_old_arr[box_no](i,j,k) = ne_new;
 
@@ -238,7 +243,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
       auto const& mu_im_fab = mu_im_mf.array(mfi);
 
       amrex::Loop(bx, [=, &amrex_n_e, &amrex_mu_re, &amrex_mu_im](int i, int j, int k) {
-        int linear_idx = i + j * Nr;
+        int linear_idx = i + j*Nr;
         amrex_n_e[linear_idx]   = n_e_fab(i, j, k);
         amrex_mu_re[linear_idx] = mu_re_fab(i, j, k);
         amrex_mu_im[linear_idx] = mu_im_fab(i, j, k);
@@ -295,8 +300,8 @@ void ProblemSpecificFunctions::modify_ext_sources(
     E_field_new_a = E_field_new_mf->arrays();
 
     amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept {
-      amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
-      amrex::Real z = prob_lo[1] + (static_cast<amrex::Real>(j) + 0.5) * dx[1];
+      amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5)*dx[0];
+      amrex::Real z = prob_lo[1] + (static_cast<amrex::Real>(j) + 0.5)*dx[1];
 
       bool inside_r = (r <= R_in);
       bool inside_z = (z > z_0 && z < z_0 + L_z);
@@ -316,10 +321,10 @@ void ProblemSpecificFunctions::modify_ext_sources(
           double dy = amrex::Clamp((y_t - y0) / (y1 - y0), 0.0, 1.0);
           double dz = amrex::Clamp((z_t - z0) / (z1 - z0), 0.0, 1.0);
 
-          double v00 = ptr[m0 * Nz + n0];
-          double v10 = ptr[(m0 + 1) * Nz + n0];
-          double v01 = ptr[m0 * Nz + (n0 + 1)];
-          double v11 = ptr[(m0 + 1) * Nz + (n0 + 1)];
+          double v00 = ptr[m0*Nz + n0];
+          double v10 = ptr[(m0 + 1)*Nz + n0];
+          double v01 = ptr[m0*Nz + (n0 + 1)];
+          double v11 = ptr[(m0 + 1)*Nz + (n0 + 1)];
 
           return (1.0 - dy)*(1.0 - dz)*v00 + dy*(1.0 - dz)*v10 + (1.0 - dy)*dz*v01 + dy*dz*v11;
         };
@@ -338,18 +343,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
       }
     });
 
-    amrex::Real alpha_E = 0.8; // Under-relaxation for electric field
-    amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept {
-      if(sdcIter < nSDCmax - 1){
-        amrex::Real E_old_val = E_field_new_a[box_no](i, j, k);
-        E_field_new_a[box_no](i, j, k) = E_old_val + alpha_E * (E_field_raw_a[box_no](i, j, k) - E_old_val);
-      }else{
-        amrex::Real E_old_val = E_field_a[box_no](i, j, k);
-        E_field_a[box_no](i, j, k) = E_old_val + alpha_E * (E_field_raw_a[box_no](i, j, k) - E_old_val);
-      }
-    });
-
-
+    amrex::Real normalization_factor = 1;
     if (normalize_power){
       amrex::ReduceOps<amrex::ReduceOpSum> reduce_op;
       amrex::ReduceData<amrex::Real> reduce_data(reduce_op);
@@ -360,11 +354,10 @@ void ProblemSpecificFunctions::modify_ext_sources(
         auto const& ext_src_a = ext_src->array(mfi);
 
         reduce_op.eval(bx, reduce_data, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept -> ReduceTuple{
-          amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+          amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5)*dx[0];
+          amrex::Real cell_vol = 2.0*pi*r*dx[0]*dx[1];
             
-          amrex::Real cell_vol = 2.0 * pi * r * dx[0] * dx[1];
-            
-          return ext_src_a(i, j, k, RHOH) * cell_vol;
+          return ext_src_a(i, j, k, RHOH)*cell_vol;
         });
       }
 
@@ -372,19 +365,27 @@ void ProblemSpecificFunctions::modify_ext_sources(
       amrex::Real deposited_power = amrex::get<0>(reduce_data.value());
       amrex::ParallelDescriptor::ReduceRealSum(deposited_power);
 
-      amrex::Real normalization_factor = 0;
       if (deposited_power > 1e-8) { // Avoid division by zero
         normalization_factor = total_power/deposited_power;
       }
-      //normalization_factor = 1.4;
       amrex::Print() << "[Normalize Pabs] Normalization factor = " << normalization_factor << "\n";
 
       amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept{
         ext_src_rhoh_a[box_no](i, j, k, RHOH) = std::min(ext_src_rhoh_a[box_no](i, j, k, RHOH)*normalization_factor, max_power);
       });
     }
-  }
 
+    amrex::Real alpha_E = 0.8; // Under-relaxation for electric field
+    amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept {
+      if(sdcIter < nSDCmax - 1){
+        amrex::Real E_old_val = E_field_new_a[box_no](i, j, k)*sqrt(normalization_factor);
+        E_field_new_a[box_no](i, j, k) = E_old_val + alpha_E*(E_field_raw_a[box_no](i, j, k) - E_old_val);
+      }else{
+        amrex::Real E_old_val = E_field_a[box_no](i, j, k)*sqrt(normalization_factor);
+        E_field_a[box_no](i, j, k) = E_old_val + alpha_E*(E_field_raw_a[box_no](i, j, k) - E_old_val);
+      }
+    });
+  }
 
   if (print_P_in) {
     amrex::ReduceOps<amrex::ReduceOpSum> reduce_op;
@@ -399,13 +400,13 @@ void ProblemSpecificFunctions::modify_ext_sources(
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept -> ReduceTuple
         {
             // Compute the cell-centered radius 'r' for this specific cell
-            amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5) * dx[0];
+            amrex::Real r = prob_lo[0] + (static_cast<amrex::Real>(i) + 0.5)*dx[0];
             
             // Calculate the volume of this specific cylindrical ring shell
-            amrex::Real cell_vol = 2.0 * pi * r * dx[0] * dx[1];
+            amrex::Real cell_vol = 2.0*pi*r*dx[0]*dx[1];
             
             // Return the energy scaled by this cell's individual volume
-            return ext_src_a(i, j, k, RHOH) * cell_vol;
+            return ext_src_a(i, j, k, RHOH)*cell_vol;
         });
     }
 

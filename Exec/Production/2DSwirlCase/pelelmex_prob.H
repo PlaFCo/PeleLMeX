@@ -30,6 +30,9 @@ struct MyProbParm : public ProbParmDefault
   amrex::Real solidBody = 0.0;
 
   amrex::Real total_power = 0.0;
+
+  amrex::Real sponge_gamma = 10;
+  amrex::Real sponge_zstart = 0.27;
 };
 
 struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
@@ -267,6 +270,57 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       }
     }
 }
+
+  static void postAdvance(
+    amrex::Real time,
+    amrex::Real dt,
+    int finest_level,
+    const amrex::Vector<amrex::MultiFab*>& state,
+    const amrex::Vector<amrex::MultiFab*>& auxiliaries,
+    const amrex::Vector<const amrex::Geometry*>& geom,
+    const MyProbParm& prob_parm,
+    const MyProbParm* prob_parm_d)
+  {
+    amrex::ignore_unused(time, state, prob_parm_d);
+ 
+    const amrex::Real sponge_gamma = prob_parm.sponge_gamma;
+    const amrex::Real sponge_zstart = prob_parm.sponge_zstart;
+    const amrex::Real sponge_n = 2;
+ 
+    for (int lev = 0; lev <= finest_level; ++lev) {
+      if (auxiliaries[lev] == nullptr) {
+        continue;
+      }
+
+ 
+      amrex::MultiFab& aux_mf = *auxiliaries[lev];
+      const int comp = aux_mf.nComp() - 1; // AngMom
+ 
+      const auto geomdata = geom[lev]->data();
+      const amrex::Real* prob_lo = geomdata.ProbLo();
+      const amrex::Real* prob_hi = geomdata.ProbHi();
+      const amrex::Real* dx = geomdata.CellSize();
+
+      amrex::Real gamma_func = dt*sponge_gamma*(sponge_n + 1)*pow(prob_hi[1] - sponge_zstart,-(sponge_n + 1));
+ 
+      #ifdef AMREX_USE_OMP
+      #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+      #endif
+      for (amrex::MFIter mfi(aux_mf, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const amrex::Box& bx = mfi.tilebox();
+        auto const& aux_arr = aux_mf.array(mfi);
+ 
+        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            const amrex::Real z = prob_lo[1] + (j + 0.5)*dx[1];
+            if (z > sponge_zstart) {
+              aux_arr(i, j, k, comp) -= gamma_func*pow(z - sponge_zstart, sponge_n)*aux_arr(i, j, k, comp);
+            }
+          });
+      }
+    }
+ 
+    amrex::Gpu::streamSynchronize();
+  }
   
   static void modify_ext_sources(
     amrex::Real time,
@@ -277,9 +331,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     const amrex::GeometryData& geomdata,
     const MyProbParm* prob_parm_d,
     const int sdcIter,
-    const int nSDCmax);
-
-  
+    const int nSDCmax); 
 };
 
 using ProblemSpecificFunctions = MyProblemSpecificFunctions;

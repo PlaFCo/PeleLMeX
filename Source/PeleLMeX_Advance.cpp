@@ -280,14 +280,16 @@ PeleLM::Advance(const int is_initIter)
 
   // Collect state MultiFabs and geometries for all levels
   amrex::Vector<amrex::MultiFab*> state_mf(finest_level + 1);
+  amrex::Vector<amrex::MultiFab*> aux_mf(finest_level + 1);
   amrex::Vector<const amrex::Geometry*> geom_vec(finest_level + 1);
   for (int lev = 0; lev <= finest_level; ++lev) {
     auto* ldata_p = getLevelDataPtr(lev, AmrNewTime);
     state_mf[lev] = &(ldata_p->state);
+    aux_mf[lev] = (m_nAux > 0) ? &(ldata_p->auxiliaries) : nullptr;
     geom_vec[lev] = &(geom[lev]);
   }
   ProblemSpecificFunctions::postAdvance(
-    m_cur_time + m_dt, m_dt, finest_level, state_mf, geom_vec, *prob_parm,
+    m_cur_time + m_dt, m_dt, finest_level, state_mf, aux_mf, geom_vec, *prob_parm,
     prob_parm_d);
 
   BL_PROFILE_VAR_STOP(PLM_POSTADV);

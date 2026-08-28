@@ -257,6 +257,7 @@ struct DefaultProblemSpecificFunctions
     amrex::Real /*dt*/,
     int /*finest_level*/,
     const amrex::Vector<amrex::MultiFab*>& /*state*/,
+    const amrex::Vector<amrex::MultiFab*>& /*auxiliaries*/,
     const amrex::Vector<const amrex::Geometry*>& /*geom*/,
     const ProbParmDefault& /*prob_parm*/,
     const ProbParmDefault* /*prob_parm_d*/)
