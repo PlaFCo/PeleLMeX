@@ -16,6 +16,12 @@
 #else
 #define NUMPLASMA 0
 #endif
+#ifdef PELE_USE_ELECTRON_ENERGY
+#define EE (RHORT + 1)
+#define NUM_ELECTRON_ENERGY 1
+#else
+#define NUM_ELECTRON_ENERGY 0
+#endif
 #ifdef PELE_USE_SOOT
 #define FIRSTSOOT (RHORT + NUMPLASMA + 1)
 #define NUMSOOTVAR (NUM_SOOT_MOMENTS + 1)
@@ -25,8 +31,8 @@
 #ifndef NUM_ODE
 #define NUM_ODE 0
 #endif
-#define FIRSTODE (RHORT + NUMPLASMA + NUMSOOTVAR + 1)
-#define NVAR (RHORT + NUMPLASMA + NUMSOOTVAR + NUM_ODE + 1)
+#define FIRSTODE (RHORT + NUMPLASMA + NUM_ELECTRON_ENERGY+ NUMSOOTVAR + 1)
+#define NVAR (RHORT + NUMPLASMA + NUM_ELECTRON_ENERGY + NUMSOOTVAR + NUM_ODE + 1)
 
 namespace pelelmex {
 enum BCTypeEB {
