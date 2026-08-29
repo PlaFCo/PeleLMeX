@@ -49,6 +49,9 @@ ifeq ($(USE_PLASMA),TRUE)
    DEFINES += -DPELE_USE_PLASMA
    LMdirs += Source/Plasma Source/Plasma/GMRES Source/Plasma/LinOps
 endif
+ifeq ($(USE_ELECTRON_ENERGY),TRUE)
+   DEFINES += -DPELE_USE_ELECTRON_ENERGY
+endif
 ifeq ($(USE_PARTICLES), TRUE)
    ifdef SPRAY_FUEL_NUM
       # This tells PelePhysics that PeleC is not being used
