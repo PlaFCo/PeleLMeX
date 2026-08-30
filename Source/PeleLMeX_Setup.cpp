@@ -574,6 +574,7 @@ PeleLM::readParameters()
     m_aux_advect.resize(m_nAux);
     m_DiffTypeAux.resize(m_nAux);
     m_aux_Schmidt.resize(m_nAux);
+    m_aux_diffusivity.resize(m_nAux);
     for (int n = 0; n < m_nAux; ++n) {
       pp.get("aux_vars", m_aux_names[n], n);
       std::string aux_prefix = "peleLM." + m_aux_names[n];
@@ -584,6 +585,11 @@ PeleLM::readParameters()
       ppa.query("conservative", m_AdvTypeAux[n]);
       m_aux_Schmidt[n] = -1.0;
       ppa.query("Schmidt", m_aux_Schmidt[n]);
+      m_aux_diffusivity[n] = 0.0;
+      ppa.query("diffusivity", m_aux_diffusivity[n]);
+      if (m_aux_diffusivity[n] >= 0.0 && m_aux_Schmidt[n] > 0.0) {
+        amrex::Abort("Aux var " + m_aux_names[n] + "cant have diffusivity and Schmidt");
+      }
       int diffuse = 1;
       ppa.query("diffuse", diffuse);
       if (diffuse == 0) {

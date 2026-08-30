@@ -2244,6 +2244,7 @@ public:
   amrex::Vector<int> m_AdvTypeAux;
   amrex::Vector<int> m_DiffTypeAux;
   amrex::Vector<amrex::Real> m_aux_Schmidt;
+  amrex::Vector<amrex::Real> m_aux_diffusivity;
   amrex::Vector<int> m_aux_advect;
   // R-z
   int m_rz_correction = 0;

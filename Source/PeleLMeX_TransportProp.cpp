@@ -311,7 +311,10 @@ PeleLM::calcDiffusivity(const TimeStamp a_time)
 #endif
       });
 
-    // Fill the diff_aux MF with specified Schmidt number
+    // Fill the diff_aux MF with diffusion coefficient
+    // constant
+    // Schmidt
+    // default from Le=1
     for (int n = 0; n < m_nAux; ++n) {
       auto const& diff_aux_arr = ldata_p->diff_aux_cc.arrays();
       auto const& diff_arr = ldata_p->diff_cc.const_arrays();
@@ -328,7 +331,21 @@ PeleLM::calcDiffusivity(const TimeStamp a_time)
 
         continue;
       }
-      if (m_aux_Schmidt[n] > 0) {
+
+      if (m_aux_diffusivity[n] >= 0.0) {
+        // User-specified diffusivity [m^2/s]
+        const amrex::Real D = m_aux_diffusivity[n];
+
+        amrex::ParallelFor(
+          ldata_p->diff_aux_cc,
+          ldata_p->diff_aux_cc.nGrowVect(),
+          [diff_aux_arr, D, n]
+          AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept
+          {
+            diff_aux_arr[box_no](i,j,k,n) = D;
+          });
+
+      } else (m_aux_Schmidt[n] > 0) {
         // Compute diffusivity with Schmidt number
         const amrex::Real inv_sc = 1.0 / m_aux_Schmidt[n];
         amrex::ParallelFor(
