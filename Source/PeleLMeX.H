@@ -235,6 +235,9 @@ public:
 #ifdef PELE_USE_PLASMA
     amrex::MultiFab I_RnE; // Electron number density reaction term
 #endif
+#ifdef PELE_USE_ELECTRON_ENERGY
+    amrex::MultiFab I_RE;
+#endif
   };
   //-----------------------------------------------------------------------------
 
@@ -842,6 +845,12 @@ public:
    * \param a_HR outgoing MultiFab
    */
   void getHeatRelease(const int lev, amrex::MultiFab* a_HR);
+
+#ifdef PELE_USE_ELECTRON_ENERGY
+  void applyElectronEnergyExchange(
+    const int lev,
+    const amrex::Real a_dt);
+#endif
   //-----------------------------------------------------------------------------
 
   //-----------------------------------------------------------------------------

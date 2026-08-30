@@ -142,6 +142,10 @@ PeleLM::advanceChemistry(
 #endif
   }
 
+#ifdef PELE_USE_ELECTRON_ENERGY
+  applyElectronEnergyExchange(lev, a_dt);
+#endif
+
   // Set reaction term
 
   auto const& state_o_ma = ldataOld_p->state.const_arrays();
@@ -363,6 +367,10 @@ PeleLM::advanceChemistryBAChem(
       nEdot(i, j, k) = -(nE_o(i, j, k) - nE_n(i, j, k)) * dt_inv - FnE(i, j, k);
 #endif
     });
+
+#ifdef PELE_USE_ELECTRON_ENERGY
+  applyElectronEnergyExchange(lev, a_dt);
+#endif
   amrex::Gpu::streamSynchronize();
 }
 
@@ -529,3 +537,44 @@ PeleLM::getHeatRelease(const int a_lev, amrex::MultiFab* a_HR)
 
   amrex::Gpu::streamSynchronize();
 }
+
+#ifdef PELE_USE_ELECTRON_ENERGY
+void
+PeleLM::applyElectronEnergyExchange(
+  const int lev,
+  const amrex::Real a_dt)
+{
+  BL_PROFILE("PeleLMeX::applyElectronEnergyExchange()");
+
+  constexpr int EENERGY_AUX = 0;
+  constexpr amrex::Real lambda_e = 1.0; // s-1
+
+  auto* ldataNew_p = getLevelDataPtr(lev, AmrNewTime);
+  auto* ldataR_p = getLevelDataReactPtr(lev);
+
+  auto const& state_n = ldataNew_p->state.arrays();
+  auto const& aux_n = ldataNew_p->auxiliaries.arrays();
+  auto const& IRE = ldataR_p->I_RE.arrays();
+
+  amrex::ParallelFor(
+    ldataNew_p->state,
+    [state_n, aux_n, IRE, a_dt]
+    AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept
+    {
+      const amrex::Real Ee =
+        aux_n[box_no](i, j, k, EENERGY_AUX);
+
+      const amrex::Real Se = -lambda_e * Ee;
+      const amrex::Real dEe = a_dt * Se;
+
+      // Electron energy
+      aux_n[box_no](i, j, k, EENERGY_AUX) += dEe;
+
+      // opposite heavy specie energy 
+      state_n[box_no](i, j, k, RHOH) -= dEe;
+
+      // exchange source
+      IRE[box_no](i, j, k) = Se;
+    });
+}
+#endif
