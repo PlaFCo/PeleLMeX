@@ -345,7 +345,7 @@ PeleLM::calcDiffusivity(const TimeStamp a_time)
             diff_aux_arr[box_no](i,j,k,n) = D;
           });
 
-      } else (m_aux_Schmidt[n] > 0) {
+      } else if (m_aux_Schmidt[n] > 0) {
         // Compute diffusivity with Schmidt number
         const amrex::Real inv_sc = 1.0 / m_aux_Schmidt[n];
         amrex::ParallelFor(
