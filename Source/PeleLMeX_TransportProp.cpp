@@ -315,6 +315,19 @@ PeleLM::calcDiffusivity(const TimeStamp a_time)
     for (int n = 0; n < m_nAux; ++n) {
       auto const& diff_aux_arr = ldata_p->diff_aux_cc.arrays();
       auto const& diff_arr = ldata_p->diff_cc.const_arrays();
+
+      if (m_DiffTypeAux[n] == 0) {
+
+        amrex::ParallelFor(
+          ldata_p->diff_aux_cc,
+          ldata_p->diff_aux_cc.nGrowVect(),
+          [diff_aux_arr, n]
+          AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
+            diff_aux_arr[box_no](i, j, k, n) = 0.0;
+          });
+
+        continue;
+      }
       if (m_aux_Schmidt[n] > 0) {
         // Compute diffusivity with Schmidt number
         const amrex::Real inv_sc = 1.0 / m_aux_Schmidt[n];
