@@ -1787,7 +1787,11 @@ PeleLM::resizeArray()
 
   // External sources
   m_extSource.resize(max_level + 1);
-
+  
+  if (m_nAux>0){
+    // External aux sources
+    m_extSourceAux.resize(max_level + 1);
+  }
   // Factory
   m_factory.resize(max_level + 1);
 

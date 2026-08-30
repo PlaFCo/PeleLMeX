@@ -867,6 +867,7 @@ buildAdvectionForcing(
   const int do_react,
   amrex::Array4<amrex::Real> const& forceY,
   amrex::Array4<amrex::Real> const& forceT,
+  amrex::Array4<amrex::Real> const& extAux,
   amrex::Array4<amrex::Real> const& forceAux,
   amrex::Array4<const amrex::Real> const& dn_aux,
   const int* aux_diffuse,
@@ -903,12 +904,10 @@ buildAdvectionForcing(
   }
 
   for (int n = 0; n < nAux; ++n) {
+    forceAux(i, j, k, n) = extAux(i, j, k, n);
     if (aux_diffuse[n] != 0) {
       forceAux(i, j, k, n) = dn_aux(i, j, k, n);
-    } else {
-      forceAux(i, j, k, n) = 0.0;
-    }
-    // TO DO: source terms for Aux
+    } 
   }
 
   amrex::Real cpmix_cgs = 0.0;
@@ -942,6 +941,7 @@ buildDiffusionForcing(
   amrex::Array4<const amrex::Real> const& extRhoH,
   const int use_wbar,
   const int use_soret,
+  amrex::Array4<const amrex::Real> const& extAux,
   amrex::Array4<amrex::Real> const& forceAux,
   amrex::Array4<const amrex::Real> const& a_aux,
   amrex::Array4<const amrex::Real> const& dn_aux,
@@ -974,7 +974,7 @@ buildDiffusionForcing(
   }
 
   for (int n = 0; n < nAux; ++n) {
-    forceAux(i, j, k, n) = 0.0;
+    forceAux(i, j, k, n) = extAux(i, j, k, n);
     if (aux_diffuse[n] != 0) {
       forceAux(i, j, k, n) +=
         0.5 * (dn_aux(i, j, k, n) - dnp1k_aux(i, j, k, n));
@@ -982,7 +982,6 @@ buildDiffusionForcing(
     if (aux_advect[n] != 0) {
       forceAux(i, j, k, n) += a_aux(i, j, k, n);
     }
-    // To do: source terms for aux
   }
 }
 

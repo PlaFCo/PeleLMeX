@@ -1883,6 +1883,8 @@ PeleLM::getScalarDiffForce(
       (m_use_wbar != 0) ? diffData->Dwbar[lev].const_arrays() : dn_ma;
     auto const& dT_ma =
       (m_use_soret != 0) ? diffData->DT[lev].const_arrays() : dn_ma;
+    auto const& ext_aux_ma =
+      (m_nAux > 0) ? m_extSourceAux[lev]->const_arrays() : ext_ma;
     auto const& f_aux_ma =
       (m_nAux > 0) ? advData->Forcing_aux[lev].arrays() : f_ma;
     auto const& a_aux_ma =
@@ -1894,7 +1896,7 @@ PeleLM::getScalarDiffForce(
 
     amrex::ParallelFor(
       advData->Forcing[lev],
-      [dn_ma, dnp1_ma, r_ma, a_ma, ext_ma, f_ma, dwbar_ma, dT_ma, f_aux_ma,
+      [dn_ma, dnp1_ma, r_ma, a_ma, ext_ma, f_ma, dwbar_ma, dT_ma, ext_aux_ma, f_aux_ma,
        a_aux_ma, dn_aux_ma, dnp1_aux_ma, do_react = m_do_react,
        use_wbar = m_use_wbar, use_soret = m_use_soret, dp0dt = m_dp0dt,
        is_closed_ch = m_closed_chamber, nAux = m_nAux, aux_advect_d,
@@ -1909,7 +1911,7 @@ PeleLM::getScalarDiffForce(
         buildDiffusionForcing(
           i, j, k, dn_ma[box_no], ddn, dnp1_ma[box_no], ddnp1, r_ma[box_no], a,
           dp0dt, is_closed_ch, do_react, f_ma[box_no], fT, dwbar_ma[box_no],
-          dT_ma[box_no], extRhoY, extRhoH, use_wbar, use_soret,
+          dT_ma[box_no], extRhoY, extRhoH, use_wbar, use_soret, ext_aux_ma[box_no],
           f_aux_ma[box_no], a_aux_ma[box_no], dn_aux_ma[box_no],
           dnp1_aux_ma[box_no], aux_advect_d, aux_diffuse_d, nAux);
       });

@@ -429,6 +429,12 @@ PeleLM::MakeNewLevelFromCoarse(
     ba, dm, NVAR, amrex::max<int>(m_nGrowAdv, m_nGrowMAC), amrex::MFInfo(),
     *m_factory[lev]);
   m_extSource[lev]->setVal(0.);
+  if (m_nAux>0){
+    m_extSourceAux[lev] = std::make_unique<amrex::MultiFab>(
+    ba, dm, m_nAux, 0, amrex::MFInfo(),
+    *m_factory[lev]);
+    m_extSourceAux[lev]->setVal(0.);
+  }
 
   // Recycling-plane storage spans whatever set of AMR levels currently exists
   // and must be rebuilt whenever that changes.
@@ -559,6 +565,12 @@ PeleLM::RemakeLevel(
     ba, dm, NVAR, amrex::max<int>(m_nGrowAdv, m_nGrowMAC), amrex::MFInfo(),
     *m_factory[lev]);
   m_extSource[lev]->setVal(0.);
+  if (m_nAux>0){
+    m_extSourceAux[lev] = std::make_unique<amrex::MultiFab>(
+    ba, dm, m_nAux, 0, amrex::MFInfo(),
+    *m_factory[lev]);
+    m_extSourceAux[lev]->setVal(0.);
+  }
 
   // Recycling-plane storage spans whatever set of AMR levels currently exists
   // and must be rebuilt whenever that changes.
@@ -592,7 +604,9 @@ PeleLM::ClearLevel(const int lev)
   }
 #endif
   m_extSource[lev]->clear();
-
+  if (m_nAux > 0){
+    m_extSourceAux[lev].reset();
+  }
   m_costs[lev].reset();
   m_loadBalanceEff[lev] = -1.0;
 

@@ -77,6 +77,9 @@ PeleLM::Advance(const int is_initIter)
 
   for (int lev = 0; lev <= finest_level; ++lev) {
     m_extSource[lev]->setVal(0.);
+    if (m_nAux > 0){
+      m_extSourceAux[lev]->setVal(0.);
+    }
   }
   //----------------------------------------------------------------
 

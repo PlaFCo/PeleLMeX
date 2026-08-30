@@ -296,6 +296,32 @@ struct DefaultProblemSpecificFunctions
      */
   }
 
+  /**
+   * \brief Modify the external source term in the state conservation eq.
+   *
+   * \param time              current time.
+   * \param dt                current time-step.
+   * \param state_old         the old state multifab.
+   * \param state_new         the new state multifab.
+   * \param aux_old           the old aux state multifab.
+   * \param aux_new           the new aux state multifab.
+   * \param aux_src           a pointer to the external src term multifab.
+   * \param geomdata          geometry data.
+   * \param prob_parm         problem specific parameters.
+   */
+  static void modify_aux_sources(
+  amrex::Real /*time*/,
+  amrex::Real /*dt*/,
+  const amrex::MultiFab& /*state_old*/,
+  const amrex::MultiFab& /*state_new*/,
+  const amrex::MultiFab& /*aux_old*/,
+  const amrex::MultiFab& /*aux_new*/,
+  amrex::MultiFab& /*aux_src*/,
+  const amrex::GeometryData& /*geomdata*/,
+  const ProbParmDefault* /*prob_parm_d*/)
+{
+}
+
   static void patchFlowVariables(
     const amrex::Geometry& /*geom*/,
     ProbParmDefault const& /*prob_parm*/,

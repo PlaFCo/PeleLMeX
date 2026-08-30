@@ -305,7 +305,9 @@ PeleLM::getScalarAdvForce(
     auto const& adv_ma = advData->Forcing[lev].arrays();
     auto const& r_ma = ldataR_p->I_R.const_arrays();
     auto const& ext_ma = m_extSource[lev]->arrays();
-
+    
+    auto const& ext_aux_ma = 
+     (m_nAux > 0) ? m_extSourceAux[lev]->arrays() : ext_ma;
     auto const& dn_aux_ma =
       (m_nAux > 0) ? diffData->Dn_aux[lev].const_arrays() : dn_ma;
     auto const& adv_aux_ma =
@@ -313,7 +315,7 @@ PeleLM::getScalarAdvForce(
 
     amrex::ParallelFor(
       advData->Forcing[lev],
-      [state_ma, dn_ma, dn_aux_ma, r_ma, ext_ma, adv_ma, adv_aux_ma,
+      [state_ma, dn_ma, dn_aux_ma, r_ma, ext_ma, ext_aux_ma, adv_ma, adv_aux_ma,
        aux_diffuse_d, leosparm, nAux = m_nAux, dp0dt = m_dp0dt,
        is_closed_ch = m_closed_chamber,
        do_react =
@@ -330,9 +332,10 @@ PeleLM::getScalarAdvForce(
         amrex::Array4<amrex::Real> fY(adv_ma[box_no], 0);
         amrex::Array4<amrex::Real> fT(adv_ma[box_no], NUM_SPECIES);
         amrex::Array4<amrex::Real> fAux(adv_aux_ma[box_no], 0);
+        amrex::Array4<amrex::Real> extAux(ext_aux_ma[box_no], 0);
         buildAdvectionForcing(
           i, j, k, rho, rhoY, T, dn, ddn, r, extRhoY, extRhoH, dp0dt,
-          is_closed_ch, do_react, fY, fT, fAux, dn_aux, aux_diffuse_d, nAux,
+          is_closed_ch, do_react, fY, fT, extAux, fAux, dn_aux, aux_diffuse_d, nAux,
           leosparm);
       });
   }

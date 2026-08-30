@@ -126,6 +126,10 @@ PeleLM::MakeNewLevelFromScratch(
     amrex::MFInfo(), *m_factory[lev]);
   m_extSource[lev]->setVal(0.);
 
+  m_extSourceAux[lev] = std::make_unique<amrex::MultiFab>(
+    grids[lev], dmap[lev], m_nAux, 0, amrex::MFInfo(), *m_factory[lev]);
+  m_extSourceAux[lev]->setVal(0.);
+
   // Mesh mapping metric fields (if enabled; otherwise no-op).  Allocate
   // storage here so downstream consumers can index the per-level MFs even
   // though create_map() is not yet called from the numerics paths.
