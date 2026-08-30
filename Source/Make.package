@@ -74,3 +74,7 @@ endif
 ifeq ($(USE_PARTICLES), TRUE)
   CEXE_sources += PeleLMeX_SprayParticles.cpp
 endif
+
+ifeq ($(USE_ELECTRON_ENERGY), TRUE)
+  CEXE_headers += PeleLMeX_ElectronEnergy.H
+endif
