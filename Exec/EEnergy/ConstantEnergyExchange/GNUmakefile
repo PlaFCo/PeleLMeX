@@ -29,7 +29,7 @@ THREAD_SANITIZER = FALSE
 USE_ELECTRON_ENERGY = TRUE
 
 # PelePhysics
-Chemistry_Model = air
+Chemistry_Model = IonizedAir
 Eos_Model = Fuego
 Transport_Model = Simple
 

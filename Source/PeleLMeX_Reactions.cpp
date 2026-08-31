@@ -3,6 +3,9 @@
 #ifdef PELE_USE_PLASMA
 #include <PeleLMeX_EF_Constants.H>
 #endif
+#ifdef PELE_USE_ELECTRON_ENERGY
+#include <PeleLMeX_ElectronEnergy.H>
+#endif
 
 void
 PeleLM::advanceChemistry(const std::unique_ptr<AdvanceAdvData>& advData)
@@ -64,6 +67,35 @@ PeleLM::advanceChemistry(
     auto const& fcl = ldataR_p->functC.array(mfi);
     auto const& mask_arr = mask.array(mfi);
 
+#ifdef PELE_USE_ELECTRON_ENERGY
+    constexpr int EENERGY_AUX = 0;
+    amrex::FArrayBox Te_fab(bx, 1, amrex::The_Async_Arena());
+    auto const Te_arr = Te_fab.array();
+    auto const Te_const_arr = Te_fab.const_array();
+    auto const Ee_arr =
+        ldataOld_p->auxiliaries.const_array(mfi, EENERGY_AUX);
+    // TODO: add case PELE_USE_PLASMA that contains NE
+    auto const rhoYe_n =
+        ldataNew_p->state.const_array(mfi, FIRSTSPEC + E_ID);
+    auto eos = pele::physics::PhysicsType::eos(&eos_parms.host_parm());
+    amrex::Real mwt[NUM_SPECIES] = {0.0};
+    eos.molecular_weight(mwt);
+    amrex::Real W_e = mwt[E_ID]; // g/mol
+    amrex::ParallelFor(
+        bx,
+        [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            const amrex::Real Ee =
+                Ee_arr(i, j, k);
+            const amrex::Real rho_e =
+                rhoYe_n(i, j, k);
+            const amrex::Real T_h =
+                temp_n(i, j, k);
+            Te_arr(i, j, k) =
+                pele::electron_energy::temperature(
+                    Ee, rho_e, W_e, T_h);
+        });
+#endif
     // Reset new to old and convert MKS -> CGS
     amrex::ParallelFor(
       bx, NUM_SPECIES,
@@ -102,7 +134,11 @@ PeleLM::advanceChemistry(
     amrex::Real time_chem = 0;
     /* Solve */
     m_reactor->react(
-      bx, rhoY_n, extF_rhoY, temp_n, rhoH_n, extF_rhoH, fcl, mask_arr, dt_incr,
+      bx, rhoY_n, extF_rhoY, temp_n, 
+#ifdef PELE_USE_ELECTRON_ENERGY
+      Te_const_arr,
+#endif
+      rhoH_n, extF_rhoH, fcl, mask_arr, dt_incr,
       time_chem
 #ifdef AMREX_USE_GPU
       ,
@@ -200,6 +236,11 @@ PeleLM::advanceChemistryBAChem(
 #ifdef PELE_USE_PLASMA
   amrex::MultiFab chemnE(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
 #endif
+#ifdef PELE_USE_ELECTRON_ENERGY
+constexpr int EENERGY_AUX = 0;
+amrex::MultiFab chemEe(
+    *m_baChem[lev], *m_dmapChem[lev], 1, 0);
+#endif
 
   // Setup EB covered cells mask
   amrex::iMultiFab mask(*m_baChem[lev], *m_dmapChem[lev], 1, 0);
@@ -215,7 +256,10 @@ PeleLM::advanceChemistryBAChem(
 #ifdef PELE_USE_PLASMA
   chemnE.ParallelCopy(ldataOld_p->state, NE, 0, 1);
 #endif
-
+#ifdef PELE_USE_ELECTRON_ENERGY
+chemEe.ParallelCopy(
+    ldataOld_p->auxiliaries, EENERGY_AUX, 0, 1);
+#endif
   amrex::MFItInfo mfi_info;
   if (amrex::Gpu::notInLaunchRegion()) {
     mfi_info.EnableTiling().SetDynamic(true);
@@ -233,6 +277,34 @@ PeleLM::advanceChemistryBAChem(
     auto const& fcl = functC.array(mfi);
     auto const& mask_arr = mask.array(mfi);
 
+#ifdef PELE_USE_ELECTRON_ENERGY
+amrex::FArrayBox Te_fab(bx, 1, amrex::The_Async_Arena());
+auto const Te_arr = Te_fab.array();
+auto const Te_const_arr = Te_fab.const_array();
+auto const Ee_arr = chemEe.const_array(mfi);
+auto eos =pele::physics::PhysicsType::eos(&eos_parms.host_parm());
+amrex::Real mwt[NUM_SPECIES] = {0.0};
+eos.molecular_weight(mwt);
+const amrex::Real W_e = mwt[E_ID];
+#ifdef PELE_USE_PLASMA
+auto const nE_arr = chemnE.const_array(mfi);
+#endif
+amrex::ParallelFor( bx, [=] AMREX_GPU_DEVICE(
+        int i, int j, int k) noexcept {
+        const amrex::Real Ee = Ee_arr(i, j, k);
+        const amrex::Real T_h = temp_o(i, j, k);
+#ifdef PELE_USE_PLASMA
+        // n_e [1/m^3] -> rho_e [kg/m^3]
+        const amrex::Real rho_e =
+            nE_arr(i, j, k) * W_e /
+            (1.0e3 * pele::physics::Constants::Avna);
+#else
+        const amrex::Real rho_e = rhoY_o(i, j, k, E_ID);
+#endif
+        Te_arr(i, j, k) = pele::electron_energy::temperature(
+                Ee, rho_e, W_e, T_h);}
+      );
+#endif
     // Convert MKS -> CGS
     amrex::ParallelFor(
       bx, NUM_SPECIES,
@@ -273,7 +345,11 @@ PeleLM::advanceChemistryBAChem(
       amrex::Real time_chem = 0;
       /* Solve */
       m_reactor->react(
-        bx, rhoY_o, extF_rhoY, temp_o, rhoH_o, extF_rhoH, fcl, mask_arr,
+        bx, rhoY_o, extF_rhoY, temp_o, 
+#ifdef PELE_USE_ELECTRON_ENERGY
+        Te_const_arr,
+#endif
+        rhoH_o, extF_rhoH, fcl, mask_arr,
         dt_incr, time_chem
 #ifdef AMREX_USE_GPU
         ,
