@@ -42,7 +42,7 @@ prob.quench_center  = 0.192
 prob.quench_delta   = 0.001
 prob.x_O2_quench    = 1.00
 
-prob.total_power = 600
+prob.total_power = 1000
 
 prob.sponge_gamma   = 1             # Angular Momentum Sponge
 prob.sponge_zstart  = 0.27
@@ -51,19 +51,19 @@ prob.sponge_zend    = 0.32
 prob.flag_solve_EM      = 1         # Flag for calling Harps
 prob.normalize_power    = 1
 prob.EM_t_start         = 0.15
-prob.plot_harps_file    = "plt_harps_N2_600W_"
+prob.plot_harps_file    = "plt_harps_N2_1000W_"
 prob.plot_harps_int     = 250
-prob.harps_verbose      = 1
+prob.harps_verbose      = 2
 
 #-------------------------PeleLM CONTROL----------------------------
 peleLM.v = 1
 
-#amr.restart   = chk_N2_10slm09000
+amr.restart   = chk_N2_1000W_12000
 amr.max_step  = 50000
 amr.stop_time = 0.6
 
-amr.plot_file   = "plt_N2_600W_"
-amr.check_file  = "chk_N2_600W_"
+amr.plot_file   = "plt_N2_1000W_"
+amr.check_file  = "chk_N2_1000W_"
 amr.check_int   = 1000
 amr.plot_int    = 250
 

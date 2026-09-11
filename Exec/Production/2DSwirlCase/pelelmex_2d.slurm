@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=pelelmex_2d
+#SBATCH --job-name=N2_10slm_600W
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 #SBATCH --ntasks=8
-#SBATCH --time=02:00:00
+#SBATCH --time=48:00:00
 
 # Load/activate whatever environment you normally use here.
 source ~/spack/share/spack/setup-env.sh

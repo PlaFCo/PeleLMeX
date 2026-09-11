@@ -7,7 +7,7 @@ void create_grid(const std::string& config_file_path, std::vector<double>& y, st
 
 int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations,
             std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im,
-            std::vector<double>& plasma_pabs, std::vector<double>& plasma_E_field);
+            std::vector<double>& plasma_pabs, std::vector<double>& plasma_E_field, int harps_verbose = 1);
 
 void interpolate_rz_to_yz(const std::vector<double>& y, const std::vector<double>& z, std::vector<std::tuple<int, int, int>>& plasma_locations,
                         std::vector<double>& plasma_ne, std::vector<double>& plasma_mu_re, std::vector<double>& plasma_mu_im,

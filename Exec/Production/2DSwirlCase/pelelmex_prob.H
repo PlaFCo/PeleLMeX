@@ -19,20 +19,39 @@ struct MyProbParm : public ProbParmDefault
 {
 
   amrex::Real uz = 0.0;
-  amrex::Real ur = 0.0;
   amrex::Real inletcenter = 0.01;
   amrex::Real inletdelta = 0.002;
 
-  amrex::Real standoff = 0.0;
+  amrex::Real ur = 0.0;
   amrex::Real utheta = 0.0;
+  amrex::Real main_center = 0.070;
+  amrex::Real main_delta = 0.001;
+
+  amrex::Real ur_quench  = 0.0;
+  amrex::Real quench_center  = 0.192;
+  amrex::Real quench_delta  = 0.001;
+  bool quench_flag = false;
+
+  amrex::Real x_O2_main = 0.5;
+  amrex::Real x_O2_quench = 0.5;
+
+  amrex::Real standoff = 0.0;
   amrex::Real pertmag = 0.0004;
   int meanFlowDir = 1;
-  amrex::Real solidBody = 0.0;
+  amrex::Real solidBody = 0.01;
 
   amrex::Real total_power = 0.0;
 
-  amrex::Real sponge_gamma = 10;
+  amrex::Real EM_t_start = 0.15;
+  int plot_harps_int = 100;
+  int harps_verbose = 1;
+  bool flag_solve_EM = false;
+  bool normalize_power = true;
+  amrex::GpuArray<char, 64> plot_harps_file = {"plt_harps"};
+
+  amrex::Real sponge_gamma = 1;
   amrex::Real sponge_zstart = 0.27;
+  amrex::Real sponge_zend = 0.32;
 };
 
 struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
@@ -76,8 +95,8 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
 
     pert = 0.0;
     state(i, j, k, TEMP) = 300.0; //pmf_vals[0];
-    molefrac[N2_ID] = 0.79;
-    molefrac[O2_ID] = 0.21;
+    molefrac[N2_ID] = 1 - prob_parm.x_O2_main;
+    molefrac[O2_ID] = prob_parm.x_O2_main;
     eos.X2Y(molefrac, massfrac);
 
     AMREX_D_TERM(state(i, j, k, VELX) = 0.0;
@@ -100,10 +119,10 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     for (int n = 0; n < NUM_SPECIES; n++) {
       state(i, j, k, FIRSTSPEC + n) = massfrac[n] * state(i, j, k, DENSITY);
     }
-    amrex::Real r = (i + 0.5) * dx[0];
+    amrex::Real r = (i + 0.5)*dx[0];
 
     // Start with a slow solid body swirl
-    aux(i, j, k, aux.nComp()-1) = (0.1*r)*r*state(i,j,k,DENSITY);
+    aux(i, j, k, aux.nComp()-1) = (0.0001*r)*r*state(i,j,k,DENSITY);
     //aux(i, j, k, aux.nComp()-1) =(20*r/0.01)*r*state(i,j,k,DENSITY);
     //aux(i, j, k, aux.nComp()-1) = (30*r*std::exp(-2*r*r*2e4))*r*state(i,j,k,DENSITY);                  // odd normal
     //aux(i, j, k, aux.nComp()-1) = (30*0.005*(r/0.005)/(1+(r/0.005)*(r/0.005)))*r*state(i,j,k,DENSITY); // decreasing velocity but increasing l_z
@@ -142,37 +161,39 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
       }
       
       amrex::Real temp = 300;
-      molefrac[N2_ID] = 0.79;
-      molefrac[O2_ID] = 0.21;
+      molefrac[N2_ID] = 1 - prob_parm.x_O2_main;
+      molefrac[O2_ID] = prob_parm.x_O2_main;
       eos.X2Y(molefrac, massfrac);
 
       amrex::Real rho_cgs, P_cgs, RhoH_temp;
-      P_cgs = prob_parm.P_mean * 10.0;
+      P_cgs = prob_parm.P_mean*10.0;
 
       eos.PYT2R(P_cgs, massfrac, temp, rho_cgs);
-      amrex::Real density = rho_cgs * 1.0e3;
+      amrex::Real density = rho_cgs*1.0e3;
       
       //aux_ext[naux] = density * r * utheta;
       aux_ext[naux] = (20*r/0.01)*r*density;
     } else if (idir == 0 && sgn == -1){
       aux_ext[naux] = 0.0;
 
-      if (x[1]>0.059 && x[1]<0.061){
+      if (x[1]>prob_parm.main_center - 0.5*prob_parm.main_delta && x[1]<prob_parm.main_center + 0.5*prob_parm.main_delta){ // Main injection
         amrex::Real utheta = 0.0;
         amrex::Real temp = 300;
-        molefrac[N2_ID] = 0.79;
-        molefrac[O2_ID] = 0.21;
+        molefrac[N2_ID] = 1 - prob_parm.x_O2_main;
+        molefrac[O2_ID] = prob_parm.x_O2_main;
         eos.X2Y(molefrac, massfrac);
 
         amrex::Real rho_cgs, P_cgs, RhoH_temp;
-        P_cgs = prob_parm.P_mean * 10.0;
+        P_cgs = prob_parm.P_mean*10.0;
 
         eos.PYT2R(P_cgs, massfrac, temp, rho_cgs);
-        amrex::Real density = rho_cgs * 1.0e3;
+        amrex::Real density = rho_cgs*1.0e3;
 
         utheta = prob_parm.utheta;
-        aux_ext[naux] = density * 0.014 * utheta;
-      } else{
+        aux_ext[naux] = density*0.013*utheta;
+      } else if (x[1]>prob_parm.quench_center - 0.5*prob_parm.quench_delta && x[1]<prob_parm.quench_center + 0.5*prob_parm.quench_delta && prob_parm.quench_flag){ // Radial injection
+        aux_ext[naux] = 0.0;
+      }else{
         aux_ext[naux] = 0.0;
       }
     }
@@ -214,15 +235,15 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
 
       if (x[0]<ymax && x[0]>ymin){
         AMREX_D_TERM(
-            s_ext[VELX] = 0*prob_parm.ur; //*std::cos(0.5*3.14159*(x[1]-center)/deltac);
+            s_ext[VELX] = 0.0; //*std::cos(0.5*3.14159*(x[1]-center)/deltac);
           , s_ext[VELY] = prob_parm.uz; //*std::sin(0.5*3.14159*(x[1]-center)/deltac);
           , s_ext[VELZ] = 0.0);
       }
       
       s_ext[TEMP] = 300;// pmf_vals[0];
                         //
-      molefrac[N2_ID] = 0.79;
-      molefrac[O2_ID] = 0.21;
+      molefrac[N2_ID] = 1 - prob_parm.x_O2_main;
+      molefrac[O2_ID] = prob_parm.x_O2_main;
       eos.X2Y(molefrac, massfrac);
 
       amrex::Real rho_cgs, P_cgs, RhoH_temp;
@@ -243,19 +264,32 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
           s_ext[VELX] = 0.0;, s_ext[VELY] = 0.0;
           , s_ext[VELZ] = 0.0);
 
-      if (x[1]>0.059 && x[1]<0.061){
+      s_ext[TEMP] = 300;// pmf_vals[0];
+      molefrac[N2_ID] = 1 - prob_parm.x_O2_main;
+      molefrac[O2_ID] = prob_parm.x_O2_main;
+
+      if (x[1]>prob_parm.main_center - 0.5*prob_parm.main_delta && x[1]<prob_parm.main_center + 0.5*prob_parm.main_delta){
         AMREX_D_TERM(
             s_ext[VELX] = prob_parm.ur; //*std::cos(0.5*3.14159*(x[1]-center)/deltac); // equivalent to 5 slm
           , s_ext[VELY] = 0.0; //*std::sin(0.5*3.14159*(x[1]-center)/deltac);
           , s_ext[VELZ] = 0.0);
-      }
-      
-      s_ext[TEMP] = 300;// pmf_vals[0];
-                        //
-      molefrac[N2_ID] = 0.79;
-      molefrac[O2_ID] = 0.21;
-      eos.X2Y(molefrac, massfrac);
+        
+        s_ext[TEMP] = 300;// pmf_vals[0];
+        molefrac[N2_ID] = 1 - prob_parm.x_O2_main;
+        molefrac[O2_ID] = prob_parm.x_O2_main;
+      } else if (x[1]>prob_parm.quench_center - 0.5*prob_parm.quench_delta && x[1]<prob_parm.quench_center + 0.5*prob_parm.quench_delta && prob_parm.quench_flag) {
+        AMREX_D_TERM(
+            s_ext[VELX] = prob_parm.ur_quench; 
+          , s_ext[VELY] = 0.0;
+          , s_ext[VELZ] = 0.0);
+        
+        s_ext[TEMP] = 300;// pmf_vals[0];
 
+        molefrac[N2_ID] =  1.00 - prob_parm.x_O2_quench;  // Quench gas
+        molefrac[O2_ID] =  prob_parm.x_O2_quench;
+      }
+
+      eos.X2Y(molefrac, massfrac);
       amrex::Real rho_cgs, P_cgs, RhoH_temp;
       P_cgs = prob_parm.P_mean * 10.0;
 
@@ -269,7 +303,7 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
         s_ext[FIRSTSPEC + n] = massfrac[n] * s_ext[DENSITY];
       }
     }
-}
+  }
 
   static void postAdvance(
     amrex::Real time,
@@ -282,43 +316,44 @@ struct MyProblemSpecificFunctions : public DefaultProblemSpecificFunctions
     const MyProbParm* prob_parm_d)
   {
     amrex::ignore_unused(time, state, prob_parm_d);
- 
+
     const amrex::Real sponge_gamma = prob_parm.sponge_gamma;
     const amrex::Real sponge_zstart = prob_parm.sponge_zstart;
+    const amrex::Real sponge_zend = prob_parm.sponge_zend;
     const amrex::Real sponge_n = 2;
- 
+
     for (int lev = 0; lev <= finest_level; ++lev) {
       if (auxiliaries[lev] == nullptr) {
         continue;
       }
 
- 
+
       amrex::MultiFab& aux_mf = *auxiliaries[lev];
       const int comp = aux_mf.nComp() - 1; // AngMom
- 
+
       const auto geomdata = geom[lev]->data();
       const amrex::Real* prob_lo = geomdata.ProbLo();
       const amrex::Real* prob_hi = geomdata.ProbHi();
       const amrex::Real* dx = geomdata.CellSize();
 
       amrex::Real gamma_func = dt*sponge_gamma*(sponge_n + 1)*pow(prob_hi[1] - sponge_zstart,-(sponge_n + 1));
- 
+
       #ifdef AMREX_USE_OMP
       #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
       #endif
       for (amrex::MFIter mfi(aux_mf, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         const amrex::Box& bx = mfi.tilebox();
         auto const& aux_arr = aux_mf.array(mfi);
- 
+
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
             const amrex::Real z = prob_lo[1] + (j + 0.5)*dx[1];
-            if (z > sponge_zstart) {
+            if (z > sponge_zstart && z < sponge_zend) {
               aux_arr(i, j, k, comp) -= gamma_func*pow(z - sponge_zstart, sponge_n)*aux_arr(i, j, k, comp);
             }
           });
       }
     }
- 
+
     amrex::Gpu::streamSynchronize();
   }
   

@@ -28,7 +28,7 @@ void create_grid(const std::string& config_file_path, std::vector<double>& y, st
 
 
 int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, int, int>> plasma_locations,
-            std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im, std::vector<double>& plasma_pabs, std::vector<double>& plasma_E_field){
+            std::vector<double> plasma_ne, std::vector<double> plasma_mu_re, std::vector<double> plasma_mu_im, std::vector<double>& plasma_pabs, std::vector<double>& plasma_E_field, int harps_verbose){
     using Complex = std::complex<double>;
     const Complex zero_C(0.0, 0.0);
 
@@ -36,7 +36,7 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(PETSC_COMM_WORLD, &size);
 
-    if (rank == 0) {
+    if (rank == 0 && harps_verbose > 1) {
         std::cout << "[HARPS] Subroutine initialized with config: " << config_file_path << std::endl;
         std::cout << "[HARPS] Total MPI ranks: " << size << std::endl;
     }
@@ -165,18 +165,18 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
         for (int i = 0; i < num_pts; ++i) {
             Complex mobility(real_mobility[i], imag_mobility[i]);
             complex_conductivity[i] = Constants::CHARGE_E*electron_density[i]*mobility;
+            real_conductivity[i] = std::real(complex_conductivity[i]);  // Used for p_abs = 0.5*cond_real*|E|^2
         }
         if (config.flag_cylindrical_plasma) Grid->calculatePlasmaFillingFactor(complex_conductivity, config.yCenter);     // 2D YZ Plasma Filling in X
 
         for (int i = 0; i < num_pts; ++i){
-            real_conductivity[i] = std::real(complex_conductivity[i]);  // Used for p_abs = 0.5*cond_real*|E|^2
             complex_permittivity[i] = real_permittivity[i] - Complex(0.0, 1.0)*complex_conductivity[i]/(angular_frequency*Constants::EPSILON_0);
         }
 
         std::vector<Complex> f_grad_cond = Grid->calculateCondGradFunction(complex_conductivity, complex_permittivity, angular_frequency);        
 
         // Create system matrix
-        systemMaxwell = Grid->createMaxwellEquationMatrix(f_grad_cond.data(), complex_permittivity, vacuum_wave_number, config.waveguide_number, size);
+        systemMaxwell = Grid->createMaxwellEquationMatrix(f_grad_cond.data(), complex_permittivity, vacuum_wave_number, config.waveguide_number, config.yCenter, size);
         
         VecCreate(PETSC_COMM_WORLD, &b_vector);
         VecSetSizes(b_vector, PETSC_DECIDE, num_variables);
@@ -528,7 +528,7 @@ int run_harps(const std::string& config_file_path, std::vector<std::tuple<int, i
 
         }
         PetscTime(&endTime);
-        PetscPrintf(PETSC_COMM_WORLD, "Time taken: %.3f seconds\n", endTime - startTime);
+        if(harps_verbose > 0) PetscPrintf(PETSC_COMM_WORLD, "Time taken: %.3f seconds\n", endTime - startTime);
 
 
         delete[] electron_density; delete[] real_mobility; delete[] imag_mobility;
