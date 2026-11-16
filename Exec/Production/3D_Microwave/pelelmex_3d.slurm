@@ -3,7 +3,7 @@
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 #SBATCH --ntasks=64
-#SBATCH --time=5-72:00:00
+#SBATCH --time=0-4:00:00
 
 # Load/activate whatever environment you normally use here.
 source ~/spack/share/spack/setup-env.sh

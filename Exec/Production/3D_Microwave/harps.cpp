@@ -7,6 +7,7 @@
 #include "harps.h"
 #include <PeleLMeX.H>
 
+
 std::string harps_dir = "../../../../harps/";    // Path to the harps directory if I'm running from harps or 1d_fluid if it's next to harps
 
 
@@ -673,7 +674,7 @@ std::pair<double, double> interpolate_xyz_to_yz(
 
             for (int i = 0; i < Nx; ++i) {
                 if (wdx[i] == 0.0) continue;
-                const double xr = prob_lo[0] + (i + 0.5) * dx[0];
+                const double xr = prob_lo[0] + (i - 0.5) * dx[0];
                 const double ne_local = blend([&](int jj, int kk) { return amrex_n_e[idx(i, jj, kk)]; });
                 const double mu_re_local = blend([&](int jj, int kk) { return amrex_mu_re[idx(i, jj, kk)]; });
                 const double mu_im_local = blend([&](int jj, int kk) { return amrex_mu_im[idx(i, jj, kk)]; });
@@ -717,6 +718,37 @@ std::pair<double, double> interpolate_xyz_to_yz(
     const double x_center = (sum_cond > 0.0) ? (sum_x_cond / sum_cond) : 0.0;
     const double y_center = (sum_cond > 0.0) ? (sum_y_cond / sum_cond) : 0.0;
     return {x_center, y_center};
+}
+
+std::pair<double, double> calculate_plasma_center(const amrex::MultiFab& ext_src,
+                                            int comp, int Nx, int Ny,
+                                            const amrex::GpuArray<double, 3>& ic,
+                                            const double* dx)
+{
+    const amrex::Real dx0 = dx[0], dy0 = dx[1];
+
+    auto arrs = ext_src.const_arrays();
+
+    auto r = amrex::ParReduce(
+        amrex::TypeList<amrex::ReduceOpSum, amrex::ReduceOpSum, amrex::ReduceOpSum>{},
+        amrex::TypeList<amrex::Real, amrex::Real, amrex::Real>{},
+        ext_src, amrex::IntVect(0),   // No ghosts
+        [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
+            -> amrex::GpuTuple<amrex::Real, amrex::Real, amrex::Real>
+        {
+            const amrex::Real p = arrs[box_no](i, j, k, comp);
+            const amrex::Real x = (static_cast<amrex::Real>(i) - ic[0]) * dx0;
+            const amrex::Real y = (static_cast<amrex::Real>(j) - ic[1]) * dy0;
+            return {x * p, y * p, p};
+        });
+
+    amrex::Real sums[3] = {amrex::get<0>(r), amrex::get<1>(r), amrex::get<2>(r)};
+    amrex::ParallelDescriptor::ReduceRealSum(sums, 3);
+
+    if (sums[2] > 0.0) {
+        return {sums[0] / sums[2], sums[1] / sums[2]};
+    }
+    return {0.0, 0.0};
 }
 
 double optimizeReflectorPosition(const std::string& config_file_path, const std::vector<std::tuple<int, int, int>>& plasma_locations,

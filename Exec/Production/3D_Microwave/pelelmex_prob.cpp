@@ -247,6 +247,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
   
   static amrex::Real normalization_factor = 1;
   bool do_harps = 0; 
+  int stabilizing_runs = 10;  // Number of initial runs to stabilize the solution before using HARPS
   static int step_counter = 0;
   static int harps_counter = 0;
 
@@ -262,7 +263,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
 
   #endif
   
-  if (do_harps == 0 || harps_counter <= 10) {
+  if (do_harps == 0 || harps_counter <= stabilizing_runs) {
     if (power_shape == 1) { // Parabolic Profile
       // Exact discrete normalization for
       // max(1-x^2/rx^2,0) * max(1-y^2/ry^2,0) * max(1-z^2/rz^2,0)
@@ -481,7 +482,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
     }
 
     amrex::MultiFab E_field_raw_mf(ext_src->boxArray(), ext_src->DistributionMap(), 1, 0);
-    E_field_raw_mf.setVal(0.0);
+    E_field_raw_mf.setVal(5000.0);
     auto E_field_raw_a = E_field_raw_mf.arrays();
 
     amrex::MultiFab n_e_mf(ext_src->boxArray(), ext_src->DistributionMap(), 1, 0);
@@ -501,12 +502,13 @@ void ProblemSpecificFunctions::modify_ext_sources(
     amrex::MultiFab Te_mf(ext_src->boxArray(), ext_src->DistributionMap(), 1, 0);
     amrex::MultiFab E_over_N_mf(ext_src->boxArray(), ext_src->DistributionMap(), 1, 0);
     amrex::MultiFab ne_mf(ext_src->boxArray(), ext_src->DistributionMap(), 1, 0);
-    Te_mf.setVal(0.0); E_over_N_mf.setVal(0.0); ne_mf.setVal(0.0);
+    amrex::MultiFab E_field_plot_mf(ext_src->boxArray(), ext_src->DistributionMap(), 1, 0);
+    Te_mf.setVal(300.0); E_over_N_mf.setVal(1.0); ne_mf.setVal(1e11); E_field_plot_mf.setVal(500.0);
 
     auto Te_arr = ((step_counter % prob_parm_d->plot_harps_int == 0) && (sdcIter == 0)) ? Te_mf.arrays() : amrex::MultiArray4<amrex::Real>();
     auto E_over_N_arr = ((step_counter % prob_parm_d->plot_harps_int == 0) && (sdcIter == 0)) ? E_over_N_mf.arrays() : amrex::MultiArray4<amrex::Real>();
     auto ne_arr = ((step_counter % prob_parm_d->plot_harps_int == 0) && (sdcIter == 0)) ? ne_mf.arrays() : amrex::MultiArray4<amrex::Real>();
-    
+    auto E_field_plot_arr = ((step_counter % prob_parm_d->plot_harps_int == 0) && (sdcIter == 0)) ? E_field_plot_mf.arrays() : amrex::MultiArray4<amrex::Real>();
     
     // Compute conductivity related quantities (n_e, mu)
     amrex::Real E_ion_O2 = 12.07*1.60218e-19; // J
@@ -580,8 +582,9 @@ void ProblemSpecificFunctions::modify_ext_sources(
 
         if((step_counter % prob_parm_d->plot_harps_int == 0) && (sdcIter == 0)){
           Te_arr[box_no](i, j, k) = Te_mid;
-          E_over_N_arr[box_no](i, j, k) = E_field_mid;//E_over_N;
+          E_over_N_arr[box_no](i, j, k) = E_field_mid; //E_over_N;
           ne_arr[box_no](i, j, k) = n_e_arr[box_no](i,j,k);
+          E_field_plot_arr[box_no](i, j, k) = E_field_mid;
         }
       } else {
         n_e_arr[box_no](i, j, k)   = 1e11;
@@ -595,11 +598,12 @@ void ProblemSpecificFunctions::modify_ext_sources(
     if((step_counter % prob_parm_d->plot_harps_int == 0) && (sdcIter == 0)){
       const amrex::BoxArray& ba = ext_src->boxArray();
       const amrex::DistributionMapping& dmap = ext_src->DistributionMap();
-      amrex::MultiFab plotdata(ba, dmap, 3, 0);
+      amrex::MultiFab plotdata(ba, dmap, 4, 0);
       amrex::MultiFab::Copy(plotdata, Te_mf, 0, 0, 1, 0);
       amrex::MultiFab::Copy(plotdata, E_over_N_mf, 0, 1, 1, 0);
-      amrex::MultiFab::Copy(plotdata, ne_mf, 0, 2, 1, 0); 
-      amrex::Vector<std::string> varnames = {"electron_temp", "E_over_N", "electron_dens"};
+      amrex::MultiFab::Copy(plotdata, ne_mf, 0, 2, 1, 0);
+      amrex::MultiFab::Copy(plotdata, E_field_plot_mf, 0, 3, 1, 0);
+      amrex::Vector<std::string> varnames = {"electron_temp", "E_over_N", "electron_dens", "E_field"};
 
       // Write to disc
       std::string filename = amrex::Concatenate(prob_parm_d->plot_harps_file.data(), step_counter, 5);
@@ -738,23 +742,28 @@ void ProblemSpecificFunctions::modify_ext_sources(
           double v11 = ptr[(m0 + 1)*Nz_harps + (n0 + 1)];
           return (1.0 - dy)*(1.0 - dz)*v00 + dy*(1.0 - dz)*v10 + (1.0 - dy)*dz*v01 + dy*dz*v11;
         };
-        // double pabs_left   = sample_2d(y_left,  z_target, pabs_ptr);
-        // double pabs_right  = sample_2d(y_right, z_target, pabs_ptr);
+        double pabs_left   = sample_2d(y_left,  z_target, pabs_ptr);
+        double pabs_right  = sample_2d(y_right, z_target, pabs_ptr);
         double field_left  = sample_2d(y_left,  z_target, field_ptr);
         double field_right = sample_2d(y_right, z_target, field_ptr);
 
         constexpr double e_charge = 1.60217663e-19;
         double sigma = e_charge * n_e_arr[box_no](i, j, k) * mu_re_arr[box_no](i, j, k);
 
-        if (harps_counter > 10) {
-          ext_src_rhoh_a[box_no](i, j, k, RHOH) =
-              sigma * (w_right*field_right*field_right + w_left*field_left*field_left);
+        if (harps_counter > stabilizing_runs) {
+          // ext_src_rhoh_a[box_no](i, j, k, RHOH) = sigma * (w_right*field_right*field_right + w_left*field_left*field_left);
+          ext_src_rhoh_a[box_no](i, j, k, RHOH) = w_right*pabs_right + w_left*pabs_left;
         }
         E_field_raw_a[box_no](i, j, k) = w_right*field_right + w_left*field_left;
       } else {
         ext_src_rhoh_a[box_no](i, j, k, RHOH) = 0.0;
       }
     });
+
+    if(prob_parm_d->harps_verbose > 0){
+      std::pair<double, double> pabs_center = calculate_plasma_center(*ext_src, RHOH, Nx, Ny, ic, dx);
+      amrex::Print() << "p_abs center = (" << pabs_center.first << ", " << pabs_center.second << ")\n";
+    }
 
     if (prob_parm_d->normalize_power){
       amrex::Real cell_vol = dx[0]*dx[1]*dx[2];
@@ -774,9 +783,9 @@ void ProblemSpecificFunctions::modify_ext_sources(
 
     amrex::Real alpha_E = 0.8; // Under-relaxation for electric field
     amrex::ParallelFor(*ext_src, [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept {
-      amrex::Real x = prob_lo[0] + (static_cast<amrex::Real>(i) - 0.5)*dx[0];
-      amrex::Real y = prob_lo[1] + (static_cast<amrex::Real>(j) - 0.5)*dx[1];
-      amrex::Real z = prob_lo[2] + (static_cast<amrex::Real>(k) - 0.5)*dx[2];
+      amrex::Real x = (static_cast<amrex::Real>(i) - ic[0]) * dx[0];
+      amrex::Real y = (static_cast<amrex::Real>(j) - ic[1]) * dx[1];
+      amrex::Real z = prob_lo[2] + (static_cast<amrex::Real>(k) + 0.5)*dx[2];
       amrex::Real r = std::sqrt(x*x + y*y);
 
       bool inside_r = (r <= R_in);
@@ -807,7 +816,7 @@ void ProblemSpecificFunctions::modify_ext_sources(
       << " ; rel error = " << std::abs(deposited_power - total_power) / (std::abs(total_power) + 1.0e-50) << "\n";
   }
 
-  amrex::Real max_T = state_old.max(TEMP, 0);
+  amrex::Real max_T = state_new.max(TEMP, 0);
   amrex::Print() << "=== Global Maximum Temperature: " << max_T << " K ===\n";
 }
 

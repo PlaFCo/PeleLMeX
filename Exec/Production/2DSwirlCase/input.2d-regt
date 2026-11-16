@@ -27,10 +27,10 @@ amr.max_grid_size   = 32            # max box size
 #amr.restart   = chk_N2_600W_46000
 
 amr.max_step  = 150000
-amr.stop_time = 1.00
+amr.stop_time = 0.2
 
 amr.cfl = 0.5
-amr.cfl_swirl = 0.5     # Using 100 ignores this condition and this example breaks at 0.08s
+amr.cfl_swirl = 0.45     # Using 100 ignores this condition and this example breaks at 0.08s
 
 #amr.max_dt = 2e-5
 #amr.fixed_dt = 1.5e-5
@@ -40,8 +40,8 @@ amr.dt_shrink = 0.3
 
 peleLM.base_output_prefix = outdir/
 
-amr.plot_file           = "plt_N2_10slm_600W_"
-amr.check_file          = "chk_N2_10slm_600W_"
+amr.plot_file           = "plt_N2_10slm_600W_reg_"
+amr.check_file          = "chk_N2_10slm_600W_reg_"
 prob.plot_harps_file    = "plt_harps_N2_10slm_600W_"
 amr.check_int           = 1000
 amr.plot_int            = 500
@@ -81,7 +81,7 @@ prob.total_power = 600              # Power Input
 prob.z_center_waveguide = 0.1465
 prob.flag_power_shape   = 1         # Static Power Shape (0: uniform cylinder;  1: parabolic)
 
-prob.flag_solve_EM      = 1         # Flag for calling Harps
+prob.flag_solve_EM      = 0         # Flag for calling Harps
 prob.normalize_power    = 1
 prob.EM_t_start         = 0.10
 prob.harps_verbose      = 1

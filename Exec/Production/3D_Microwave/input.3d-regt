@@ -24,8 +24,8 @@ amr.max_grid_size_z = 32 32
 
 # -------------------------- Temporal --------------------------------
 
-#amr.restart         = outdir/chk_N2_02000
-amr.max_step        = 40000
+amr.restart         = outdir/chk_N2_80000
+amr.max_step        = 81000
 amr.dt_change_max   = 1.05
 amr.stop_time       = 2.00
 amr.cfl             = 0.40
@@ -37,7 +37,7 @@ amr.plot_file           = "plt_N2_"
 amr.plot_int            = 500
 amr.check_file          = "chk_N2_"
 amr.check_int           = 500
-prob.plot_harps_file    = "plt_harps_N2_"
+prob.plot_harps_file    = "outdir/plt_harps_N2_"
 prob.plot_harps_int     = 500
 
 amr.plot_speciesState   = 1                  # Force adding state rhoYs to plot files
@@ -67,7 +67,7 @@ prob.power_time     = 0.10
 
 prob.flag_solve_EM      = 1                 # Flag for calling Harps
 prob.normalize_power    = 1
-prob.EM_t_start         = 0.80
+prob.EM_t_start         = 0.89
 prob.harps_verbose      = 2
 prob.flag_optimize_reflector    = 1         # Flag for optimizing reflector position
 
@@ -105,6 +105,16 @@ peleLM.gravity          = 0.0 0.0 0.0
 peleLM.user_defined_ext_sources = true
 peleLM.ext_sources_SDC = true
 
+# Timestepping & Advance
+peleLM.sdc_iterMax      = 2
+peleLM.deltaT_verbose   = 0
+peleLM.deltaT_iterMax   = 30
+peleLM.deltaT_crashIfFailing = 0
+peleLM.deltaT_tol       = 3e-8
+peleLM.floor_species    = 1
+peleLM.typical_values_reset_int = 250
+peleLM.do_load_balancing = 1
+
 # Solvers tolerances
 diffusion.rtol          = 1.0e-8
 diffusion.atol          = 1.0e-10
@@ -119,15 +129,6 @@ mac_proj.atol           = 1e-12
 
 nodal_proj.rtol         = 1e-11
 
-# Timestepping & Advance
-peleLM.deltaT_verbose   = 0
-peleLM.deltaT_iterMax   = 30
-peleLM.deltaT_crashIfFailing = 0
-peleLM.deltaT_tol       = 3e-8
-peleLM.sdc_iterMax      = 2
-peleLM.floor_species    = 1
-peleLM.typical_values_reset_int = 250
-peleLM.do_load_balancing = 1
 
 # Temporals & Diagnostics
 peleLM.do_temporals     = 1
