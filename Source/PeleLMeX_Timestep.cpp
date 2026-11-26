@@ -30,7 +30,9 @@ PeleLM::computeDt(const int is_init, const TimeStamp a_time)
       }
 
 #ifdef PELE_USE_AXISWIRL
-      amrex::Real dtswirl = estSwirlViscousDt(a_time);
+      // No explicit viscous limit when swirl diffusion is implicit
+      amrex::Real dtswirl =
+        (m_swirl_implicit != 0) ? 1.0e200 : estSwirlViscousDt(a_time);
       estdt = amrex::min<amrex::Real>(estdt, dtswirl);
 #endif
 #ifdef PELE_USE_PLASMA

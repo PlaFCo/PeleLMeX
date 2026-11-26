@@ -302,6 +302,104 @@ PeleLM::addAxisymmetricSwirlDiffusionToAuxDiffTerm(
     });
 }
 
+//------------------------------------------------------------------------
+// Implicit swirl diffusion
+// With omega = u_theta / r and ell = rho r^2 omega, the AngMom viscous term
+// is exactly an RZ diffusion operator: d(ell)/dt = div(mu r^2 grad(omega)).
+// The species machinery (phi = rhoY, density = rho, bcoeff = rho D) is reused
+// with density -> rho r^2 and bcoeff -> mu r^2.
+//------------------------------------------------------------------------
+
+void
+PeleLM::getSwirlCoeffs(
+  int lev,
+  const TimeStamp a_time,
+  amrex::MultiFab& rhor2,
+  amrex::MultiFab& mur2)
+{
+  AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+    geom[lev].IsRZ(), "peleLM.swirl_implicit requires geometry.coord_sys = 1");
+  AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+    !m_do_les, "peleLM.swirl_implicit not supported with LES");
+
+  auto* ldata_p = getLevelDataPtr(lev, a_time);
+  rhor2.define(grids[lev], dmap[lev], 1, 1, amrex::MFInfo(), Factory(lev));
+  mur2.define(grids[lev], dmap[lev], 1, 1, amrex::MFInfo(), Factory(lev));
+
+  const auto prob_lo = geom[lev].ProbLoArray();
+  const auto dx = geom[lev].CellSizeArray();
+  auto const& state_ma = ldata_p->state.const_arrays();
+  auto const& visc_ma = ldata_p->visc_cc.const_arrays();
+  auto const& rhor2_ma = rhor2.arrays();
+  auto const& mur2_ma = mur2.arrays();
+  amrex::ParallelFor(
+    rhor2, rhor2.nGrowVect(),
+    [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
+      // Cell-centred radius, valid in ghost cells (r^2 is even across axis)
+      const amrex::Real r = prob_lo[0] + (i + 0.5) * dx[0];
+      rhor2_ma[box_no](i, j, k) = state_ma[box_no](i, j, k, DENSITY) * r * r;
+      mur2_ma[box_no](i, j, k) = visc_ma[box_no](i, j, k) * r * r;
+    });
+  amrex::Gpu::streamSynchronize();
+}
+
+void
+PeleLM::computeSwirlDiffFluxes(
+  const TimeStamp a_time,
+  const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+    a_auxfluxes)
+{
+  BL_PROFILE("PeleLMeX::computeSwirlDiffFluxes()");
+
+  amrex::Vector<amrex::MultiFab> rhor2(finest_level + 1);
+  amrex::Vector<amrex::MultiFab> mur2(finest_level + 1);
+  amrex::Vector<amrex::MultiFab> ell;
+  ell.reserve(finest_level + 1);
+  for (int lev = 0; lev <= finest_level; ++lev) {
+    getSwirlCoeffs(lev, a_time, rhor2[lev], mur2[lev]);
+    ell.emplace_back(
+      getLevelDataPtr(lev, a_time)->auxiliaries, amrex::make_alias,
+      m_angmom_aux, 1);
+  }
+
+  auto bcRecAngMom = fetchBCRecAuxArray(m_angmom_aux, 1);
+  constexpr int do_avgDown = 1;
+  getDiffusionOp()->computeDiffFluxes(
+    a_auxfluxes, m_angmom_aux, GetVecOfConstPtrs(ell), 0,
+    GetVecOfConstPtrs(rhor2), GetVecOfConstPtrs(mur2), 0, bcRecAngMom, 1,
+    do_avgDown, {});
+}
+
+void
+PeleLM::swirlDiffusionSolve(
+  const std::unique_ptr<AdvanceAdvData>& advData,
+  const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+    a_auxfluxes)
+{
+  BL_PROFILE("PeleLMeX::swirlDiffusionSolve()");
+
+  // Solve (rho r^2)^{np1} omega - dt div(mu^{np1} r^2 grad omega) = Forcing_ell
+  // then ell^{np1} = (rho r^2)^{np1} omega (done inside diffuse_scalar)
+  amrex::Vector<amrex::MultiFab> rhor2(finest_level + 1);
+  amrex::Vector<amrex::MultiFab> mur2(finest_level + 1);
+  amrex::Vector<amrex::MultiFab> ell;
+  ell.reserve(finest_level + 1);
+  for (int lev = 0; lev <= finest_level; ++lev) {
+    getSwirlCoeffs(lev, AmrNewTime, rhor2[lev], mur2[lev]);
+    // diffuse_scalar writes its result into component 0 of a_phi: use alias
+    ell.emplace_back(
+      getLevelDataPtr(lev, AmrNewTime)->auxiliaries, amrex::make_alias,
+      m_angmom_aux, 1);
+  }
+
+  auto bcRecAngMom = fetchBCRecAuxArray(m_angmom_aux, 1);
+  getDiffusionOp()->diffuse_scalar(
+    GetVecOfPtrs(ell), 0, GetVecOfConstPtrs(advData->Forcing_aux),
+    m_angmom_aux, a_auxfluxes, m_angmom_aux, GetVecOfConstPtrs(rhor2),
+    GetVecOfConstPtrs(rhor2), GetVecOfConstPtrs(mur2), 0, bcRecAngMom, 1, 0,
+    m_dt, {});
+}
+
 #endif
 
 void

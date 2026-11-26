@@ -128,6 +128,14 @@ PeleLM::computeDifferentialDiffusionTerms(
       GetVecOfArrOfPtrs(fluxes_aux));
   }
 
+#ifdef PELE_USE_AXISWIRL
+  // Implicit swirl: overwrite the (zero) AngMom aux fluxes with
+  // mu r^2 grad(omega), so Dn/Dnp1 use the same operator as the solve
+  if (m_swirl_implicit != 0) {
+    computeSwirlDiffFluxes(a_time, GetVecOfArrOfPtrs(fluxes_aux));
+  }
+#endif
+
   // If doing species balances, compute face domain integrals
   // using level 0 since we've averaged down the fluxes already
   // Factor for SDC is 0.5 is for Dn and -0.5 for Dnp1
@@ -191,7 +199,7 @@ PeleLM::computeDifferentialDiffusionTerms(
   }
 #ifdef PELE_USE_AXISWIRL
 auto bcRecAngMom = fetchBCRecAuxArray(m_angmom_aux, 1);
-if (m_nAux > 0 && m_angmom_aux >= 0) {
+if (m_nAux > 0 && m_angmom_aux >= 0 && m_swirl_implicit == 0) {
   for (int lev = 0; lev <= finest_level; ++lev) {
 
     addAxisymmetricSwirlDiffusionToAuxDiffTerm(
@@ -1271,6 +1279,14 @@ PeleLM::differentialDiffusionUpdate(
 
 #endif
 
+#ifdef PELE_USE_AXISWIRL
+  // Implicit swirl: re-solve AngMom with its own operator, overwriting the
+  // AngMom component of the aux state and of fluxes_aux
+  if (m_swirl_implicit != 0) {
+    swirlDiffusionSolve(advData, GetVecOfArrOfPtrs(fluxes_aux));
+  }
+#endif
+
   // Add lagged Wbar term
   // Computed in computeDifferentialDiffusionTerms at t^{n} if first SDC
   // iteration, t^{np1,k} otherwise
@@ -1349,7 +1365,7 @@ PeleLM::differentialDiffusionUpdate(
   }
 #ifdef PELE_USE_AXISWIRL
 auto bcRecAngMom = fetchBCRecAuxArray(m_angmom_aux, 1);
-if (m_nAux > 0 && m_angmom_aux >= 0) {
+if (m_nAux > 0 && m_angmom_aux >= 0 && m_swirl_implicit == 0) {
   for (int lev = 0; lev <= finest_level; ++lev) {
 
     addAxisymmetricSwirlDiffusionToAuxDiffTerm(

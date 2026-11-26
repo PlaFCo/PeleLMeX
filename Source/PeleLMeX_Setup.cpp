@@ -458,7 +458,11 @@ PeleLM::readParameters()
     m_aux_advect[m_angmom_aux]  = 1;   
     m_AdvTypeAux[m_angmom_aux]  = 1;  
     m_aux_Schmidt[m_angmom_aux] = -1.; 
-    m_DiffTypeAux[m_angmom_aux] = 1;   
+    m_DiffTypeAux[m_angmom_aux] = 1;
+    pp.query("swirl_implicit", m_swirl_implicit);
+    amrex::Print() << " Swirl diffusion: "
+                   << ((m_swirl_implicit != 0) ? "implicit" : "explicit")
+                   << "\n";
 #endif
   }
 

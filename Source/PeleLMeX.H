@@ -1308,6 +1308,24 @@ public:
     amrex::MultiFab const& mu,
     amrex::BCRec const& bc,
     int muComp = 0);
+
+  // Implicit swirl diffusion (peleLM.swirl_implicit = 1):
+  // d(ell)/dt = div(mu r^2 grad(omega)), ell = rho r^2 omega
+  void getSwirlCoeffs(
+    int lev,
+    const PeleLM::TimeStamp a_time,
+    amrex::MultiFab& rhor2,
+    amrex::MultiFab& mur2);
+
+  void computeSwirlDiffFluxes(
+    const PeleLM::TimeStamp a_time,
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_auxfluxes);
+
+  void swirlDiffusionSolve(
+    const std::unique_ptr<AdvanceAdvData>& advData,
+    const amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>>&
+      a_auxfluxes);
 #endif
 
   // flux divergence
@@ -2095,6 +2113,7 @@ public:
   int m_rz_correction = 0;
 #ifdef PELE_USE_AXISWIRL
   int m_angmom_aux = 0;
+  int m_swirl_implicit = 0; // 0: explicit swirl diffusion, 1: implicit
 #endif
 
   // cc->ec average
